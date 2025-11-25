@@ -1,0 +1,31 @@
+# kdb+ files
+*.q~
+*.k~
+
+# Logs
+logs/
+*.log
+
+# Archive
+archive/
+
+# Data
+data/
+
+# Docker volumes
+prometheus-data/
+grafana-data/
+redis-data/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# License files (kdb+)
+*.lic

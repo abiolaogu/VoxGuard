@@ -1,0 +1,139 @@
+version: '3.8'
+
+services:
+  # kdb+ Fraud Detection Engine
+  fraud-detection:
+    image: kx/kdb:4.0
+    container_name: fraud-detection
+    hostname: fraud-detection
+    ports:
+      - "5012:5012"    # Main IPC port
+      - "5013:5013"    # Admin port
+      - "9090:9090"    # Prometheus metrics
+    volumes:
+      - ./src:/app/src:ro
+      - ./tests:/app/tests:ro
+      - ./logs:/app/logs
+      - ./archive:/app/archive
+      - ./data:/app/data
+    environment:
+      - QHOME=/opt/kx
+      - QLIC=/opt/kx/lic
+    working_dir: /app
+    command: ["q", "src/main.q", "-p", "5012", "-noswitch"]
+    networks:
+      - voip-network
+    healthcheck:
+      test: ["CMD", "q", "-e", "1+1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # FreeSWITCH Simulator (for testing)
+  freeswitch-sim:
+    build:
+      context: .
+      dockerfile: Dockerfile.freeswitch-sim
+    container_name: freeswitch-sim
+    hostname: freeswitch-sim
+    ports:
+      - "8021:8021"    # ESL port
+      - "5060:5060/udp" # SIP UDP
+      - "5060:5060/tcp" # SIP TCP
+    environment:
+      - ESL_PASSWORD=ClueCon
+      - FRAUD_DETECTION_HOST=fraud-detection
+      - FRAUD_DETECTION_PORT=5012
+    networks:
+      - voip-network
+    depends_on:
+      - fraud-detection
+    profiles:
+      - with-simulator
+
+  # Event generator for load testing
+  load-generator:
+    image: kx/kdb:4.0
+    container_name: load-generator
+    hostname: load-generator
+    volumes:
+      - ./src:/app/src:ro
+      - ./tests:/app/tests:ro
+    working_dir: /app
+    command: ["q", "tests/test_load.q"]
+    environment:
+      - FRAUD_DETECTION_HOST=fraud-detection
+      - FRAUD_DETECTION_PORT=5012
+    networks:
+      - voip-network
+    depends_on:
+      - fraud-detection
+    profiles:
+      - load-test
+
+  # Prometheus for metrics collection
+  prometheus:
+    image: prom/prometheus:v2.45.0
+    container_name: prometheus
+    hostname: prometheus
+    ports:
+      - "9091:9090"
+    volumes:
+      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.enable-lifecycle'
+    networks:
+      - voip-network
+    profiles:
+      - monitoring
+
+  # Grafana for dashboards
+  grafana:
+    image: grafana/grafana:10.0.3
+    container_name: grafana
+    hostname: grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./config/grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana-data:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    networks:
+      - voip-network
+    depends_on:
+      - prometheus
+    profiles:
+      - monitoring
+
+  # Redis for caching (optional)
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    hostname: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - voip-network
+    profiles:
+      - with-cache
+
+networks:
+  voip-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+
+volumes:
+  prometheus-data:
+  grafana-data:
+  redis-data:

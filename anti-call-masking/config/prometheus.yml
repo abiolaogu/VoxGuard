@@ -1,0 +1,28 @@
+# Prometheus configuration for Anti-Call Masking Detection System
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: 'fraud-detection'
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []
+
+rule_files:
+  # - "alert_rules.yml"
+
+scrape_configs:
+  # Fraud Detection Engine metrics
+  - job_name: 'fraud-detection'
+    static_configs:
+      - targets: ['fraud-detection:9090']
+    metrics_path: /metrics
+    scrape_interval: 5s
+
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
