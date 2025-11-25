@@ -1,0 +1,42 @@
+# Trivy configuration for vulnerability scanning
+# Place in project root as .trivyignore for ignoring specific CVEs
+
+# Trivy configuration
+scan:
+  # Scan targets
+  target:
+    - "."
+    - "anti-call-masking/"
+
+  # Security checks to run
+  security-checks:
+    - vuln
+    - config
+    - secret
+
+  # Severity levels to report
+  severity:
+    - CRITICAL
+    - HIGH
+    - MEDIUM
+
+  # Skip files/directories
+  skip-dirs:
+    - ".git"
+    - "node_modules"
+    - ".github"
+
+# Vulnerability database
+db:
+  # Auto-update vulnerability database
+  auto-update: true
+
+# Output configuration
+output:
+  format: table
+
+# Exit codes
+exit-code:
+  vuln: 1
+  config: 0
+  secret: 1

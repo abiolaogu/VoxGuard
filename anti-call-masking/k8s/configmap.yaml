@@ -1,0 +1,36 @@
+---
+# ConfigMap for Fraud Detection Configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fraud-detection-config
+  namespace: fraud-detection
+  labels:
+    app.kubernetes.io/name: fraud-detection
+    app.kubernetes.io/component: config
+data:
+  # Detection parameters
+  DETECTION_WINDOW_SECONDS: "5"
+  DETECTION_THRESHOLD: "5"
+  DETECTION_COOLDOWN_SECONDS: "60"
+
+  # Switch connection
+  SWITCH_HOST: "freeswitch-service"
+  SWITCH_PORT: "8021"
+  SWITCH_PROTOCOL: "freeswitch"
+
+  # IPC ports
+  IPC_PORT: "5012"
+  ADMIN_PORT: "5013"
+  METRICS_PORT: "9090"
+
+  # Performance tuning
+  GC_INTERVAL_MS: "1000"
+  BATCH_SIZE: "100"
+
+  # Logging
+  LOG_LEVEL: "INFO"
+
+  # Recovery
+  CHECKPOINT_INTERVAL: "300"
+  MAX_CHECKPOINTS: "10"

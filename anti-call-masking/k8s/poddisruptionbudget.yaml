@@ -1,0 +1,16 @@
+---
+# PodDisruptionBudget for high availability
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: fraud-detection
+  namespace: fraud-detection
+  labels:
+    app.kubernetes.io/name: fraud-detection
+    app.kubernetes.io/component: pdb
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: fraud-detection
+      app.kubernetes.io/component: detection-engine

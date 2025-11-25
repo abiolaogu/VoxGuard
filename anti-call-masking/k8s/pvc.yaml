@@ -1,0 +1,17 @@
+---
+# PersistentVolumeClaim for checkpoints
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: fraud-detection-checkpoints
+  namespace: fraud-detection
+  labels:
+    app.kubernetes.io/name: fraud-detection
+    app.kubernetes.io/component: storage
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: standard
+  resources:
+    requests:
+      storage: 10Gi
