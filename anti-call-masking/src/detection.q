@@ -6,6 +6,12 @@
 \d .fraud
 
 // ============================================================================
+// CORE CONFIGURATION (nanosecond precision)
+// ============================================================================
+windowNs: 5 * 1000000000;   // 5 seconds in nanoseconds
+threshold: 5;                // Minimum distinct A-numbers to trigger
+
+// ============================================================================
 // INTERNAL STATE
 // ============================================================================
 detection.lastGC:.z.P;          // Last garbage collection time
@@ -15,162 +21,167 @@ detection.latencies:();         // Recent detection latencies for metrics
 
 // ============================================================================
 // CORE DETECTION FUNCTION
-// Main entry point for processing call events
+// Check if B-number is under masking attack
+// Returns: (isMasking; involvedANumbers)
 // ============================================================================
-// Input: Dictionary with keys: call_id, a_number, b_number, ts, switch_id, raw_call_id
-// Output: Dictionary with keys: detected (boolean), alert_id (guid or null)
+checkMasking:{[bNum; currentTs]
+    windowStart: currentTs - windowNs;
+
+    // Get recent unflagged calls to this B-number
+    recent: select from calls
+        where b_number = bNum,
+              ts within (windowStart; currentTs),
+              not flagged;
+
+    // Count distinct A-numbers
+    distinctA: distinct recent`a_number;
+
+    // Return (isMasking; involvedANumbers)
+    $[threshold <= count distinctA;
+        (1b; distinctA);
+        (0b; `symbol$())]
+ };
+
+// ============================================================================
+// PROCESS INCOMING CALL EVENT
+// Main entry point for call processing
+// ============================================================================
 processCall:{[event]
     startTime:.z.P;
 
     // Validate required fields
-    required:`a_number`b_number;
-    if[not all required in key event;
-        0N!"[ERROR] Missing required fields: ",", " sv string required except key event;
-        :([]detected:0b;alert_id:0Ng;error:`missing_fields)
+    if[not all `a_number`b_number in key event;
+        .log.error "Missing required fields in event";
+        :(0b; 0Ng)
     ];
 
-    // Generate call_id if not provided
-    callId:$[`call_id in key event;event`call_id;first 1?0Ng];
+    // Extract and normalize fields
+    callId: $[`call_id in key event; event`call_id; first 1?0Ng];
+    aNum: `$detection.normalizeNumber event`a_number;
+    bNum: `$detection.normalizeNumber event`b_number;
+    ts: $[`ts in key event; event`ts; .z.P];
 
-    // Get current timestamp
-    ts:$[`ts in key event;event`ts;.z.P];
-
-    // Normalize numbers (remove any formatting)
-    aNum:`$detection.normalizeNumber event`a_number;
-    bNum:`$detection.normalizeNumber event`b_number;
-
-    // Check whitelist
-    if[detection.isWhitelisted[bNum;aNum];
-        :([]detected:0b;alert_id:0Ng;reason:`whitelisted)
+    // Check whitelist first
+    if[detection.isWhitelisted[bNum; aNum];
+        :(0b; 0Ng)
     ];
 
     // Check if pattern is already blocked
-    if[detection.isBlocked[bNum;aNum];
-        // Auto-reject if blocked
-        :([]detected:1b;alert_id:0Ng;reason:`blocked;action:`reject)
+    if[detection.isBlocked[bNum; aNum];
+        :(1b; 0Ng)  // Blocked - reject call
     ];
 
-    // Get switch info
-    switchId:$[`switch_id in key event;event`switch_id;`default];
-    rawCallId:$[`raw_call_id in key event;event`raw_call_id;`$string callId];
+    // Get optional fields
+    switchId: $[`switch_id in key event; event`switch_id; `default];
+    rawCallId: $[`raw_call_id in key event; event`raw_call_id; `$string callId];
 
     // Insert call into calls table
-    `.fraud.calls upsert (callId;aNum;bNum;ts;`active;0b;0Ng;switchId;rawCallId);
+    `calls insert (callId; aNum; bNum; ts; `active; 0b; 0Ng; switchId; rawCallId);
 
-    // Run detection algorithm
-    result:detection.checkThreshold[bNum;ts];
+    // Check for masking attack
+    result: checkMasking[bNum; ts];
+
+    if[result 0;
+        // MASKING DETECTED - check cooldown first
+        if[not detection.inCooldown bNum;
+            alertId: first 1?0Ng;
+            involvedA: result 1;
+            windowStart: ts - windowNs;
+
+            // Get call IDs to disconnect
+            toFlag: select call_id, raw_call_id from calls
+                where b_number = bNum,
+                      a_number in involvedA,
+                      ts >= windowStart,
+                      not flagged;
+
+            // Create alert
+            `fraud_alerts insert (
+                alertId; bNum; involvedA; toFlag`call_id; toFlag`raw_call_id;
+                count toFlag; windowStart; ts;
+                `detected; 0i; .z.P; .z.P; 0Np; `$"");
+
+            // Flag calls
+            update flagged:1b, alert_id:alertId from `calls
+                where call_id in toFlag`call_id;
+
+            // Set cooldown
+            detection.setCooldown bNum;
+
+            // Update counters
+            detection.alertCount+:1;
+
+            // Log alert
+            .log.alert[alertId; bNum; involvedA; `detected];
+
+            // Disconnect via switch (if auto-disconnect enabled)
+            if[config.actions`auto_disconnect;
+                actions.disconnect[toFlag`raw_call_id; alertId]
+            ];
+        ];
+    ];
 
     // Track latency
-    latency:`float$((.z.P - startTime)%1000000);  // Convert to milliseconds
-    detection.latencies,:latency;
-    if[100<count detection.latencies;detection.latencies:(-100)#detection.latencies];
+    latency: `float$((.z.P - startTime) % 1000000);  // milliseconds
+    detection.latencies,: latency;
+    if[100 < count detection.latencies;
+        detection.latencies: -100#detection.latencies];
 
     // Update counters
     detection.processedCount+:1;
 
-    // Run periodic garbage collection
-    detection.maybeGC[];
+    // Periodic cleanup
+    detection.maybeCleanup[];
 
-    result
+    // Return (detected; alertId or null)
+    (result 0; $[result 0; alertId; 0Ng])
  };
 
 // ============================================================================
-// THRESHOLD DETECTION
-// Check if B-number exceeds distinct A-number threshold in window
+// MAINTENANCE: Expire old records
+// Run periodically (every 30 seconds recommended)
 // ============================================================================
-detection.checkThreshold:{[bNum;ts]
-    // Get configuration
-    windowSecs:config.detection`window_seconds;
-    threshold:config.detection`min_distinct_a;
+cleanup:{[]
+    cutoff: .z.P - 0D00:00:30;
+    delete from `calls where ts < cutoff, not flagged;
 
-    // Calculate window boundaries
-    windowStart:ts - `second$windowSecs;
-    windowEnd:ts;
+    // Also expire old blocks
+    update active:0b from `blocked_patterns where expires_at < .z.P;
+ };
 
-    // Query calls for this B-number in window
-    // Using sorted attribute on ts for efficiency
-    windowCalls:select from calls where
-        b_number=bNum,
-        ts within (windowStart;windowEnd),
-        status in `active`ringing;
-
-    // Count distinct A-numbers
-    distinctANumbers:distinct windowCalls`a_number;
-    distinctCount:count distinctANumbers;
-
-    // Check threshold
-    if[distinctCount>=threshold;
-        // Check cooldown first
-        if[detection.inCooldown bNum;
-            :([]detected:1b;alert_id:0Ng;reason:`cooldown;distinct_a:distinctCount)
-        ];
-
-        // Generate alert
-        alertId:first 1?0Ng;
-        callIds:windowCalls`call_id;
-        rawCallIds:windowCalls`raw_call_id;
-
-        // Create fraud alert record
-        alert:(alertId;bNum;distinctANumbers;callIds;rawCallIds;count windowCalls;
-               windowStart;windowEnd;`detected;0i;.z.P;.z.P;0Np;`$"");
-        `.fraud.fraud_alerts upsert alert;
-
-        // Flag all involved calls
-        update flagged:1b, alert_id:alertId from `.fraud.calls where call_id in callIds;
-
-        // Update cooldown
-        detection.setCooldown bNum;
-
-        // Increment alert counter
-        detection.alertCount+:1;
-
-        // Log alert
-        0N!"[ALERT] Multicall masking detected! B-number: ",string[bNum],
-           ", Distinct A-numbers: ",string[distinctCount],
-           ", Calls: ",string[count windowCalls];
-
-        // Trigger action if auto-disconnect enabled
-        if[config.actions`auto_disconnect;
-            .fraud.actions.triggerDisconnect[alertId]
-        ];
-
-        :([]detected:1b;alert_id:alertId;distinct_a:distinctCount;call_count:count windowCalls)
+detection.maybeCleanup:{[]
+    gcInterval: config.performance`gc_interval_ms;
+    if[.z.P > detection.lastGC + `ms$gcInterval;
+        cleanup[];
+        detection.lastGC: .z.P;
     ];
-
-    // No fraud detected
-    ([]detected:0b;alert_id:0Ng;distinct_a:distinctCount;call_count:count windowCalls)
  };
 
 // ============================================================================
 // NUMBER NORMALIZATION
-// Normalize phone numbers to E.164 format
 // ============================================================================
 detection.normalizeNumber:{[num]
-    numStr:$[-11h=type num;num;string num];
-
+    numStr: $[-11h = type num; num; string num];
     // Remove common formatting characters
-    numStr:ssr[numStr;" ";""];
-    numStr:ssr[numStr;"-";""];
-    numStr:ssr[numStr;"(";""];
-    numStr:ssr[numStr;")";""];
-    numStr:ssr[numStr;".";""];
-
-    // Ensure starts with + for international format
-    // If no +, assume it's already normalized
+    numStr: ssr[numStr; " "; ""];
+    numStr: ssr[numStr; "-"; ""];
+    numStr: ssr[numStr; "("; ""];
+    numStr: ssr[numStr; ")"; ""];
+    numStr: ssr[numStr; "."; ""];
     numStr
  };
 
 // ============================================================================
 // WHITELIST CHECKING
 // ============================================================================
-detection.isWhitelisted:{[bNum;aNum]
+detection.isWhitelisted:{[bNum; aNum]
     // Check B-number whitelist
-    if[bNum in config.whitelist`b_numbers;:1b];
+    if[bNum in config.whitelist`b_numbers; :1b];
 
     // Check A-number prefix whitelist
-    aStr:string aNum;
-    prefixes:config.whitelist`a_number_prefixes;
-    if[any {x like y,"*"}[aStr] each string prefixes;:1b];
+    aStr: string aNum;
+    prefixes: config.whitelist`a_number_prefixes;
+    if[any {x like y,"*"}[aStr] each string prefixes; :1b];
 
     0b
  };
@@ -178,46 +189,27 @@ detection.isWhitelisted:{[bNum;aNum]
 // ============================================================================
 // BLOCK CHECKING
 // ============================================================================
-detection.isBlocked:{[bNum;aNum]
-    // Check if B-number has active block
-    blocks:select from blocked_patterns where b_number=bNum, active, expires_at>.z.P;
-    count[blocks]>0
+detection.isBlocked:{[bNum; aNum]
+    blocks: select from blocked_patterns
+        where b_number = bNum, active, expires_at > .z.P;
+    count[blocks] > 0
  };
 
 // ============================================================================
 // COOLDOWN MANAGEMENT
 // ============================================================================
 detection.inCooldown:{[bNum]
-    cooldownSecs:config.detection`cooldown_seconds;
-    cutoff:.z.P - `second$cooldownSecs;
+    cooldownSecs: config.detection`cooldown_seconds;
+    cutoff: .z.P - `second$cooldownSecs;
 
-    cd:cooldowns bNum;
-    if[null cd;:0b];
+    cd: cooldowns bNum;
+    if[null cd; :0b];
 
-    cd[`last_alert_at]>cutoff
+    cd[`last_alert_at] > cutoff
  };
 
 detection.setCooldown:{[bNum]
-    // Upsert cooldown record
-    `.fraud.cooldowns upsert (bNum;.z.P;1i);
- };
-
-// ============================================================================
-// GARBAGE COLLECTION
-// ============================================================================
-detection.maybeGC:{[]
-    gcInterval:config.performance`gc_interval_ms;
-    if[.z.P > detection.lastGC + `ms$gcInterval;
-        detection.runGC[];
-    ];
- };
-
-detection.runGC:{[]
-    windowSecs:config.detection`window_seconds;
-    // Keep 2x window for safety
-    .fraud.expireCalls 2*windowSecs;
-    .fraud.expireBlocks[];
-    detection.lastGC:.z.P;
+    `cooldowns upsert (bNum; .z.P; 1i);
  };
 
 // ============================================================================
@@ -225,108 +217,131 @@ detection.runGC:{[]
 // ============================================================================
 // Get current threat level for a B-number
 detection.getThreatLevel:{[bNum]
-    windowSecs:config.detection`window_seconds;
-    threshold:config.detection`min_distinct_a;
-    windowStart:.z.P - `second$windowSecs;
+    windowStart: .z.P - windowNs;
 
-    windowCalls:select from calls where
-        b_number=bNum,
-        ts>windowStart,
-        status in `active`ringing;
+    recent: select from calls
+        where b_number = bNum,
+              ts > windowStart,
+              status in `active`ringing;
 
-    distinctCount:count distinct windowCalls`a_number;
+    distinctCount: count distinct recent`a_number;
 
-    level:$[distinctCount>=threshold;`critical;
-            distinctCount>=threshold-1;`high;
-            distinctCount>=threshold-2;`medium;
-            `low];
+    level: $[distinctCount >= threshold; `critical;
+             distinctCount >= threshold - 1; `high;
+             distinctCount >= threshold - 2; `medium;
+             `low];
 
-    ([]b_number:bNum;distinct_a:distinctCount;threshold;level;call_count:count windowCalls)
+    `b_number`distinct_a`threshold`level`call_count!(
+        bNum; distinctCount; threshold; level; count recent)
  };
 
 // Get all B-numbers with elevated threat levels
 detection.getElevatedThreats:{[]
-    windowSecs:config.detection`window_seconds;
-    threshold:config.detection`min_distinct_a;
-    windowStart:.z.P - `second$windowSecs;
+    windowStart: .z.P - windowNs;
 
-    windowCalls:select from calls where
-        ts>windowStart,
-        status in `active`ringing;
+    recent: select from calls
+        where ts > windowStart, status in `active`ringing;
 
-    threats:select distinct_a:count distinct a_number, call_count:count i by b_number from windowCalls;
-    threats:select from threats where distinct_a>=threshold-2;
+    threats: select distinct_a: count distinct a_number,
+                    call_count: count i
+             by b_number from recent;
 
-    update level:{$[x>=y;`critical;x>=y-1;`high;`medium]}[distinct_a;threshold] from threats
+    threats: select from threats where distinct_a >= threshold - 2;
+
+    update level: {$[x >= y; `critical; x >= y-1; `high; `medium]}[distinct_a; threshold]
+        from threats
  };
 
 // Get recent alerts
 detection.getRecentAlerts:{[minutes]
-    cutoff:.z.P - `minute$minutes;
-    select from fraud_alerts where created_at>cutoff
+    cutoff: .z.P - `minute$minutes;
+    select from fraud_alerts where created_at > cutoff
  };
 
 // Get alert details
 detection.getAlertDetails:{[alertId]
-    alert:select from fraud_alerts where alert_id=alertId;
-    if[0=count alert;:([]error:`alert_not_found)];
+    alert: select from fraud_alerts where alert_id = alertId;
+    if[0 = count alert; :`error`alert_not_found];
 
-    // Get associated calls
-    associatedCalls:select from calls where alert_id=alertId;
+    associatedCalls: select from calls where alert_id = alertId;
 
-    `alert`calls!(first alert;associatedCalls)
+    `alert`calls!(first alert; associatedCalls)
  };
 
 // ============================================================================
 // STATISTICS
 // ============================================================================
 detection.getStats:{[]
-    windowSecs:config.detection`window_seconds;
-    windowStart:.z.P - `second$windowSecs;
+    windowStart: .z.P - windowNs;
 
-    activeCalls:count select from calls where ts>windowStart, status in `active`ringing;
-    avgLatency:avg detection.latencies;
-    maxLatency:max detection.latencies;
+    activeCalls: count select from calls
+        where ts > windowStart, status in `active`ringing;
 
-    ([]
-        processed_total:detection.processedCount;
-        alerts_total:detection.alertCount;
-        active_calls:activeCalls;
-        avg_latency_ms:avgLatency;
-        max_latency_ms:maxLatency;
-        calls_in_table:count calls;
-        alerts_in_table:count fraud_alerts
-    )
+    avgLatency: avg detection.latencies;
+    maxLatency: max detection.latencies;
+
+    `processed_total`alerts_total`active_calls`avg_latency_ms`max_latency_ms`calls_in_table`alerts_in_table!(
+        detection.processedCount;
+        detection.alertCount;
+        activeCalls;
+        avgLatency;
+        maxLatency;
+        count calls;
+        count fraud_alerts)
  };
 
 detection.recordStats:{[]
-    stats:detection.getStats[];
-    `.fraud.stats upsert (
+    stats: detection.getStats[];
+    `stats insert (
         .z.P;
         detection.processedCount;
         detection.alertCount;
-        0i;  // disconnected (filled by actions)
-        first stats`avg_latency_ms;
-        first stats`max_latency_ms;
-        first stats`active_calls;
-        (-22!.fraud.calls)%1048576
-    );
+        0i;  // disconnected count
+        stats`avg_latency_ms;
+        stats`max_latency_ms;
+        stats`active_calls;
+        (-22!calls) % 1048576);
  };
 
 // ============================================================================
 // BATCH PROCESSING
-// Process multiple events at once (for testing/replay)
 // ============================================================================
 detection.processBatch:{[events]
-    results:processCall each events;
-    detected:sum results[`detected];
-    0N!"[INFO] Batch processed: ",string[count events]," events, ",string[detected]," detections";
+    results: processCall each events;
+    detected: sum results[;0];
+    .log.info "Batch processed: ", string[count events], " events, ",
+              string[detected], " detections";
     results
+ };
+
+// ============================================================================
+// RUNTIME CONFIG UPDATES
+// Update threshold/window without restart
+// ============================================================================
+setThreshold:{[n]
+    if[not n within 2 100;
+        .log.error "Threshold must be between 2 and 100";
+        :0b];
+    threshold:: n;
+    config.detection[`min_distinct_a]: n;
+    .log.info "Threshold updated to ", string n;
+    1b
+ };
+
+setWindow:{[seconds]
+    if[not seconds within 1 60;
+        .log.error "Window must be between 1 and 60 seconds";
+        :0b];
+    windowNs:: seconds * 1000000000;
+    config.detection[`window_seconds]: seconds;
+    .log.info "Window updated to ", string[seconds], " seconds";
+    1b
  };
 
 \d .
 
-// Export main function to root namespace
-processCall:.fraud.processCall;
+// Export to root namespace
+processCall: .fraud.processCall;
+checkMasking: .fraud.checkMasking;
 
 0N!"[INFO] detection.q loaded successfully";

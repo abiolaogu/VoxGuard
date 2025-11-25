@@ -15,39 +15,59 @@ actions.disconnectCount:0;          // Total disconnects executed
 actions.failedCount:0;              // Failed disconnect attempts
 
 // ============================================================================
-// TRIGGER DISCONNECT
-// Entry point to disconnect all calls associated with an alert
+// DIRECT DISCONNECT (Reference Implementation Style)
+// Disconnect calls and update alert
 // ============================================================================
-actions.triggerDisconnect:{[alertId]
-    // Get alert details
-    alert:exec from fraud_alerts where alert_id=alertId;
-    if[0=count alert;
-        0N!"[ERROR] Alert not found: ",string alertId;
-        :0b
-    ];
-
-    // Get call IDs to disconnect
-    rawCallIds:first alert`raw_call_ids;
-    if[0=count rawCallIds;
-        0N!"[WARN] No calls to disconnect for alert: ",string alertId;
-        :0b
-    ];
-
+actions.disconnect:{[callIds; alertId]
     // Update alert status
-    update action:`disconnecting, updated_at:.z.P from `.fraud.fraud_alerts
-        where alert_id=alertId;
+    update action:`disconnecting, updated_at:.z.P from `fraud_alerts
+        where alert_id = alertId;
 
-    // Queue disconnect commands
-    bNum:first alert`b_number;
-    {actions.queueDisconnect[x;y;z]}[;alertId;bNum] each rawCallIds;
+    // Send disconnect to each call via switch
+    results: {[cid; aid]
+        success: switch.sendDisconnect[cid];
+        if[success;
+            update status:`disconnected from `calls where raw_call_id = cid;
+            actions.disconnectCount+: 1;
+            .log.disconnect[aid; cid; 1b]
+        ];
+        success
+    }[; alertId] each callIds;
+
+    // Update alert with disconnect count
+    update disconnect_count: sum results,
+           action: `completed,
+           resolved_at: .z.P,
+           updated_at: .z.P
+        from `fraud_alerts where alert_id = alertId;
 
     // Create block pattern
     actions.createBlock[alertId];
 
-    // Process queue
-    actions.processQueue[];
+    sum results
+ };
 
-    1b
+// ============================================================================
+// TRIGGER DISCONNECT (Legacy/Queue-based)
+// Entry point to disconnect all calls associated with an alert
+// ============================================================================
+actions.triggerDisconnect:{[alertId]
+    // Get alert details
+    alert: exec from fraud_alerts where alert_id = alertId;
+    if[0 = count alert;
+        .log.error "Alert not found: ", string alertId;
+        :0b
+    ];
+
+    // Get call IDs to disconnect
+    rawCallIds: first alert`raw_call_ids;
+    if[0 = count rawCallIds;
+        .log.warn "No calls to disconnect for alert: ", string alertId;
+        :0b
+    ];
+
+    // Use direct disconnect
+    actions.disconnect[rawCallIds; alertId]
  };
 
 // ============================================================================
