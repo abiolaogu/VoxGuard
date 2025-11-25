@@ -1,0 +1,12 @@
+---
+# Namespace for Fraud Detection System
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: fraud-detection
+  labels:
+    app.kubernetes.io/name: fraud-detection
+    app.kubernetes.io/component: namespace
+    environment: production
+  annotations:
+    description: "Anti-Call Masking Fraud Detection System"

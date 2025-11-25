@@ -1,0 +1,54 @@
+# Semgrep configuration for SAST scanning
+# Custom rules for kdb+/q code
+
+rules:
+  # Rule: Detect hardcoded passwords
+  - id: hardcoded-password
+    patterns:
+      - pattern-either:
+          - pattern: |
+              password:$VALUE
+          - pattern: |
+              auth_password:$VALUE
+    message: "Potential hardcoded password detected"
+    languages: [generic]
+    severity: ERROR
+
+  # Rule: Detect system command execution
+  - id: system-command-execution
+    patterns:
+      - pattern: |
+          system $CMD
+    message: "System command execution detected - ensure input is sanitized"
+    languages: [generic]
+    severity: WARNING
+
+  # Rule: Detect file operations
+  - id: file-write-operation
+    patterns:
+      - pattern-either:
+          - pattern: |
+              $VAR set $DATA
+          - pattern: |
+              hopen $PATH
+    message: "File operation detected - ensure path is validated"
+    languages: [generic]
+    severity: INFO
+
+  # Rule: Detect network connections
+  - id: network-connection
+    patterns:
+      - pattern: |
+          hopen `$:$HOST:$PORT
+    message: "Network connection detected - ensure endpoint is validated"
+    languages: [generic]
+    severity: INFO
+
+  # Rule: Detect eval-like operations
+  - id: eval-operation
+    patterns:
+      - pattern: |
+          value $INPUT
+    message: "Dynamic code evaluation - potential injection risk"
+    languages: [generic]
+    severity: WARNING
