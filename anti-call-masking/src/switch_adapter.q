@@ -15,6 +15,45 @@ switch.lastEventTime:.z.P;          // Last event received
 switch.eventBuffer:"";              // Buffer for incomplete messages
 
 // ============================================================================
+// SEND DISCONNECT COMMAND
+// Primary interface for disconnecting calls
+// ============================================================================
+switch.sendDisconnect:{[callId]
+    if[not switch.connected;
+        .log.warn "Switch not connected, cannot disconnect: ", string callId;
+        :0b
+    ];
+
+    protocol: config.switch`protocol;
+
+    // Send disconnect based on protocol
+    result: $[
+        protocol = `freeswitch; switch.disconnectFreeSWITCH[callId];
+        protocol = `kamailio;   switch.disconnectKamailio[callId];
+        protocol = `simulation; 1b;  // Simulation always succeeds
+        switch.disconnectGeneric[callId]
+    ];
+
+    result
+ };
+
+switch.disconnectFreeSWITCH:{[callId]
+    cmd: "api uuid_kill ", string[callId], " CALL_REJECTED\n\n";
+    @[{neg[switch.connection] x; 1b}; cmd; {.log.error "ESL send failed: ", x; 0b}]
+ };
+
+switch.disconnectKamailio:{[callId]
+    jsonCmd: "{\"jsonrpc\":\"2.0\",\"method\":\"dlg.end_dlg\",\"params\":{\"callid\":\"",
+             string[callId], "\"},\"id\":1}";
+    @[{neg[switch.connection] x; 1b}; jsonCmd; {.log.error "Kamailio send failed: ", x; 0b}]
+ };
+
+switch.disconnectGeneric:{[callId]
+    cmd: "DISCONNECT ", string[callId], "\n";
+    @[{neg[switch.connection] x; 1b}; cmd; {.log.error "Generic send failed: ", x; 0b}]
+ };
+
+// ============================================================================
 // CONNECTION MANAGEMENT
 // ============================================================================
 switch.connect:{[]
