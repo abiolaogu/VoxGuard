@@ -353,6 +353,85 @@ select from .fraud.calls where ts > .z.P - 00:01
 .fraud.switch.healthCheck[]
 ```
 
+## Production Operations
+
+### Structured Logging
+
+All events are logged in JSON format for easy parsing:
+
+```q
+// Set log level
+.log.level:`DEBUG  // DEBUG, INFO, WARN, ERROR
+
+// View logs
+.log.tail[100]  // Last 100 lines
+
+// Search logs
+.log.search["ALERT";50]  // Find alerts
+```
+
+### Metrics & Monitoring
+
+Real-time metrics available via Prometheus format:
+
+```q
+// Get current metrics
+.metrics.get[]
+
+// Get historical summary
+.metrics.getSummary[60]  // Last 60 minutes
+
+// Prometheus endpoint
+// GET http://localhost:9090/metrics
+```
+
+Import `grafana/dashboard.json` for pre-built dashboards.
+
+### State Recovery
+
+System automatically checkpoints and recovers:
+
+```q
+// Manual checkpoint
+.recovery.saveCheckpoint[]
+
+// List checkpoints
+.recovery.listCheckpoints[]
+
+// Recover from checkpoint
+.recovery.loadCheckpoint[]
+
+// Hot config reload
+.recovery.reloadConfig[]
+```
+
+### Operational Alerts
+
+Configure webhook for external alerting:
+
+```q
+.metrics.configureWebhook["https://hooks.slack.com/..."]
+```
+
+Alert thresholds:
+- P99 latency > 100ms
+- Memory > 3GB
+- Switch disconnected > 30s
+
+### Rate Limiting & Backpressure
+
+System automatically applies backpressure when overloaded:
+
+```q
+// Check backpressure status
+.recovery.backpressure
+
+// Check circuit breaker
+.recovery.circuitBreaker
+```
+
+See `docs/runbook.md` for complete operations guide.
+
 ## Security Considerations
 
 - **Network Isolation**: Run detection engine in isolated network segment
