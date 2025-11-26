@@ -1,0 +1,205 @@
+package http
+
+import (
+	"net/http"
+	"runtime"
+	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"go.uber.org/zap"
+
+	"github.com/example/voice-switch-im/backend/internal/api"
+	"github.com/example/voice-switch-im/backend/internal/middleware"
+	"github.com/example/voice-switch-im/backend/internal/service"
+	"github.com/example/voice-switch-im/backend/internal/worker"
+)
+
+// RouterConfig holds router configuration and dependencies
+type RouterConfig struct {
+	CarrierService  service.CarrierService
+	RouteService    service.RouteService
+	Logger          *zap.Logger
+	RateLimiter     *middleware.RateLimiter
+	CircuitBreakers *middleware.CircuitBreakerGroup
+	WorkerPool      *worker.Pool
+}
+
+// NewRouter creates a new optimized Gin router with all middleware
+func NewRouter(cfg RouterConfig) *gin.Engine {
+	// Set Gin to release mode for production
+	gin.SetMode(gin.ReleaseMode)
+
+	// Create router with minimal middleware for performance
+	r := gin.New()
+
+	// Add recovery middleware
+	r.Use(gin.Recovery())
+
+	// Add structured logging middleware
+	r.Use(structuredLogger(cfg.Logger))
+
+	// Add CORS middleware
+	r.Use(corsMiddleware())
+
+	// Add security headers
+	r.Use(securityHeaders())
+
+	// Add rate limiting if enabled
+	if cfg.RateLimiter != nil {
+		r.Use(cfg.RateLimiter.Middleware())
+	}
+
+	// Health check endpoint (no rate limiting or circuit breaker)
+	r.GET("/health", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"status":    "healthy",
+			"timestamp": time.Now().UTC().Format(time.RFC3339),
+		})
+	})
+
+	// Ready check with dependency health
+	r.GET("/ready", readinessCheck(cfg))
+
+	// Metrics endpoint
+	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
+
+	// System stats endpoint
+	r.GET("/stats", systemStats(cfg))
+
+	// API v1 routes with circuit breaker
+	v1 := r.Group("/api/v1")
+
+	// Add per-endpoint circuit breaker if enabled
+	if cfg.CircuitBreakers != nil {
+		v1.Use(cfg.CircuitBreakers.PerEndpointMiddleware())
+	}
+
+	// Register API routes
+	api.RegisterCarrierRoutes(v1, cfg.CarrierService, cfg.Logger)
+	api.RegisterRouteRoutes(v1, cfg.RouteService, cfg.Logger)
+
+	// Register fraud detection routes
+	api.RegisterFraudRoutes(v1, cfg.Logger)
+
+	return r
+}
+
+// structuredLogger creates a middleware that logs requests using zap
+func structuredLogger(logger *zap.Logger) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		start := time.Now()
+		path := c.Request.URL.Path
+		query := c.Request.URL.RawQuery
+
+		c.Next()
+
+		latency := time.Since(start)
+		status := c.Writer.Status()
+
+		// Only log errors and slow requests in production
+		if status >= 400 || latency > 500*time.Millisecond {
+			logger.Info("request",
+				zap.Int("status", status),
+				zap.String("method", c.Request.Method),
+				zap.String("path", path),
+				zap.String("query", query),
+				zap.Duration("latency", latency),
+				zap.String("ip", c.ClientIP()),
+				zap.Int("size", c.Writer.Size()),
+			)
+		}
+	}
+}
+
+// corsMiddleware adds CORS headers for cross-origin requests
+func corsMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Header("Access-Control-Allow-Origin", "*")
+		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		c.Header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Request-ID")
+		c.Header("Access-Control-Max-Age", "86400")
+
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(http.StatusNoContent)
+			return
+		}
+
+		c.Next()
+	}
+}
+
+// securityHeaders adds security-related HTTP headers
+func securityHeaders() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Header("X-Content-Type-Options", "nosniff")
+		c.Header("X-Frame-Options", "DENY")
+		c.Header("X-XSS-Protection", "1; mode=block")
+		c.Header("Referrer-Policy", "strict-origin-when-cross-origin")
+		c.Next()
+	}
+}
+
+// readinessCheck verifies all dependencies are healthy
+func readinessCheck(cfg RouterConfig) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Check worker pool if available
+		if cfg.WorkerPool != nil {
+			workerStats := cfg.WorkerPool.Stats()
+			queueLen := cfg.WorkerPool.QueueLength()
+			if queueLen > 0 && workerStats.JobsInProgress > uint64(queueLen)*2 {
+				c.JSON(http.StatusServiceUnavailable, gin.H{
+					"status":  "not ready",
+					"reason":  "worker pool overloaded",
+					"details": workerStats,
+				})
+				return
+			}
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"status":    "ready",
+			"timestamp": time.Now().UTC().Format(time.RFC3339),
+		})
+	}
+}
+
+// systemStats returns system performance metrics
+func systemStats(cfg RouterConfig) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var memStats runtime.MemStats
+		runtime.ReadMemStats(&memStats)
+
+		stats := gin.H{
+			"timestamp": time.Now().UTC().Format(time.RFC3339),
+			"runtime": gin.H{
+				"goroutines":    runtime.NumGoroutine(),
+				"cpu_count":     runtime.NumCPU(),
+				"go_version":    runtime.Version(),
+				"heap_alloc_mb": memStats.HeapAlloc / 1024 / 1024,
+				"heap_sys_mb":   memStats.HeapSys / 1024 / 1024,
+				"gc_cycles":     memStats.NumGC,
+			},
+		}
+
+		// Add worker pool stats if available
+		if cfg.WorkerPool != nil {
+			workerStats := cfg.WorkerPool.Stats()
+			stats["worker_pool"] = gin.H{
+				"submitted":   workerStats.JobsSubmitted,
+				"completed":   workerStats.JobsCompleted,
+				"failed":      workerStats.JobsFailed,
+				"in_progress": workerStats.JobsInProgress,
+				"active":      workerStats.WorkersActive,
+				"queue_size":  cfg.WorkerPool.QueueLength(),
+			}
+		}
+
+		// Add circuit breaker stats if enabled
+		if cfg.CircuitBreakers != nil {
+			stats["circuit_breakers"] = cfg.CircuitBreakers.Stats()
+		}
+
+		c.JSON(http.StatusOK, stats)
+	}
+}
