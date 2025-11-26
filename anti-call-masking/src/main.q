@@ -22,9 +22,11 @@ show "[STARTUP] Loading modules from: ",string srcDir;
 // Load in dependency order
 \l config.q
 \l schema.q
+\l logging.q
 \l detection.q
 \l actions.q
 \l switch_adapter.q
+\l http_server.q
 
 show "";
 show "[STARTUP] All modules loaded successfully";
@@ -261,6 +263,7 @@ if[`threshold in key .startup.args;
     // Create required directories
     @[system;"mkdir -p logs";{}];
     @[system;"mkdir -p archive";{}];
+    @[system;"mkdir -p data";{}];
 
     // Start IPC server
     if[not .startup.startIPCServer[];
@@ -268,16 +271,34 @@ if[`threshold in key .startup.args;
         exit 1;
     ];
 
+    // Start HTTP server for Voice Switch integration
+    if[.fraud.config.http`enabled;
+        show "[STARTUP] Starting HTTP server for Voice Switch integration...";
+        httpPort: .fraud.config.http`port;
+        if[.http.start[httpPort];
+            show "[STARTUP] HTTP server started on port ", string httpPort;
+        ;
+            show "[WARN] Failed to start HTTP server. Voice Switch integration disabled.";
+        ];
+    ];
+
     // Setup periodic tasks
     .startup.setupTimers[];
 
-    // Connect to switch (if configured)
+    // Connect to switch (if configured and not using voiceswitch protocol)
+    switchProtocol: .fraud.config.switch`protocol;
     if[not "-noswitch" in .z.x;
-        show "[STARTUP] Connecting to voice switch...";
-        connected:.fraud.switch.connect[];
-        if[not connected;
-            show "[WARN] Failed to connect to switch. Running in standalone mode.";
-            show "       Use simulation mode for testing: .fraud.switch.enableSimulation[]";
+        if[not switchProtocol = `voiceswitch;
+            // For voiceswitch protocol, calls come via HTTP - no active connection needed
+            show "[STARTUP] Connecting to voice switch...";
+            connected:.fraud.switch.connect[];
+            if[not connected;
+                show "[WARN] Failed to connect to switch. Running in standalone mode.";
+                show "       Use simulation mode for testing: .fraud.switch.enableSimulation[]";
+            ];
+        ;
+            show "[STARTUP] Voice Switch protocol enabled - waiting for HTTP events";
+            .fraud.switch.connected: 1b;  // Mark as connected for voiceswitch protocol
         ];
     ];
 
@@ -285,6 +306,8 @@ if[`threshold in key .startup.args;
     show "====================================================================";
     show "  System Ready";
     show "  IPC Port: ",string .fraud.config.ipc`port;
+    show "  HTTP Port: ",string .fraud.config.http`port;
+    show "  Protocol: ",string .fraud.config.switch`protocol;
     show "  Detection Window: ",string[.fraud.config.detection`window_seconds]," seconds";
     show "  Threshold: ",string[.fraud.config.detection`min_distinct_a]," distinct A-numbers";
     show "====================================================================";
@@ -293,6 +316,13 @@ if[`threshold in key .startup.args;
     show "  .fraud.switch.enableSimulation[]           // Enable test mode";
     show "  .fraud.switch.simulateAttack[\"B123\";5;0]   // Simulate attack";
     show "  .fraud.detection.getStats[]                // View statistics";
+    show "";
+    show "HTTP API Endpoints:";
+    show "  POST /event         - Submit call event";
+    show "  POST /events/batch  - Submit batch of events";
+    show "  GET  /alerts        - Get fraud alerts";
+    show "  GET  /stats         - Get detection statistics";
+    show "  GET  /health        - Health check";
     show "";
  };
 

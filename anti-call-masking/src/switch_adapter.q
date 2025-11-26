@@ -28,9 +28,10 @@ switch.sendDisconnect:{[callId]
 
     // Send disconnect based on protocol
     result: $[
-        protocol = `freeswitch; switch.disconnectFreeSWITCH[callId];
-        protocol = `kamailio;   switch.disconnectKamailio[callId];
-        protocol = `simulation; 1b;  // Simulation always succeeds
+        protocol = `freeswitch;  switch.disconnectFreeSWITCH[callId];
+        protocol = `kamailio;    switch.disconnectKamailio[callId];
+        protocol = `voiceswitch; switch.disconnectVoiceSwitch[callId];
+        protocol = `simulation;  1b;  // Simulation always succeeds
         switch.disconnectGeneric[callId]
     ];
 
@@ -51,6 +52,41 @@ switch.disconnectKamailio:{[callId]
 switch.disconnectGeneric:{[callId]
     cmd: "DISCONNECT ", string[callId], "\n";
     @[{neg[switch.connection] x; 1b}; cmd; {.log.error "Generic send failed: ", x; 0b}]
+ };
+
+// Voice Switch IM disconnect via HTTP API
+switch.disconnectVoiceSwitch:{[callId]
+    // Voice Switch uses HTTP REST API for call control
+    apiUrl: config.switch`api_url;
+    if[null apiUrl; apiUrl: "http://carrier-api:8080/api/v1"];
+
+    // Build disconnect request payload
+    payload: .j.j `call_ids`reason!((enlist string callId); "fraud_detected");
+
+    // Send HTTP POST to disconnect endpoint
+    result: @[
+        {[url; body]
+            // Use system curl for HTTP (kdb+ HTTP support)
+            cmd: "curl -s -X POST -H 'Content-Type: application/json' -d '",
+                 body, "' '", url, "/fraud/disconnect'";
+            resp: system cmd;
+            .j.k resp
+        };
+        (apiUrl; payload);
+        {.log.error "Voice Switch disconnect failed: ", x; ()}
+    ];
+
+    // Check response
+    if[count result;
+        if[`disconnected in key result;
+            if[0 < result`disconnected;
+                .log.info "Voice Switch call disconnected: ", string callId;
+                :1b
+            ]
+        ]
+    ];
+
+    0b
  };
 
 // ============================================================================

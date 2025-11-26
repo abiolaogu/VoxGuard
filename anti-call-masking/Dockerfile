@@ -62,15 +62,21 @@ ENV QHOME=/opt/kx \
     QLIC=/opt/kx/lic \
     PATH="/opt/kx/l64:${PATH}" \
     KDB_PORT=5012 \
+    HTTP_PORT=5000 \
+    PROMETHEUS_PORT=9090 \
+    SWITCH_PROTOCOL=voiceswitch \
     KDB_SWITCH_HOST=localhost \
     KDB_SWITCH_PORT=8021
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:9090/health || exit 1
+# Health check using the HTTP server
+HEALTHCHECK --interval=10s --timeout=5s --start-period=30s --retries=5 \
+    CMD curl -f http://localhost:5000/health || exit 1
 
 # Expose ports
-EXPOSE 5012 5013 9090
+# 5012: kdb+ IPC server
+# 5000: HTTP API server (for Voice Switch integration)
+# 9090: Prometheus metrics
+EXPOSE 5012 5000 9090
 
 # Switch to non-root user
 USER kdb
