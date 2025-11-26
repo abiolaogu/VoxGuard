@@ -28,13 +28,23 @@ config.whitelist:`b_numbers`a_number_prefixes`call_centers!(
 );
 
 // Switch Connection Configuration
-config.switch:`host`port`protocol`auth_password`reconnect_max_attempts`reconnect_backoff_ms!(
+config.switch:`host`port`protocol`auth_password`reconnect_max_attempts`reconnect_backoff_ms`api_url!(
     "127.0.0.1";                    // Switch event stream host
     8021i;                          // Switch event stream port (FreeSWITCH ESL default)
-    `freeswitch;                    // Protocol: `freeswitch`kamailio`generic
+    `freeswitch;                    // Protocol: `freeswitch`kamailio`voiceswitch`generic
     "ClueCon";                      // Authentication password
     10;                             // Max reconnection attempts
-    1000                            // Initial backoff in ms (doubles each attempt)
+    1000;                           // Initial backoff in ms (doubles each attempt)
+    ""                              // Voice Switch API URL (for voiceswitch protocol)
+);
+
+// HTTP Server Configuration (for Voice Switch integration)
+config.http:`enabled`port`cors_enabled`webhook_url`webhook_secret!(
+    1b;                             // Enable HTTP server
+    5000i;                          // HTTP server port
+    1b;                             // Enable CORS
+    "";                             // Webhook URL for sending alerts
+    ""                              // Webhook secret for authentication
 );
 
 // IPC Server Configuration
@@ -120,5 +130,50 @@ config.metrics:`enabled`export_interval_seconds`prometheus_port!(
 
 // Run validation
 .fraud.validateConfig[];
+
+// ============================================================================
+// ENVIRONMENT VARIABLE OVERRIDES
+// Allow configuration via environment variables for Docker/Kubernetes
+// ============================================================================
+.fraud.loadEnvConfig:{[]
+    // Detection settings
+    if[count getenv`DETECTION_WINDOW_SEC;
+        config.detection[`window_seconds]: "I"$getenv`DETECTION_WINDOW_SEC];
+    if[count getenv`DETECTION_THRESHOLD;
+        config.detection[`min_distinct_a]: "I"$getenv`DETECTION_THRESHOLD];
+
+    // Switch settings
+    if[count getenv`SWITCH_PROTOCOL;
+        config.switch[`protocol]: `$getenv`SWITCH_PROTOCOL];
+    if[count getenv`SWITCH_HOST;
+        config.switch[`host]: getenv`SWITCH_HOST];
+    if[count getenv`SWITCH_PORT;
+        config.switch[`port]: "I"$getenv`SWITCH_PORT];
+    if[count getenv`VOICE_SWITCH_API_URL;
+        config.switch[`api_url]: getenv`VOICE_SWITCH_API_URL];
+
+    // HTTP server settings
+    if[count getenv`HTTP_PORT;
+        config.http[`port]: "I"$getenv`HTTP_PORT];
+    if[count getenv`WEBHOOK_URL;
+        config.http[`webhook_url]: getenv`WEBHOOK_URL];
+    if[count getenv`WEBHOOK_SECRET;
+        config.http[`webhook_secret]: getenv`WEBHOOK_SECRET];
+
+    // Metrics settings
+    if[count getenv`PROMETHEUS_PORT;
+        config.metrics[`prometheus_port]: "I"$getenv`PROMETHEUS_PORT];
+    if[count getenv`METRICS_ENABLED;
+        config.metrics[`enabled]: "B"$getenv`METRICS_ENABLED];
+
+    // Logging settings
+    if[count getenv`LOG_LEVEL;
+        config.logging[`level]: `$upper getenv`LOG_LEVEL];
+
+    0N!"[INFO] Environment configuration loaded";
+ };
+
+// Load environment overrides
+.fraud.loadEnvConfig[];
 
 0N!"[INFO] config.q loaded successfully";
