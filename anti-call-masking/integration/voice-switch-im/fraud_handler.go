@@ -16,9 +16,10 @@ import (
 )
 
 // FraudDetectionService handles call events and fraud detection integration
+// Uses LumaDB as the unified database (replaces kdb+, Kafka, Redis, PostgreSQL)
 type FraudDetectionService struct {
 	logger           *zap.Logger
-	kdbEndpoint      string
+	lumadbEndpoint   string  // LumaDB ACM Detection Service endpoint
 	webhookSecret    string
 	activeCalls      map[string]*model.ActiveCall
 	mu               sync.RWMutex
@@ -30,17 +31,19 @@ type FraudDetectionService struct {
 }
 
 // NewFraudDetectionService creates a new fraud detection service
+// Connects to the LumaDB-powered ACM Detection Service
 func NewFraudDetectionService(logger *zap.Logger) *FraudDetectionService {
-	kdbEndpoint := os.Getenv("FRAUD_DETECTION_URL")
-	if kdbEndpoint == "" {
-		kdbEndpoint = "http://fraud-detection:5000"
+	// LumaDB ACM Detection Service endpoint (Python FastAPI on port 5001)
+	lumadbEndpoint := os.Getenv("FRAUD_DETECTION_URL")
+	if lumadbEndpoint == "" {
+		lumadbEndpoint = "http://acm-detection:5001"
 	}
 
 	svc := &FraudDetectionService{
-		logger:        logger,
-		kdbEndpoint:   kdbEndpoint,
-		webhookSecret: os.Getenv("FRAUD_WEBHOOK_SECRET"),
-		activeCalls:   make(map[string]*model.ActiveCall),
+		logger:         logger,
+		lumadbEndpoint: lumadbEndpoint,
+		webhookSecret:  os.Getenv("FRAUD_WEBHOOK_SECRET"),
+		activeCalls:    make(map[string]*model.ActiveCall),
 		httpClient: &http.Client{
 			Timeout: 5 * time.Second,
 		},
@@ -55,7 +58,7 @@ func NewFraudDetectionService(logger *zap.Logger) *FraudDetectionService {
 	return svc
 }
 
-// startBufferFlusher periodically flushes buffered events to kdb+
+// startBufferFlusher periodically flushes buffered events to LumaDB
 func (s *FraudDetectionService) startBufferFlusher() {
 	ticker := time.NewTicker(s.flushInterval)
 	defer ticker.Stop()
@@ -65,7 +68,7 @@ func (s *FraudDetectionService) startBufferFlusher() {
 	}
 }
 
-// flushBuffer sends buffered events to kdb+
+// flushBuffer sends buffered events to LumaDB via the ACM Detection Service
 func (s *FraudDetectionService) flushBuffer() {
 	s.bufferMu.Lock()
 	if len(s.callEventsBuffer) == 0 {
@@ -77,9 +80,8 @@ func (s *FraudDetectionService) flushBuffer() {
 	s.callEventsBuffer = make([]model.CallEvent, 0, 100)
 	s.bufferMu.Unlock()
 
-	// Send batch to kdb+
+	// Send batch to LumaDB ACM Detection Service
 	payload, err := json.Marshal(map[string]interface{}{
-		"type":   "call_events_batch",
 		"events": events,
 	})
 	if err != nil {
@@ -88,12 +90,12 @@ func (s *FraudDetectionService) flushBuffer() {
 	}
 
 	resp, err := s.httpClient.Post(
-		s.kdbEndpoint+"/events/batch",
+		s.lumadbEndpoint+"/acm/calls/batch",
 		"application/json",
 		bytes.NewBuffer(payload),
 	)
 	if err != nil {
-		s.logger.Warn("failed to send events to fraud detection",
+		s.logger.Warn("failed to send events to LumaDB fraud detection",
 			zap.Error(err),
 			zap.Int("event_count", len(events)),
 		)
@@ -102,7 +104,7 @@ func (s *FraudDetectionService) flushBuffer() {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusAccepted {
-		s.logger.Warn("fraud detection returned non-OK status",
+		s.logger.Warn("LumaDB fraud detection returned non-OK status",
 			zap.Int("status", resp.StatusCode),
 		)
 	}
@@ -118,14 +120,14 @@ func RegisterFraudRoutes(rg *gin.RouterGroup, logger *zap.Logger) *FraudDetectio
 		fraud.POST("/events", svc.handleCallEvent())
 		fraud.POST("/events/batch", svc.handleCallEventBatch())
 
-		// Disconnect endpoint for kdb+ to call
+		// Disconnect endpoint for LumaDB ACM to call
 		fraud.POST("/disconnect", svc.handleDisconnect())
 
 		// Active calls management
 		fraud.GET("/calls/active", svc.getActiveCalls())
 		fraud.GET("/calls/stats", svc.getCallStats())
 
-		// Alert management
+		// Alert management (proxied from LumaDB)
 		fraud.GET("/alerts", svc.getAlerts())
 		fraud.POST("/alerts/webhook", svc.handleAlertWebhook())
 
@@ -170,7 +172,7 @@ func (s *FraudDetectionService) handleCallEvent() gin.HandlerFunc {
 		// Track active calls
 		s.trackCall(&event)
 
-		// Buffer event for batch sending to kdb+
+		// Buffer event for batch sending to LumaDB
 		s.bufferMu.Lock()
 		s.callEventsBuffer = append(s.callEventsBuffer, event)
 		shouldFlush := len(s.callEventsBuffer) >= 50
@@ -183,7 +185,7 @@ func (s *FraudDetectionService) handleCallEvent() gin.HandlerFunc {
 
 		// For active calls, also send immediately for real-time detection
 		if event.Status == "active" || event.Status == "ringing" {
-			go s.sendToKDB(&event)
+			go s.sendToLumaDB(&event)
 		}
 
 		c.JSON(http.StatusAccepted, gin.H{
@@ -261,21 +263,28 @@ func (s *FraudDetectionService) trackCall(event *model.CallEvent) {
 	}
 }
 
-// sendToKDB sends a call event to the kdb+ fraud detection system
-func (s *FraudDetectionService) sendToKDB(event *model.CallEvent) {
-	payload, err := json.Marshal(event)
+// sendToLumaDB sends a call event to the LumaDB-powered fraud detection system
+func (s *FraudDetectionService) sendToLumaDB(event *model.CallEvent) {
+	payload, err := json.Marshal(map[string]interface{}{
+		"a_number":    event.ANumber,
+		"b_number":    event.BNumber,
+		"call_id":     event.CallID,
+		"source_ip":   event.SourceIP,
+		"switch_id":   event.SwitchID,
+		"raw_call_id": event.CallID,
+	})
 	if err != nil {
 		s.logger.Error("failed to marshal call event", zap.Error(err))
 		return
 	}
 
 	resp, err := s.httpClient.Post(
-		s.kdbEndpoint+"/event",
+		s.lumadbEndpoint+"/acm/call",
 		"application/json",
 		bytes.NewBuffer(payload),
 	)
 	if err != nil {
-		s.logger.Warn("failed to send event to fraud detection",
+		s.logger.Warn("failed to send event to LumaDB fraud detection",
 			zap.Error(err),
 			zap.String("call_id", event.CallID),
 		)
@@ -288,7 +297,7 @@ func (s *FraudDetectionService) sendToKDB(event *model.CallEvent) {
 		var result map[string]interface{}
 		if err := json.NewDecoder(resp.Body).Decode(&result); err == nil {
 			if detected, ok := result["detected"].(bool); ok && detected {
-				s.logger.Warn("fraud detected",
+				s.logger.Warn("fraud detected by LumaDB",
 					zap.String("call_id", event.CallID),
 					zap.String("b_number", event.BNumber),
 					zap.Any("result", result),
@@ -298,7 +307,7 @@ func (s *FraudDetectionService) sendToKDB(event *model.CallEvent) {
 	}
 }
 
-// handleDisconnect handles disconnect requests from the fraud detection system
+// handleDisconnect handles disconnect requests from the LumaDB fraud detection system
 func (s *FraudDetectionService) handleDisconnect() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req model.DisconnectRequest
@@ -307,7 +316,7 @@ func (s *FraudDetectionService) handleDisconnect() gin.HandlerFunc {
 			return
 		}
 
-		s.logger.Info("disconnect request received",
+		s.logger.Info("disconnect request received from LumaDB ACM",
 			zap.Strings("call_ids", req.CallIDs),
 			zap.String("alert_id", req.AlertID),
 			zap.String("reason", req.Reason),
@@ -454,31 +463,28 @@ func (s *FraudDetectionService) getCallStats() gin.HandlerFunc {
 	}
 }
 
-// getAlerts fetches alerts from the kdb+ system
+// getAlerts fetches alerts from the LumaDB ACM Detection system
 func (s *FraudDetectionService) getAlerts() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		resp, err := s.httpClient.Get(s.kdbEndpoint + "/alerts")
+		resp, err := s.httpClient.Get(s.lumadbEndpoint + "/acm/alerts")
 		if err != nil {
-			s.logger.Error("failed to fetch alerts from fraud detection", zap.Error(err))
-			c.JSON(http.StatusServiceUnavailable, gin.H{"error": "fraud detection service unavailable"})
+			s.logger.Error("failed to fetch alerts from LumaDB", zap.Error(err))
+			c.JSON(http.StatusServiceUnavailable, gin.H{"error": "LumaDB fraud detection service unavailable"})
 			return
 		}
 		defer resp.Body.Close()
 
-		var alerts []model.FraudAlert
-		if err := json.NewDecoder(resp.Body).Decode(&alerts); err != nil {
+		var alertsResponse map[string]interface{}
+		if err := json.NewDecoder(resp.Body).Decode(&alertsResponse); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to parse alerts"})
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{
-			"alerts": alerts,
-			"count":  len(alerts),
-		})
+		c.JSON(http.StatusOK, alertsResponse)
 	}
 }
 
-// handleAlertWebhook receives alert webhooks from kdb+
+// handleAlertWebhook receives alert webhooks from LumaDB ACM
 func (s *FraudDetectionService) handleAlertWebhook() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var webhook model.FraudAlertWebhook
@@ -487,7 +493,7 @@ func (s *FraudDetectionService) handleAlertWebhook() gin.HandlerFunc {
 			return
 		}
 
-		s.logger.Info("received fraud alert webhook",
+		s.logger.Info("received fraud alert webhook from LumaDB",
 			zap.String("event_type", webhook.EventType),
 			zap.String("alert_id", webhook.Alert.AlertID),
 			zap.String("alert_type", webhook.Alert.AlertType),
@@ -510,14 +516,24 @@ func (s *FraudDetectionService) handleAlertWebhook() gin.HandlerFunc {
 // getConfig returns the current fraud detection configuration
 func (s *FraudDetectionService) getConfig() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		c.JSON(http.StatusOK, model.FraudDetectionConfig{
-			Enabled:           true,
-			WebhookURL:        s.kdbEndpoint + "/event",
-			DetectionEndpoint: s.kdbEndpoint,
-			WindowSeconds:     5,
-			Threshold:         5,
-			AutoDisconnect:    true,
-		})
+		// Fetch config from LumaDB ACM Detection Service
+		resp, err := s.httpClient.Get(s.lumadbEndpoint + "/acm/config")
+		if err != nil {
+			c.JSON(http.StatusOK, model.FraudDetectionConfig{
+				Enabled:           true,
+				WebhookURL:        s.lumadbEndpoint + "/acm/call",
+				DetectionEndpoint: s.lumadbEndpoint,
+				WindowSeconds:     5,
+				Threshold:         5,
+				AutoDisconnect:    false,
+			})
+			return
+		}
+		defer resp.Body.Close()
+
+		var config map[string]interface{}
+		json.NewDecoder(resp.Body).Decode(&config)
+		c.JSON(http.StatusOK, config)
 	}
 }
 
@@ -530,15 +546,15 @@ func (s *FraudDetectionService) updateConfig() gin.HandlerFunc {
 			return
 		}
 
-		// Forward config update to kdb+
+		// Forward config update to LumaDB ACM Detection Service
 		payload, _ := json.Marshal(config)
 		resp, err := s.httpClient.Post(
-			s.kdbEndpoint+"/config",
+			s.lumadbEndpoint+"/acm/config",
 			"application/json",
 			bytes.NewBuffer(payload),
 		)
 		if err != nil {
-			c.JSON(http.StatusServiceUnavailable, gin.H{"error": "failed to update config"})
+			c.JSON(http.StatusServiceUnavailable, gin.H{"error": "failed to update config in LumaDB"})
 			return
 		}
 		defer resp.Body.Close()
@@ -550,11 +566,11 @@ func (s *FraudDetectionService) updateConfig() gin.HandlerFunc {
 // healthCheck returns the health status of the fraud detection subsystem
 func (s *FraudDetectionService) healthCheck() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Check kdb+ connectivity
-		kdbHealthy := false
-		resp, err := s.httpClient.Get(s.kdbEndpoint + "/health")
+		// Check LumaDB ACM Detection Service connectivity
+		lumadbHealthy := false
+		resp, err := s.httpClient.Get(s.lumadbEndpoint + "/health")
 		if err == nil {
-			kdbHealthy = resp.StatusCode == http.StatusOK
+			lumadbHealthy = resp.StatusCode == http.StatusOK
 			resp.Body.Close()
 		}
 
@@ -563,13 +579,14 @@ func (s *FraudDetectionService) healthCheck() gin.HandlerFunc {
 		s.mu.RUnlock()
 
 		status := "healthy"
-		if !kdbHealthy {
+		if !lumadbHealthy {
 			status = "degraded"
 		}
 
 		c.JSON(http.StatusOK, gin.H{
 			"status":            status,
-			"kdb_connected":     kdbHealthy,
+			"lumadb_connected":  lumadbHealthy,
+			"database":          "LumaDB",
 			"active_call_count": activeCallCount,
 			"timestamp":         time.Now().UTC().Format(time.RFC3339),
 		})

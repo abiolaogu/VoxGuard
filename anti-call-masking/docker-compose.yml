@@ -1,36 +1,111 @@
 version: '3.8'
 
+# Anti-Call Masking Detection System - LumaDB Edition
+# =====================================================
+# LumaDB replaces: kdb+, Kafka/Redpanda, Redis, PostgreSQL/YugabyteDB
+# Single unified database for time-series, streaming, and storage
+
 services:
-  # kdb+ Fraud Detection Engine
-  fraud-detection:
-    image: kx/kdb:4.0
-    container_name: fraud-detection
-    hostname: fraud-detection
+  # =========================================================================
+  # LumaDB - Unified Database Platform
+  # Replaces: kdb+, Kafka, Redis, PostgreSQL
+  # =========================================================================
+  lumadb:
+    image: ghcr.io/abiolaogu/lumadb:latest
+    container_name: lumadb
+    hostname: lumadb
     ports:
-      - "5012:5012"    # Main IPC port
-      - "5013:5013"    # Admin port
-      - "9090:9090"    # Prometheus metrics
+      - "5432:5432"     # PostgreSQL protocol (SQL queries)
+      - "9092:9092"     # Kafka protocol (streaming)
+      - "8080:8080"     # REST API
+      - "4000:4000"     # GraphQL API
+      - "50051:50051"   # gRPC
+      - "9090:9090"     # Prometheus metrics
+      - "4317:4317"     # OpenTelemetry
     volumes:
-      - ./src:/app/src:ro
-      - ./tests:/app/tests:ro
-      - ./logs:/app/logs
-      - ./archive:/app/archive
-      - ./data:/app/data
+      - lumadb-data:/data
+      - lumadb-wal:/wal
+      - ./config/lumadb.yaml:/etc/lumadb/config.yaml:ro
     environment:
-      - QHOME=/opt/kx
-      - QLIC=/opt/kx/lic
-    working_dir: /app
-    command: ["q", "src/main.q", "-p", "5012", "-noswitch"]
+      - LUMADB_NODE_ID=1
+      - LUMADB_DATA_DIR=/data
+      - LUMADB_LOG_DIR=/var/log/lumadb
+      - LUMADB_REST_PORT=8080
+      - LUMADB_GRPC_PORT=50051
+      - LUMADB_KAFKA_PORT=9092
+      - LUMADB_AUTH_ENABLED=false
+      - RUST_LOG=info
     networks:
-      - voip-network
+      acm-network:
+        ipv4_address: 172.30.0.10
     healthcheck:
-      test: ["CMD", "q", "-e", "1+1"]
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 8G
+        reservations:
+          cpus: '2'
+          memory: 4G
+
+  # =========================================================================
+  # ACM Detection Service (Python + LumaDB)
+  # Replaces: kdb+ fraud-detection service
+  # =========================================================================
+  acm-detection:
+    build:
+      context: ./lumadb
+      dockerfile: Dockerfile
+    container_name: acm-detection
+    hostname: acm-detection
+    ports:
+      - "5001:5001"     # HTTP API
+    environment:
+      # LumaDB Connection
+      - LUMADB_REST_HOST=lumadb
+      - LUMADB_REST_PORT=8080
+      - LUMADB_PG_HOST=lumadb
+      - LUMADB_PG_PORT=5432
+      - LUMADB_PG_USER=lumadb
+      - LUMADB_PG_PASSWORD=lumadb
+      - LUMADB_PG_DATABASE=default
+      - LUMADB_KAFKA_HOST=lumadb
+      - LUMADB_KAFKA_PORT=9092
+      # Detection Configuration
+      - ACM_WINDOW_SECONDS=5
+      - ACM_THRESHOLD=5
+      - ACM_COOLDOWN_SECONDS=30
+      - ACM_AUTO_DISCONNECT=false
+      - ACM_AUTO_BLOCK=true
+      # API Configuration
+      - API_HOST=0.0.0.0
+      - API_PORT=5001
+      - API_WORKERS=4
+      - LOG_LEVEL=INFO
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      acm-network:
+        ipv4_address: 172.30.0.20
+    depends_on:
+      lumadb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
       interval: 30s
       timeout: 10s
       retries: 3
     restart: unless-stopped
 
+  # =========================================================================
   # FreeSWITCH Simulator (for testing)
+  # =========================================================================
   freeswitch-sim:
     build:
       context: .
@@ -38,43 +113,47 @@ services:
     container_name: freeswitch-sim
     hostname: freeswitch-sim
     ports:
-      - "8021:8021"    # ESL port
-      - "5060:5060/udp" # SIP UDP
-      - "5060:5060/tcp" # SIP TCP
+      - "8021:8021"       # ESL port
+      - "5060:5060/udp"   # SIP UDP
+      - "5060:5060/tcp"   # SIP TCP
     environment:
       - ESL_PASSWORD=ClueCon
-      - FRAUD_DETECTION_HOST=fraud-detection
-      - FRAUD_DETECTION_PORT=5012
+      - FRAUD_DETECTION_HOST=acm-detection
+      - FRAUD_DETECTION_PORT=5001
     networks:
-      - voip-network
+      - acm-network
     depends_on:
-      - fraud-detection
+      - acm-detection
     profiles:
       - with-simulator
 
-  # Event generator for load testing
+  # =========================================================================
+  # Load Generator (for testing)
+  # Uses Python to generate test traffic
+  # =========================================================================
   load-generator:
-    image: kx/kdb:4.0
+    build:
+      context: ./lumadb
+      dockerfile: Dockerfile
     container_name: load-generator
     hostname: load-generator
-    volumes:
-      - ./src:/app/src:ro
-      - ./tests:/app/tests:ro
-    working_dir: /app
-    command: ["q", "tests/test_load.q"]
+    command: ["python", "load_test.py"]
     environment:
-      - FRAUD_DETECTION_HOST=fraud-detection
-      - FRAUD_DETECTION_PORT=5012
+      - ACM_API_URL=http://acm-detection:5001
+      - CALLS_PER_SECOND=100
+      - DURATION_SECONDS=60
     networks:
-      - voip-network
+      - acm-network
     depends_on:
-      - fraud-detection
+      - acm-detection
     profiles:
       - load-test
 
-  # Prometheus for metrics collection
+  # =========================================================================
+  # Prometheus (Optional - LumaDB has built-in Prometheus support)
+  # =========================================================================
   prometheus:
-    image: prom/prometheus:v2.45.0
+    image: prom/prometheus:v2.48.0
     container_name: prometheus
     hostname: prometheus
     ports:
@@ -86,54 +165,73 @@ services:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
       - '--web.enable-lifecycle'
+      - '--storage.tsdb.retention.time=15d'
     networks:
-      - voip-network
+      - acm-network
+    depends_on:
+      - lumadb
+      - acm-detection
     profiles:
       - monitoring
 
-  # Grafana for dashboards
+  # =========================================================================
+  # Grafana Dashboard
+  # =========================================================================
   grafana:
-    image: grafana/grafana:10.0.3
+    image: grafana/grafana:10.2.2
     container_name: grafana
     hostname: grafana
     ports:
       - "3000:3000"
     volumes:
       - ./config/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./config/grafana/dashboards:/var/lib/grafana/dashboards:ro
       - grafana-data:/var/lib/grafana
     environment:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=admin
       - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-piechart-panel
     networks:
-      - voip-network
+      - acm-network
     depends_on:
       - prometheus
     profiles:
       - monitoring
 
-  # Redis for caching (optional)
-  redis:
-    image: redis:7-alpine
-    container_name: redis
-    hostname: redis
+  # =========================================================================
+  # Frontend Dashboard (React)
+  # =========================================================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: acm-frontend
+    hostname: acm-frontend
     ports:
-      - "6379:6379"
-    volumes:
-      - redis-data:/data
+      - "5173:80"
+    environment:
+      - VITE_API_BASE_URL=http://acm-detection:5001
     networks:
-      - voip-network
+      - acm-network
+    depends_on:
+      - acm-detection
     profiles:
-      - with-cache
+      - with-frontend
 
 networks:
-  voip-network:
+  acm-network:
     driver: bridge
     ipam:
       config:
-        - subnet: 172.28.0.0/16
+        - subnet: 172.30.0.0/16
 
 volumes:
+  lumadb-data:
+    driver: local
+  lumadb-wal:
+    driver: local
   prometheus-data:
+    driver: local
   grafana-data:
-  redis-data:
+    driver: local
