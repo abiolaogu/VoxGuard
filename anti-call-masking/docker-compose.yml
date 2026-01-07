@@ -189,3 +189,94 @@ volumes:
   postgres-data:
   clickhouse-data:
   dragonfly-data:
+  lumadb-data:
+  lumadb-wal:
+
+  # =============================================================================
+  # OPTIONAL: LumaDB Unified Database Platform
+  # =============================================================================
+  # LumaDB provides a unified database replacing kdb+, Kafka, Redis, PostgreSQL
+  # in a single 7.7MB binary with:
+  #   - PostgreSQL wire protocol (port 5432)
+  #   - Kafka-compatible streaming (port 9092)
+  #   - REST API (port 8080), GraphQL (port 4000), gRPC (port 50051)
+  #   - Built-in Prometheus metrics (port 9090)
+  #
+  # To use LumaDB instead of the default stack:
+  #   docker-compose --profile lumadb up -d
+  # =============================================================================
+
+  # LumaDB - Unified Database Platform (Optional)
+  lumadb:
+    image: ghcr.io/abiolaogu/lumadb:latest
+    container_name: lumadb
+    hostname: lumadb
+    ports:
+      - "5433:5432" # PostgreSQL protocol (offset to avoid conflict)
+      - "9093:9092" # Kafka protocol (offset)
+      - "8081:8080" # REST API (offset)
+      - "4000:4000" # GraphQL API
+      - "50051:50051" # gRPC
+      - "9094:9090" # Prometheus metrics (offset)
+    volumes:
+      - lumadb-data:/data
+      - lumadb-wal:/wal
+      - ./config/lumadb.yaml:/etc/lumadb/config.yaml:ro
+    environment:
+      - LUMADB_NODE_ID=1
+      - LUMADB_DATA_DIR=/data
+      - LUMADB_LOG_DIR=/var/log/lumadb
+      - LUMADB_REST_PORT=8080
+      - LUMADB_GRPC_PORT=50051
+      - LUMADB_KAFKA_PORT=9092
+      - LUMADB_AUTH_ENABLED=false
+      - RUST_LOG=info
+    networks:
+      - voip-network
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8080/health" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    profiles:
+      - lumadb
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 8G
+        reservations:
+          cpus: '2'
+          memory: 4G
+
+  # ACM Detection Service using LumaDB (Optional)
+  acm-detection-lumadb:
+    build:
+      context: ./lumadb
+      dockerfile: Dockerfile
+    container_name: acm-detection-lumadb
+    hostname: acm-detection-lumadb
+    ports:
+      - "5001:5001"
+    environment:
+      - LUMADB_REST_HOST=lumadb
+      - LUMADB_REST_PORT=8080
+      - LUMADB_PG_HOST=lumadb
+      - LUMADB_PG_PORT=5432
+      - LUMADB_PG_USER=lumadb
+      - LUMADB_PG_PASSWORD=lumadb
+      - LUMADB_PG_DATABASE=default
+      - LUMADB_KAFKA_HOST=lumadb
+      - LUMADB_KAFKA_PORT=9092
+      - DETECTION_WINDOW_SECONDS=5
+      - DETECTION_THRESHOLD=5
+      - LOG_LEVEL=INFO
+    networks:
+      - voip-network
+    depends_on:
+      - lumadb
+    profiles:
+      - lumadb
+    restart: unless-stopped

@@ -1,0 +1,112 @@
+# LumaDB Configuration for Anti-Call Masking Detection System
+# =============================================================
+# This replaces kdb+, Kafka, Redis, and PostgreSQL configurations
+
+server:
+  node_id: 1
+  data_dir: /data
+  log_dir: /var/log/lumadb
+
+# API Configuration
+api:
+  rest:
+    host: "0.0.0.0"
+    port: 8080
+    workers: 0  # 0 = auto-detect CPU cores
+    max_connections: 10000
+    request_timeout_secs: 30
+  graphql:
+    host: "0.0.0.0"
+    port: 4000
+    introspection: true
+  grpc:
+    host: "0.0.0.0"
+    port: 50051
+    max_message_size: 16777216  # 16MB
+
+# Kafka Protocol (100% Kafka-compatible)
+# Replaces: Kafka, Redpanda
+kafka:
+  host: "0.0.0.0"
+  port: 9092
+  num_partitions: 3
+  replication_factor: 1
+  batch_size: 16384
+  linger_ms: 5
+  buffer_memory: 33554432  # 32MB
+  retention_ms: 604800000  # 7 days
+  retention_bytes: -1  # Unlimited
+
+# Storage Engine Configuration
+# Replaces: kdb+ time-series storage
+storage:
+  lsm:
+    memtable_size: 67108864  # 64MB
+    level0_compaction_trigger: 4
+    max_levels: 7
+    compression: lz4
+  wal:
+    enabled: true
+    sync_mode: async  # sync, async, none
+    segment_size: 67108864  # 64MB
+  cache:
+    block_cache_size: 1073741824  # 1GB (replaces Redis)
+    index_cache_size: 268435456   # 256MB
+  # Time-series optimizations (replacing kdb+)
+  timeseries:
+    compression: gorilla  # 8-12x compression for numeric data
+    retention_period: 2592000  # 30 days in seconds
+    rollup_enabled: true
+    rollup_intervals: ["1m", "5m", "1h", "1d"]
+  columnar:
+    row_group_size: 65536
+    compression: zstd
+    dictionary_encoding: true
+
+# Streaming Engine (100x faster than Kafka)
+streaming:
+  reactor_threads: 0  # 0 = auto-detect
+  io_depth: 256
+  use_io_uring: true  # Linux kernel bypass
+  batch_size: 1000
+  batch_timeout_us: 100
+
+# Query Engine
+query:
+  max_concurrent_queries: 100
+  query_timeout_secs: 300
+  memory_limit: 2147483648  # 2GB
+  optimizer:
+    enable_predicate_pushdown: true
+    enable_projection_pushdown: true
+    enable_join_reordering: true
+    enable_simd: true  # AVX-512/NEON acceleration
+
+# Security (disabled for development)
+security:
+  auth_enabled: false
+  auth_method: jwt
+  jwt_secret: ""
+  jwt_expiration_secs: 86400
+  tls_enabled: false
+  audit_enabled: false
+
+# Logging
+logging:
+  level: info  # debug, info, warn, error
+  format: json
+  file:
+    enabled: true
+    path: /var/log/lumadb/lumadb.log
+    max_size_mb: 100
+    max_files: 10
+    compress: true
+
+# Metrics (Prometheus compatible)
+metrics:
+  enabled: true
+  endpoint: /metrics
+  prometheus:
+    enabled: true
+    namespace: lumadb
+    include_runtime: true
