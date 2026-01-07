@@ -116,19 +116,63 @@ services:
     profiles:
       - monitoring
 
-  # Redis for caching (optional)
-  redis:
+  # Redis for CDR real-time counters (dedicated for SIP processor)
+  redis-cdr:
     image: redis:7-alpine
-    container_name: redis
-    hostname: redis
+    container_name: redis-cdr
+    hostname: redis-cdr
     ports:
-      - "6379:6379"
+      - "6380:6379"
     volumes:
-      - redis-data:/data
+      - redis-cdr-data:/data
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
     networks:
       - voip-network
-    profiles:
-      - with-cache
+    restart: unless-stopped
+
+  # PostgreSQL for long-term CDR logs
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres
+    hostname: postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: cdr_user
+      POSTGRES_PASSWORD: cdr_secure_password
+      POSTGRES_DB: cdr_logs
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./sip-processor/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - voip-network
+    restart: unless-stopped
+
+  # FastAPI SIP Processor Service
+  sip-processor:
+    build:
+      context: ./sip-processor
+      dockerfile: Dockerfile
+    container_name: sip-processor
+    hostname: sip-processor
+    ports:
+      - "8000:8000"
+    environment:
+      - REDIS_URL=redis://redis-cdr:6379
+      - POSTGRES_URL=postgresql+asyncpg://cdr_user:cdr_secure_password@postgres:5432/cdr_logs
+      - SIP_INTERFACE=eth0
+      - SIP_PORT=5060
+      - DETECTION_WINDOW_SECONDS=5
+      - DETECTION_THRESHOLD=5
+      - MODEL_PATH=models/xgboost_masking.json
+    networks:
+      - voip-network
+    depends_on:
+      - redis-cdr
+      - postgres
+    cap_add:
+      - NET_RAW
+    restart: unless-stopped
 
 networks:
   voip-network:
@@ -141,5 +185,7 @@ volumes:
   prometheus-data:
   grafana-data:
   redis-data:
+  redis-cdr-data:
+  postgres-data:
   clickhouse-data:
   dragonfly-data:

@@ -1,0 +1,52 @@
+[project]
+name = "sip-processor"
+version = "1.0.0"
+description = "Real-time SIP signaling analysis and masking detection for Anti-Call Masking platform"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [
+    {name = "Anti-Call Masking Team"}
+]
+keywords = ["sip", "voip", "fraud-detection", "xgboost", "fastapi"]
+
+dependencies = [
+    "fastapi>=0.109.0",
+    "uvicorn[standard]>=0.27.0",
+    "scapy>=2.5.0",
+    "sipmessage>=0.9.1",
+    "xgboost>=2.0.3",
+    "redis[hiredis]>=5.0.1",
+    "asyncpg>=0.29.0",
+    "sqlalchemy[asyncio]>=2.0.25",
+    "pydantic>=2.5.3",
+    "pydantic-settings>=2.1.0",
+    "numpy>=1.26.3",
+    "python-multipart>=0.0.6",
+    "httpx>=0.26.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-cov>=4.1.0",
+    "httpx>=0.26.0",
+    "ruff>=0.1.0",
+]
+
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
