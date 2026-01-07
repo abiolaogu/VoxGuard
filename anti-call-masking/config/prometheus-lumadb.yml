@@ -1,0 +1,47 @@
+# Prometheus Configuration for LumaDB-based Anti-Call Masking System
+# ====================================================================
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []
+
+rule_files: []
+
+scrape_configs:
+  # LumaDB Unified Database Metrics
+  - job_name: 'lumadb'
+    static_configs:
+      - targets: ['lumadb:9090']
+    metrics_path: /metrics
+    scrape_interval: 10s
+
+  # Rust Detection Service Metrics
+  - job_name: 'detection-service'
+    static_configs:
+      - targets: ['detection-service:8080']
+    metrics_path: /metrics
+    scrape_interval: 10s
+
+  # SIP Processor Service Metrics
+  - job_name: 'sip-processor'
+    static_configs:
+      - targets: ['sip-processor:8000']
+    metrics_path: /metrics
+    scrape_interval: 10s
+
+  # ACM Detection Service (LumaDB native) Metrics
+  - job_name: 'acm-detection'
+    static_configs:
+      - targets: ['acm-detection:5001']
+    metrics_path: /metrics
+    scrape_interval: 10s
+
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']

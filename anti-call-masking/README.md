@@ -1,10 +1,20 @@
 # Anti-Call Masking Detection System
 
-Real-time fraud detection system using kdb+/q to identify and prevent call masking attacks in VoIP networks.
+[![LumaDB](https://img.shields.io/badge/LumaDB-Unified%20Platform-blue.svg)](https://github.com/abiolaogu/lumadb)
+[![Rust](https://img.shields.io/badge/Rust-1.70%2B-orange.svg)](https://www.rust-lang.org)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.100%2B-009688.svg)](https://fastapi.tiangolo.com)
+
+Real-time fraud detection system for identifying call masking attacks using **LumaDB** unified database platform.
+Designed for **sub-millisecond latency** and **horizontal scalability**.
 
 ## Overview
 
-Call masking fraud occurs when attackers use multiple originating phone numbers (A-numbers) to obscure the true source of calls to a target number (B-number). This system detects **multicall masking attacks** where 5+ distinct callers contact the same recipient within a 5-second window.
+Call masking (CLI spoofing) is a technique used by fraudsters to disguise their identity by rotating through multiple caller IDs. This system detects such patterns in real-time with:
+
+- **Sub-millisecond Detection**: LumaDB + Rust + FastAPI powered detection
+- **Unified Data Platform**: Single LumaDB instance replaces PostgreSQL, Redis, ClickHouse, and Kafka
+- **XGBoost ML Inference**: Machine learning-based masking probability scoring
+- **Real-time CDR Metrics**: ASR, ALOC, and Overlap Ratio calculations
 
 ### Detection Rule
 
@@ -12,26 +22,48 @@ Call masking fraud occurs when attackers use multiple originating phone numbers 
 |-----------|-------|-------------|
 | Window | 5 seconds | Sliding time window |
 | Threshold | 5 | Minimum distinct A-numbers |
+| ML Threshold | 0.7 | XGBoost masking probability |
 | Action | Disconnect | Terminate all flagged calls |
 
 ## Architecture
 
 ```
-┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
-│   SIP Clients   │────>│  Voice Switch    │────>│  kdb+ Fraud     │
-│                 │     │  (FreeSWITCH/    │     │  Detection      │
-│                 │<────│   Kamailio)      │<────│  Engine         │
-└─────────────────┘     └──────────────────┘     └─────────────────┘
-                        Call Events (ESL)        Disconnect Commands
+┌─────────────────────────────────────────────────────────────────────┐
+│                        Voice Switch / SIP Clients                    │
+└───────────────────────────────┬─────────────────────────────────────┘
+                                │
+                    ┌───────────▼───────────┐
+                    │   SIP Processor       │ Port 8000
+                    │   (FastAPI + XGBoost) │
+                    └───────────┬───────────┘
+                                │
+        ┌───────────────────────┼───────────────────────┐
+        │                       │                       │
+        ▼                       ▼                       ▼
+┌───────────────┐      ┌───────────────┐      ┌───────────────┐
+│ Detection     │      │ ACM Detection │      │   LumaDB      │
+│ Service       │      │ (Python)      │      │   Unified     │
+│ (Rust)        │      │ Port 5001     │      │   Database    │
+│ Port 8080     │      └───────┬───────┘      │               │
+└───────┬───────┘              │              │ • PostgreSQL  │
+        │                      │              │ • Redis       │
+        └──────────────────────┴──────────────│ • ClickHouse  │
+                                              │ • Kafka       │
+                                              │               │
+                                              │ Ports:        │
+                                              │ 5432 (PG)     │
+                                              │ 6379 (Redis)  │
+                                              │ 8123 (CH)     │
+                                              │ 9092 (Kafka)  │
+                                              └───────────────┘
 ```
 
 ## Quick Start
 
 ### Prerequisites
 
-- **kdb+ 4.0+** (64-bit) with valid license
-- **Docker & Docker Compose** (for containerized deployment)
-- **Python 3.8+** (optional, for simulator)
+- **Docker & Docker Compose** v2.0+
+- **8GB RAM** recommended for LumaDB
 
 ### Installation
 
@@ -40,420 +72,167 @@ Call masking fraud occurs when attackers use multiple originating phone numbers 
 git clone https://github.com/abiolaogu/Anti_Call-Masking.git
 cd Anti_Call-Masking/anti-call-masking
 
-# Start with Docker
+# Start with LumaDB (default)
 docker-compose up -d
 
-# Or run locally with kdb+
-cd src
-q main.q -p 5012
+# Verify services
+curl http://localhost:8080/health   # Rust detection service
+curl http://localhost:8000/health   # SIP processor
+curl http://localhost:5001/health   # ACM detection
+curl http://localhost:8180/health   # LumaDB REST API
 ```
 
-### Verify Installation
+### Legacy Mode (Optional)
 
-```q
-// In the q console
-.fraud.detection.getStats[]
-// Should show: processed_total, alerts_total, etc.
+To use the old stack (ClickHouse + DragonflyDB + PostgreSQL):
 
-// Enable simulation mode
-.fraud.switch.enableSimulation[]
+```bash
+docker-compose --profile legacy up -d
+```
 
-// Simulate an attack (5 callers to B123)
-.fraud.switch.simulateAttack["B123";5;0]
+## Services
 
-// Check alerts
-.fraud.detection.getRecentAlerts[5]
+| Service | Port | Description |
+|---------|------|-------------|
+| **LumaDB** | 5432, 6379, 8123, 9092 | Unified database platform |
+| **Detection Service** | 8080 | Rust-based sliding window detection |
+| **SIP Processor** | 8000 | FastAPI SIP parsing + XGBoost ML |
+| **ACM Detection** | 5001 | Python LumaDB-native detection |
+| **Prometheus** | 9091 | Metrics collection (--profile monitoring) |
+| **Grafana** | 3000 | Dashboards (--profile monitoring) |
+
+## LumaDB Protocol Compatibility
+
+LumaDB provides wire-compatible protocols for seamless integration:
+
+| Protocol | Port | Replaces |
+|----------|------|----------|
+| PostgreSQL | 5432 | PostgreSQL 16 |
+| Redis | 6379 | Redis 7, DragonflyDB |
+| ClickHouse HTTP | 8123 | ClickHouse 23.8 |
+| Kafka | 9092 | Kafka, Redpanda |
+| REST API | 8180 | Custom APIs |
+| GraphQL | 4000 | Hasura, PostGraphile |
+| gRPC | 50051 | Custom gRPC |
+| Prometheus | 9090 | Native metrics |
+
+## API Endpoints
+
+### SIP Processor (Port 8000)
+
+```bash
+# Analyze a call for masking
+curl -X POST http://localhost:8000/api/v1/analyze \
+  -H "Content-Type: application/json" \
+  -d '{
+    "call_id": "abc123",
+    "a_number": "+12025551234",
+    "b_number": "+19876543210",
+    "distinct_a_count": 6
+  }'
+
+# Get CDR metrics
+curl http://localhost:8000/api/v1/metrics/+19876543210
+```
+
+### Detection Service (Port 8080)
+
+```bash
+# Submit call event
+curl -X POST http://localhost:8080/event \
+  -H "Content-Type: application/json" \
+  -d '{
+    "a_number": "+12025551234",
+    "b_number": "+19876543210",
+    "timestamp": 1704672000,
+    "event_type": "INVITE"
+  }'
+```
+
+## Configuration
+
+### LumaDB Settings (`config/lumadb.yaml`)
+
+```yaml
+# PostgreSQL wire protocol
+postgres:
+  port: 5432
+  max_connections: 1000
+
+# Redis wire protocol
+redis:
+  port: 6379
+  max_memory: 1073741824  # 1GB
+
+# ClickHouse HTTP API
+clickhouse:
+  port: 8123
+
+# Kafka protocol
+kafka:
+  port: 9092
+  retention_ms: 604800000  # 7 days
+```
+
+### Detection Settings
+
+```bash
+# Environment variables
+DETECTION_WINDOW_SECONDS=5    # Sliding window
+DETECTION_THRESHOLD=5         # Min distinct A-numbers
+MASKING_PROBABILITY_THRESHOLD=0.7  # XGBoost threshold
 ```
 
 ## Directory Structure
 
 ```
 anti-call-masking/
-├── src/
-│   ├── config.q          # Configuration parameters
-│   ├── schema.q          # Table definitions
-│   ├── detection.q       # Core detection algorithm
-│   ├── actions.q         # Disconnect/block handlers
-│   ├── switch_adapter.q  # Switch integration layer
-│   └── main.q            # Application entry point
-├── tests/
-│   ├── test_detection.q  # Unit tests
-│   └── test_load.q       # Performance tests
 ├── config/
-│   └── prometheus.yml    # Metrics configuration
-├── docker-compose.yml    # Container orchestration
-└── README.md
-```
-
-## Configuration
-
-### Detection Settings (`config.q`)
-
-```q
-.fraud.config.detection:`window_seconds`min_distinct_a`cooldown_seconds`max_window_calls!(
-    5;          // Sliding window (1-60 seconds)
-    5;          // Threshold (2-100 distinct A-numbers)
-    60;         // Alert cooldown period
-    10000       // Max calls in window (memory limit)
-);
-```
-
-### Switch Connection
-
-```q
-.fraud.config.switch:`host`port`protocol`auth_password!(
-    "127.0.0.1";    // Switch hostname
-    8021i;          // ESL port (FreeSWITCH default)
-    `freeswitch;    // Protocol: `freeswitch`kamailio`generic
-    "ClueCon"       // Authentication
-);
-```
-
-### Command Line Arguments
-
-```bash
-q main.q -port 5012 -switch_host 10.0.0.1 -switch_port 8021 -window 5 -threshold 5
-```
-
-## API Reference
-
-### IPC Commands
-
-Connect via kdb+ IPC on port 5012:
-
-```q
-// Status check
-h:hopen `:localhost:5012
-h "status"
-
-// Get statistics
-h "stats"
-
-// Get recent alerts
-h "alerts 10"  // Last 10 minutes
-
-// Dictionary commands
-h `cmd`data!(`process;`a_number`b_number!(`A001;`B001))
-h `cmd`data!(`disconnect;`rawCallId123)
-h `cmd`data!(`whitelist_add;`B_SAFE)
-```
-
-### Direct Function Calls
-
-```q
-// Process a call event
-.fraud.processCall[`a_number`b_number!(`A001;`B001)]
-
-// Get threat level for a B-number
-.fraud.detection.getThreatLevel[`B001]
-
-// Get elevated threats
-.fraud.detection.getElevatedThreats[]
-
-// Manual disconnect
-.fraud.actions.manualDisconnect[`callId123]
-
-// Whitelist management
-.fraud.actions.addToWhitelist[`B_SAFE]
-.fraud.actions.removeFromWhitelist[`B_SAFE]
-```
-
-### Simulation Mode
-
-```q
-// Enable simulation (no real switch connection)
-.fraud.switch.enableSimulation[]
-
-// Simulate single call
-.fraud.switch.simulateCall["A123";"B456"]
-
-// Simulate attack pattern
-.fraud.switch.simulateAttack["B789";5;100]  // 5 callers, 100ms delay
-```
-
-## Testing
-
-### Unit Tests
-
-```bash
-cd tests
-q test_detection.q
-
-// Or run programmatically
-\l test_detection.q
-.test.runAll[]
-```
-
-Expected output:
-```
-[TEST SUITE] Threshold Detection Tests
-  [PASS] Exactly 5 distinct A-numbers triggers 1 alert
-  [PASS] 4 distinct A-numbers does not trigger alert
-  [PASS] 6 calls triggers only 1 alert (cooldown)
-  ...
-```
-
-### Load Tests
-
-```q
-\l test_load.q
-
-// Throughput test
-.loadtest.runThroughputTest[10000;5]  // 10K CPS for 5 seconds
-
-// Accuracy test
-.loadtest.runAccuracyTest[100;5]       // 100 attacks, 5 callers each
-
-// Full stress test
-.loadtest.runStressTest[]
-```
-
-### Performance Targets
-
-| Metric | Target | Notes |
-|--------|--------|-------|
-| Detection Latency | <50ms | P99 |
-| Throughput | 100K+ CPS | Single node |
-| Memory | <4GB | 5-minute window |
-| Detection Rate | >99.9% | True positives |
-| False Positive Rate | <0.1% | |
-
-## Docker Deployment
-
-### Basic (Detection Only)
-
-```bash
-docker-compose up -d fraud-detection
-```
-
-### With FreeSWITCH Simulator
-
-```bash
-docker-compose --profile with-simulator up -d
-```
-
-### With Monitoring Stack
-
-```bash
-docker-compose --profile monitoring up -d
-# Access Grafana at http://localhost:3000 (admin/admin)
-```
-
-### Full Stack
-
-```bash
-docker-compose --profile with-simulator --profile monitoring up -d
-```
-
-## Switch Integration
-
-### FreeSWITCH (ESL)
-
-The system connects to FreeSWITCH via the Event Socket Layer:
-
-```bash
-# FreeSWITCH event_socket.conf.xml
-<configuration name="event_socket.conf">
-  <settings>
-    <param name="listen-ip" value="0.0.0.0"/>
-    <param name="listen-port" value="8021"/>
-    <param name="password" value="ClueCon"/>
-  </settings>
-</configuration>
-```
-
-Events subscribed:
-- `CHANNEL_CREATE` - Call setup
-- `CHANNEL_ANSWER` - Call answered
-- `CHANNEL_HANGUP` - Call terminated
-
-Disconnect command: `uuid_kill <uuid> CALL_REJECTED`
-
-### Kamailio (MI)
-
-JSON-RPC over TCP:
-
-```json
-{"jsonrpc":"2.0","method":"dlg.end_dlg","params":{"callid":"..."},"id":1}
-```
-
-### Generic/Custom
-
-Implement custom parser in `switch_adapter.q`:
-
-```q
-switch.parseGenericEvent:{[eventStr]
-    // Your custom parsing logic
-    json:.j.k eventStr;
-    // Return normalized event dictionary
-}
+│   ├── lumadb.yaml           # LumaDB configuration
+│   └── prometheus-lumadb.yml # Prometheus config
+├── detection-service-rust/   # Rust detection service
+├── sip-processor/            # FastAPI SIP + XGBoost
+├── lumadb/                   # Python LumaDB detection
+├── frontend/                 # React dashboard
+├── mobile/                   # Flutter mobile app
+├── docs/                     # Documentation
+├── k8s/                      # Kubernetes manifests
+└── docker-compose.yml        # Container orchestration
 ```
 
 ## Monitoring
 
-### Built-in Statistics
+```bash
+# Start with monitoring
+docker-compose --profile monitoring up -d
 
-```q
-.fraud.detection.getStats[]
-// Returns: processed_total, alerts_total, active_calls, latency metrics
-
-.fraud.tableSizes[]
-// Returns: row counts for all tables
-
-.fraud.memoryUsage[]
-// Returns: memory usage per table in MB
+# Access dashboards
+open http://localhost:3000  # Grafana (admin/admin)
+open http://localhost:9091  # Prometheus
 ```
 
-### Prometheus Metrics (Port 9090)
+## Testing
 
-- `fraud_calls_processed_total`
-- `fraud_alerts_generated_total`
-- `fraud_detection_latency_ms`
-- `fraud_active_calls`
-- `fraud_disconnects_total`
+```bash
+# Run SIP processor tests
+cd sip-processor
+pip install -r requirements.txt
+pytest tests/ -v
 
-### Health Check
-
-```q
-.startup.healthCheck[]
-// Returns: healthy, checks (ipc, switch, detection, memory), stats
+# Run Rust detection tests
+cd detection-service-rust
+cargo test
 ```
 
-## Troubleshooting
+## Performance
 
-### Common Issues
-
-**No alerts generated:**
-1. Check threshold: `.fraud.config.detection`min_distinct_a`
-2. Verify window: `.fraud.config.detection`window_seconds`
-3. Check whitelist: `.fraud.config.whitelist`b_numbers`
-4. Review cooldown: `.fraud.detection.inCooldown[`B001]`
-
-**High latency:**
-1. Reduce window size
-2. Enable more aggressive GC: `.fraud.config.performance`gc_interval_ms`
-3. Check memory: `.fraud.memoryUsage[]`
-
-**Switch connection fails:**
-1. Verify host/port: `.fraud.config.switch`
-2. Check authentication password
-3. Ensure switch allows external connections
-4. Use simulation mode for testing
-
-### Debug Mode
-
-```q
-// Enable verbose logging
-.fraud.config.logging[`level]:`DEBUG
-
-// View recent events
-select from .fraud.calls where ts > .z.P - 00:01
-
-// Check connection status
-.fraud.switch.healthCheck[]
-```
-
-## Production Operations
-
-### Structured Logging
-
-All events are logged in JSON format for easy parsing:
-
-```q
-// Set log level
-.log.level:`DEBUG  // DEBUG, INFO, WARN, ERROR
-
-// View logs
-.log.tail[100]  // Last 100 lines
-
-// Search logs
-.log.search["ALERT";50]  // Find alerts
-```
-
-### Metrics & Monitoring
-
-Real-time metrics available via Prometheus format:
-
-```q
-// Get current metrics
-.metrics.get[]
-
-// Get historical summary
-.metrics.getSummary[60]  // Last 60 minutes
-
-// Prometheus endpoint
-// GET http://localhost:9090/metrics
-```
-
-Import `grafana/dashboard.json` for pre-built dashboards.
-
-### State Recovery
-
-System automatically checkpoints and recovers:
-
-```q
-// Manual checkpoint
-.recovery.saveCheckpoint[]
-
-// List checkpoints
-.recovery.listCheckpoints[]
-
-// Recover from checkpoint
-.recovery.loadCheckpoint[]
-
-// Hot config reload
-.recovery.reloadConfig[]
-```
-
-### Operational Alerts
-
-Configure webhook for external alerting:
-
-```q
-.metrics.configureWebhook["https://hooks.slack.com/..."]
-```
-
-Alert thresholds:
-- P99 latency > 100ms
-- Memory > 3GB
-- Switch disconnected > 30s
-
-### Rate Limiting & Backpressure
-
-System automatically applies backpressure when overloaded:
-
-```q
-// Check backpressure status
-.recovery.backpressure
-
-// Check circuit breaker
-.recovery.circuitBreaker
-```
-
-See `docs/runbook.md` for complete operations guide.
-
-## Security Considerations
-
-- **Network Isolation**: Run detection engine in isolated network segment
-- **Authentication**: Use strong ESL passwords; consider TLS
-- **Access Control**: Restrict IPC port access
-- **Audit Logging**: All actions logged with timestamps
-- **Data Retention**: Configure `archiveAlerts` for compliance
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Run tests: `q tests/test_detection.q`
-4. Submit pull request
+| Metric | Value |
+|--------|-------|
+| Detection Latency | < 1ms |
+| Throughput | 100K+ events/sec |
+| Memory (LumaDB) | 4-8GB |
+| Storage | ~1GB per 10M CDRs |
 
 ## License
 
-MIT License - See LICENSE file
-
-## References
-
-- [kdb+ Documentation](https://code.kx.com/q/)
-- [FreeSWITCH ESL](https://developer.signalwire.com/freeswitch/FreeSWITCH-Explained/Client-and-Developer-Interfaces/Event-Socket-Library/)
-- [Kamailio MI](https://www.kamailio.org/docs/modules/stable/modules/mi_fifo.html)
-- [SIP RFC 3261](https://tools.ietf.org/html/rfc3261)
+MIT License - see [LICENSE](LICENSE) for details.

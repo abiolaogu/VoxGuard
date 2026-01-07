@@ -1,39 +1,77 @@
 version: '3.8'
 
+# =============================================================================
+# Anti-Call Masking Detection System - LumaDB Edition
+# =============================================================================
+# LumaDB is the default unified database platform, providing:
+#   - PostgreSQL wire protocol (port 5432) - replaces PostgreSQL
+#   - Redis-compatible caching (port 6379) - replaces DragonflyDB/Redis
+#   - Kafka-compatible streaming (port 9092) - for event streaming
+#   - ClickHouse-compatible analytics (port 8123) - replaces ClickHouse
+#   - REST API (port 8080), GraphQL (port 4000), gRPC (port 50051)
+#   - Built-in Prometheus metrics (port 9090)
+#
+# Default: docker-compose up -d
+# Legacy: docker-compose --profile legacy up -d
+# =============================================================================
+
 services:
-  # kdb+ Fraud Detection Engine
-  # ClickHouse (Scalable Storage)
-  clickhouse:
-    image: clickhouse/clickhouse-server:23.8
-    container_name: clickhouse
-    hostname: clickhouse
+  # =========================================================================
+  # LumaDB - Unified Database Platform (DEFAULT)
+  # =========================================================================
+  lumadb:
+    image: ghcr.io/abiolaogu/lumadb:latest
+    container_name: lumadb
+    hostname: lumadb
     ports:
-      - "8123:8123" # HTTP API
-      - "9000:9000" # Native TCP
+      - "5432:5432" # PostgreSQL wire protocol
+      - "6379:6379" # Redis-compatible cache
+      - "9092:9092" # Kafka-compatible streaming
+      - "8123:8123" # ClickHouse-compatible HTTP API
+      - "8180:8080" # LumaDB REST API
+      - "4000:4000" # GraphQL API
+      - "50051:50051" # gRPC
+      - "9090:9090" # Prometheus metrics
     volumes:
-      - clickhouse-data:/var/lib/clickhouse
-    ulimits:
-      nofile:
-        soft: 262144
-        hard: 262144
+      - lumadb-data:/data
+      - lumadb-wal:/wal
+      - ./config/lumadb.yaml:/etc/lumadb/config.yaml:ro
+      - ./sip-processor/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    environment:
+      - LUMADB_NODE_ID=1
+      - LUMADB_DATA_DIR=/data
+      - LUMADB_LOG_DIR=/var/log/lumadb
+      - LUMADB_PG_PORT=5432
+      - LUMADB_REDIS_PORT=6379
+      - LUMADB_KAFKA_PORT=9092
+      - LUMADB_CLICKHOUSE_PORT=8123
+      - LUMADB_REST_PORT=8080
+      - LUMADB_GRAPHQL_PORT=4000
+      - LUMADB_GRPC_PORT=50051
+      - LUMADB_METRICS_PORT=9090
+      - LUMADB_AUTH_ENABLED=false
+      - RUST_LOG=info
     networks:
       - voip-network
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8080/health" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 8G
+        reservations:
+          cpus: '2'
+          memory: 4G
 
-  # DragonflyDB (High-Performance Cache)
-  dragonfly:
-    image: docker.dragonflydb.io/dragonflydb/dragonfly
-    container_name: dragonfly
-    hostname: dragonfly
-    ports:
-      - "6379:6379"
-    volumes:
-      - dragonfly-data:/data
-    networks:
-      - voip-network
-    restart: unless-stopped
-
-  # Rust Fraud Detection Service
+  # =========================================================================
+  # Rust Fraud Detection Service (DEFAULT - uses LumaDB)
+  # =========================================================================
   detection-service:
     build:
       context: ./detection-service-rust
@@ -43,18 +81,80 @@ services:
     ports:
       - "8080:8080"
     environment:
-      - CLICKHOUSE_URL=http://clickhouse:8123
-      - REDIS_URL=redis://dragonfly:6379
+      # LumaDB provides ClickHouse-compatible HTTP API
+      - CLICKHOUSE_URL=http://lumadb:8123
+      # LumaDB provides Redis-compatible wire protocol
+      - REDIS_URL=redis://lumadb:6379
       - DETECTION_WINDOW_SECONDS=5
       - DETECTION_THRESHOLD=5
     networks:
       - voip-network
     depends_on:
-      - clickhouse
-      - dragonfly
+      - lumadb
     restart: unless-stopped
 
+  # =========================================================================
+  # FastAPI SIP Processor Service (DEFAULT - uses LumaDB)
+  # =========================================================================
+  sip-processor:
+    build:
+      context: ./sip-processor
+      dockerfile: Dockerfile
+    container_name: sip-processor
+    hostname: sip-processor
+    ports:
+      - "8000:8000"
+    environment:
+      # LumaDB provides Redis-compatible wire protocol
+      - REDIS_URL=redis://lumadb:6379
+      # LumaDB provides PostgreSQL wire protocol
+      - POSTGRES_URL=postgresql+asyncpg://lumadb:lumadb@lumadb:5432/default
+      - SIP_INTERFACE=eth0
+      - SIP_PORT=5060
+      - DETECTION_WINDOW_SECONDS=5
+      - DETECTION_THRESHOLD=5
+      - MODEL_PATH=models/xgboost_masking.json
+    networks:
+      - voip-network
+    depends_on:
+      - lumadb
+    cap_add:
+      - NET_RAW
+    restart: unless-stopped
+
+  # =========================================================================
+  # ACM Detection Service (Python + LumaDB native)
+  # =========================================================================
+  acm-detection:
+    build:
+      context: ./lumadb
+      dockerfile: Dockerfile
+    container_name: acm-detection
+    hostname: acm-detection
+    ports:
+      - "5001:5001"
+    environment:
+      - LUMADB_REST_HOST=lumadb
+      - LUMADB_REST_PORT=8080
+      - LUMADB_PG_HOST=lumadb
+      - LUMADB_PG_PORT=5432
+      - LUMADB_PG_USER=lumadb
+      - LUMADB_PG_PASSWORD=lumadb
+      - LUMADB_PG_DATABASE=default
+      - LUMADB_KAFKA_HOST=lumadb
+      - LUMADB_KAFKA_PORT=9092
+      - DETECTION_WINDOW_SECONDS=5
+      - DETECTION_THRESHOLD=5
+      - LOG_LEVEL=INFO
+    networks:
+      - voip-network
+    depends_on:
+      - lumadb
+    restart: unless-stopped
+
+  # =========================================================================
   # FreeSWITCH Simulator (for testing)
+  # =========================================================================
   freeswitch-sim:
     build:
       context: .
@@ -76,7 +176,9 @@ services:
     profiles:
       - with-simulator
 
-  # Prometheus for metrics collection
+  # =========================================================================
+  # Prometheus (uses LumaDB metrics endpoint)
+  # =========================================================================
   prometheus:
     image: prom/prometheus:v2.45.0
     container_name: prometheus
@@ -84,7 +186,7 @@ services:
     ports:
       - "9091:9090"
     volumes:
-      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./config/prometheus-lumadb.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus-data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
@@ -92,10 +194,14 @@ services:
       - '--web.enable-lifecycle'
     networks:
       - voip-network
+    depends_on:
+      - lumadb
     profiles:
       - monitoring
 
+  # =========================================================================
   # Grafana for dashboards
+  # =========================================================================
   grafana:
     image: grafana/grafana:10.0.3
     container_name: grafana
@@ -116,27 +222,54 @@ services:
     profiles:
       - monitoring
 
-  # Redis for CDR real-time counters (dedicated for SIP processor)
-  redis-cdr:
-    image: redis:7-alpine
-    container_name: redis-cdr
-    hostname: redis-cdr
+  # =========================================================================
+  # LEGACY: ClickHouse (Scalable Storage) - Optional
+  # =========================================================================
+  clickhouse:
+    image: clickhouse/clickhouse-server:23.8
+    container_name: clickhouse
+    hostname: clickhouse
     ports:
-      - "6380:6379"
+      - "8124:8123" # HTTP API (offset)
+      - "9001:9000" # Native TCP (offset)
     volumes:
-      - redis-cdr-data:/data
-    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+      - clickhouse-data:/var/lib/clickhouse
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
     networks:
       - voip-network
+    profiles:
+      - legacy
     restart: unless-stopped
 
-  # PostgreSQL for long-term CDR logs
+  # =========================================================================
+  # LEGACY: DragonflyDB (High-Performance Cache) - Optional
+  # =========================================================================
+  dragonfly:
+    image: docker.dragonflydb.io/dragonflydb/dragonfly
+    container_name: dragonfly
+    hostname: dragonfly
+    ports:
+      - "6380:6379" # Offset to avoid LumaDB conflict
+    volumes:
+      - dragonfly-data:/data
+    networks:
+      - voip-network
+    profiles:
+      - legacy
+    restart: unless-stopped
+
+  # =========================================================================
+  # LEGACY: PostgreSQL - Optional
+  # =========================================================================
   postgres:
     image: postgres:16-alpine
     container_name: postgres
     hostname: postgres
     ports:
-      - "5432:5432"
+      - "5433:5432" # Offset to avoid LumaDB conflict
     environment:
       POSTGRES_USER: cdr_user
       POSTGRES_PASSWORD: cdr_secure_password
@@ -146,32 +279,26 @@ services:
       - ./sip-processor/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     networks:
       - voip-network
+    profiles:
+      - legacy
     restart: unless-stopped
 
-  # FastAPI SIP Processor Service
-  sip-processor:
-    build:
-      context: ./sip-processor
-      dockerfile: Dockerfile
-    container_name: sip-processor
-    hostname: sip-processor
+  # =========================================================================
+  # LEGACY: Redis for CDR - Optional
+  # =========================================================================
+  redis-cdr:
+    image: redis:7-alpine
+    container_name: redis-cdr
+    hostname: redis-cdr
     ports:
-      - "8000:8000"
-    environment:
-      - REDIS_URL=redis://redis-cdr:6379
-      - POSTGRES_URL=postgresql+asyncpg://cdr_user:cdr_secure_password@postgres:5432/cdr_logs
-      - SIP_INTERFACE=eth0
-      - SIP_PORT=5060
-      - DETECTION_WINDOW_SECONDS=5
-      - DETECTION_THRESHOLD=5
-      - MODEL_PATH=models/xgboost_masking.json
+      - "6381:6379" # Offset to avoid LumaDB conflict
+    volumes:
+      - redis-cdr-data:/data
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
     networks:
       - voip-network
-    depends_on:
-      - redis-cdr
-      - postgres
-    cap_add:
-      - NET_RAW
+    profiles:
+      - legacy
     restart: unless-stopped
 
 networks:
@@ -182,101 +309,17 @@ networks:
         - subnet: 172.28.0.0/16
 
 volumes:
-  prometheus-data:
-  grafana-data:
-  redis-data:
-  redis-cdr-data:
-  postgres-data:
-  clickhouse-data:
-  dragonfly-data:
+  # LumaDB volumes (default)
   lumadb-data:
   lumadb-wal:
 
-  # =============================================================================
-  # OPTIONAL: LumaDB Unified Database Platform
-  # =============================================================================
-  # LumaDB provides a unified database replacing kdb+, Kafka, Redis, PostgreSQL
-  # in a single 7.7MB binary with:
-  #   - PostgreSQL wire protocol (port 5432)
-  #   - Kafka-compatible streaming (port 9092)
-  #   - REST API (port 8080), GraphQL (port 4000), gRPC (port 50051)
-  #   - Built-in Prometheus metrics (port 9090)
-  #
-  # To use LumaDB instead of the default stack:
-  #   docker-compose --profile lumadb up -d
-  # =============================================================================
+  # Monitoring volumes
+  prometheus-data:
+  grafana-data:
 
-  # LumaDB - Unified Database Platform (Optional)
-  lumadb:
-    image: ghcr.io/abiolaogu/lumadb:latest
-    container_name: lumadb
-    hostname: lumadb
-    ports:
-      - "5433:5432" # PostgreSQL protocol (offset to avoid conflict)
-      - "9093:9092" # Kafka protocol (offset)
-      - "8081:8080" # REST API (offset)
-      - "4000:4000" # GraphQL API
-      - "50051:50051" # gRPC
-      - "9094:9090" # Prometheus metrics (offset)
-    volumes:
-      - lumadb-data:/data
-      - lumadb-wal:/wal
-      - ./config/lumadb.yaml:/etc/lumadb/config.yaml:ro
-    environment:
-      - LUMADB_NODE_ID=1
-      - LUMADB_DATA_DIR=/data
-      - LUMADB_LOG_DIR=/var/log/lumadb
-      - LUMADB_REST_PORT=8080
-      - LUMADB_GRPC_PORT=50051
-      - LUMADB_KAFKA_PORT=9092
-      - LUMADB_AUTH_ENABLED=false
-      - RUST_LOG=info
-    networks:
-      - voip-network
-    healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:8080/health" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-    profiles:
-      - lumadb
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          cpus: '4'
-          memory: 8G
-        reservations:
-          cpus: '2'
-          memory: 4G
-
-  # ACM Detection Service using LumaDB (Optional)
-  acm-detection-lumadb:
-    build:
-      context: ./lumadb
-      dockerfile: Dockerfile
-    container_name: acm-detection-lumadb
-    hostname: acm-detection-lumadb
-    ports:
-      - "5001:5001"
-    environment:
-      - LUMADB_REST_HOST=lumadb
-      - LUMADB_REST_PORT=8080
-      - LUMADB_PG_HOST=lumadb
-      - LUMADB_PG_PORT=5432
-      - LUMADB_PG_USER=lumadb
-      - LUMADB_PG_PASSWORD=lumadb
-      - LUMADB_PG_DATABASE=default
-      - LUMADB_KAFKA_HOST=lumadb
-      - LUMADB_KAFKA_PORT=9092
-      - DETECTION_WINDOW_SECONDS=5
-      - DETECTION_THRESHOLD=5
-      - LOG_LEVEL=INFO
-    networks:
-      - voip-network
-    depends_on:
-      - lumadb
-    profiles:
-      - lumadb
-    restart: unless-stopped
+  # Legacy volumes (optional)
+  clickhouse-data:
+  dragonfly-data:
+  postgres-data:
+  redis-data:
+  redis-cdr-data:
