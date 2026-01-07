@@ -1,0 +1,42 @@
+# Anti-Call Masking Detection System - LumaDB Edition
+# requirements.txt
+
+# LumaDB Python Client
+lumadb>=0.1.0
+
+# Web Framework
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+httpx>=0.26.0
+
+# Kafka Client (LumaDB is 100% Kafka-compatible)
+kafka-python>=2.0.2
+
+# PostgreSQL Client (LumaDB supports PostgreSQL wire protocol)
+psycopg2-binary>=2.9.9
+asyncpg>=0.29.0
+
+# Data Processing
+pandas>=2.1.0
+numpy>=1.26.0
+
+# Async Support
+aiohttp>=3.9.0
+asyncio-throttle>=1.0.2
+
+# Configuration
+pydantic>=2.5.0
+pydantic-settings>=2.1.0
+python-dotenv>=1.0.0
+
+# Logging & Monitoring
+structlog>=24.1.0
+prometheus-client>=0.19.0
+
+# Testing
+pytest>=7.4.0
+pytest-asyncio>=0.23.0
+pytest-cov>=4.1.0
+
+# Type hints
+typing_extensions>=4.9.0
