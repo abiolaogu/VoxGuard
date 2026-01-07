@@ -1,26 +1,37 @@
-# Prometheus configuration for Anti-Call Masking Detection System
+# Prometheus Configuration for Anti-Call Masking Detection System
+# LumaDB Edition
 
 global:
   scrape_interval: 15s
   evaluation_interval: 15s
   external_labels:
-    monitor: 'fraud-detection'
+    monitor: 'acm-detection'
+    environment: 'production'
 
+# Alertmanager configuration (optional)
 alerting:
   alertmanagers:
     - static_configs:
         - targets: []
 
-rule_files:
-  # - "alert_rules.yml"
+# Rule files (optional)
+rule_files: []
 
+# Scrape configurations
 scrape_configs:
-  # Fraud Detection Engine metrics
-  - job_name: 'fraud-detection'
+  # LumaDB metrics (unified database - replaces kdb+, Kafka, Redis, PostgreSQL)
+  - job_name: 'lumadb'
     static_configs:
-      - targets: ['fraud-detection:9090']
+      - targets: ['lumadb:9090']
     metrics_path: /metrics
-    scrape_interval: 5s
+    scrape_interval: 10s
+
+  # ACM Detection Service metrics (Python FastAPI)
+  - job_name: 'acm-detection'
+    static_configs:
+      - targets: ['acm-detection:5001']
+    metrics_path: /metrics
+    scrape_interval: 10s
 
   # Prometheus self-monitoring
   - job_name: 'prometheus'

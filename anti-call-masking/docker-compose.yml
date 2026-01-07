@@ -52,7 +52,8 @@ services:
       - LUMADB_AUTH_ENABLED=false
       - RUST_LOG=info
     networks:
-      - voip-network
+      acm-network:
+        ipv4_address: 172.30.0.10
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:8080/health" ]
       interval: 10s
@@ -170,7 +171,7 @@ services:
       - FRAUD_DETECTION_HOST=detection-service
       - FRAUD_DETECTION_PORT=8080
     networks:
-      - voip-network
+      - acm-network
     depends_on:
       - detection-service
     profiles:
@@ -180,7 +181,7 @@ services:
   # Prometheus (uses LumaDB metrics endpoint)
   # =========================================================================
   prometheus:
-    image: prom/prometheus:v2.45.0
+    image: prom/prometheus:v2.48.0
     container_name: prometheus
     hostname: prometheus
     ports:
@@ -192,6 +193,7 @@ services:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
       - '--web.enable-lifecycle'
+      - '--storage.tsdb.retention.time=15d'
     networks:
       - voip-network
     depends_on:
@@ -203,20 +205,22 @@ services:
   # Grafana for dashboards
   # =========================================================================
   grafana:
-    image: grafana/grafana:10.0.3
+    image: grafana/grafana:10.2.2
     container_name: grafana
     hostname: grafana
     ports:
       - "3000:3000"
     volumes:
       - ./config/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./config/grafana/dashboards:/var/lib/grafana/dashboards:ro
       - grafana-data:/var/lib/grafana
     environment:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=admin
       - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-piechart-panel
     networks:
-      - voip-network
+      - acm-network
     depends_on:
       - prometheus
     profiles:
@@ -296,17 +300,19 @@ services:
       - redis-cdr-data:/data
     command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
     networks:
-      - voip-network
+      - acm-network
+    depends_on:
+      - acm-detection
     profiles:
       - legacy
     restart: unless-stopped
 
 networks:
-  voip-network:
+  acm-network:
     driver: bridge
     ipam:
       config:
-        - subnet: 172.28.0.0/16
+        - subnet: 172.30.0.0/16
 
 volumes:
   # LumaDB volumes (default)
@@ -315,6 +321,7 @@ volumes:
 
   # Monitoring volumes
   prometheus-data:
+    driver: local
   grafana-data:
 
   # Legacy volumes (optional)

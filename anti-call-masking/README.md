@@ -58,6 +58,26 @@ Call masking (CLI spoofing) is a technique used by fraudsters to disguise their 
                                               └───────────────┘
 ```
 
+## LumaDB - Unified Database Platform
+
+This system uses [LumaDB](https://github.com/abiolaogu/LumaDB) as a unified database platform that replaces:
+
+- **kdb+/q** - Time-series processing
+- **Kafka/Redpanda** - Message streaming
+- **Redis** - Caching
+- **PostgreSQL** - Data storage
+
+### LumaDB Features
+
+| Protocol | Port | Description |
+|----------|------|-------------|
+| PostgreSQL | 5432 | SQL queries via wire protocol |
+| Kafka | 9092 | 100% Kafka-compatible streaming |
+| REST API | 8080 | HTTP endpoints |
+| GraphQL | 4000 | Query language |
+| gRPC | 50051 | High-performance RPC |
+| Prometheus | 9090 | Metrics endpoint |
+
 ## Quick Start
 
 ### Prerequisites
@@ -200,7 +220,7 @@ anti-call-masking/
 └── docker-compose.yml        # Container orchestration
 ```
 
-## Monitoring
+### Health Check
 
 ```bash
 # Start with monitoring
