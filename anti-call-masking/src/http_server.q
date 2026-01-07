@@ -11,6 +11,68 @@
 server.port: 5000;
 server.host: "";  // Bind to all interfaces
 server.running: 0b;
+server.maxRequestSize: 1048576;  // 1MB max request size
+
+// ============================================================================
+// RATE LIMITING
+// Simple token bucket rate limiter per IP address
+// ============================================================================
+ratelimit.enabled: 1b;
+ratelimit.requestsPerMinute: 100;   // Max requests per minute per IP
+ratelimit.burstSize: 20;            // Allow burst of requests
+ratelimit.cleanupInterval: 60000;   // Cleanup old entries every minute
+ratelimit.buckets: ()!();           // IP -> (tokens; lastRefill)
+
+// Check rate limit for an IP address
+// Returns 1b if allowed, 0b if rate limited
+ratelimit.check:{[ip]
+    if[not ratelimit.enabled; :1b];
+
+    now: .z.P;
+    ipKey: `$string ip;
+
+    // Get or create bucket for this IP
+    bucket: ratelimit.buckets ipKey;
+
+    if[null bucket;
+        // New IP - create bucket with full tokens
+        ratelimit.buckets[ipKey]: (ratelimit.burstSize; now);
+        :1b
+    ];
+
+    tokens: bucket 0;
+    lastRefill: bucket 1;
+
+    // Calculate tokens to add based on time elapsed
+    elapsedMs: `long$(now - lastRefill) % 1000000;
+    tokensToAdd: `int$(elapsedMs * ratelimit.requestsPerMinute) % 60000;
+
+    // Refill tokens (capped at burst size)
+    newTokens: min (tokens + tokensToAdd; ratelimit.burstSize);
+
+    // Check if we have tokens available
+    if[newTokens < 1;
+        // Rate limited
+        :0b
+    ];
+
+    // Consume a token
+    ratelimit.buckets[ipKey]: (newTokens - 1; now);
+    1b
+ };
+
+// Cleanup old rate limit entries
+ratelimit.cleanup:{[]
+    cutoff: .z.P - `minute$5;  // Remove entries not seen in 5 minutes
+    old: exec ip from ([] ip: key ratelimit.buckets; lastSeen: (value ratelimit.buckets)[;1])
+         where lastSeen < cutoff;
+    ratelimit.buckets:: (key ratelimit.buckets) except old;
+ };
+
+// Rate limited response
+ratelimit.response:{[]
+    response[429; .j.j `error`"Rate limit exceeded. Please slow down."]
+ };
 
 // ============================================================================
 // HTTP RESPONSE HELPERS
@@ -312,6 +374,16 @@ handleConnection:{[h]
  };
 
 handleRequest:{[h; req]
+    // Check request size limit
+    if[server.maxRequestSize < count req;
+        :response[413; .j.j `error`"Request too large"]
+    ];
+
+    // Apply rate limiting based on client IP
+    if[not ratelimit.check .z.a;
+        :ratelimit.response[]
+    ];
+
     parsed: parseRequest req;
     if[`error ~ first parsed;
         :response[400; .j.j `error`"Invalid request"]
@@ -378,16 +450,63 @@ webhook.init:{[]
         .log.info "Webhook configured: ", webhook.url];
  };
 
+// Escape shell special characters to prevent command injection
+webhook.escapeShell:{[s]
+    // Replace dangerous characters with escaped versions
+    result: s;
+    result: ssr[result; "\\"; "\\\\"];  // Backslash first
+    result: ssr[result; "'"; "'\\''"];   // Single quotes
+    result: ssr[result; "\""; "\\\""];   // Double quotes
+    result: ssr[result; "`"; "\\`"];     // Backticks
+    result: ssr[result; "$"; "\\$"];     // Dollar signs
+    result: ssr[result; "!"; "\\!"];     // Exclamation marks
+    result: ssr[result; ";"; "\\;"];     // Semicolons
+    result: ssr[result; "&"; "\\&"];     // Ampersands
+    result: ssr[result; "|"; "\\|"];     // Pipes
+    result: ssr[result; ">"; "\\>"];     // Redirects
+    result: ssr[result; "<"; "\\<"];
+    result: ssr[result; "("; "\\("];     // Parentheses
+    result: ssr[result; ")"; "\\)"];
+    result
+ };
+
+// Validate URL format to prevent injection
+webhook.validateUrl:{[url]
+    // Check for valid URL format (basic validation)
+    if[0 = count url; :0b];
+    // Must start with http:// or https://
+    if[not (url like "http://*") or (url like "https://*"); :0b];
+    // No shell metacharacters in URL
+    if[any url in ";&|`$(){}[]"; :0b];
+    1b
+ };
+
 webhook.sendAlert:{[alert]
     if[0 = count webhook.url; :0b];
 
+    // Validate webhook URL
+    if[not webhook.validateUrl webhook.url;
+        .log.error "Invalid webhook URL configuration";
+        :0b
+    ];
+
+    // Build payload as JSON (already safe)
     payload: .j.j `event_type`alert!("fraud_detected"; alert);
 
-    cmd: "curl -s -X POST -H 'Content-Type: application/json'",
-         $[count webhook.secret; " -H 'X-Webhook-Secret: ", webhook.secret, "'"; ""],
-         " -d '", payload, "' '", webhook.url, "'";
+    // Escape the payload for shell safety
+    escapedPayload: webhook.escapeShell payload;
+    escapedUrl: webhook.escapeShell webhook.url;
+    escapedSecret: webhook.escapeShell webhook.secret;
 
-    result: @[system; cmd; {"error"}];
+    // Build curl command with properly escaped values
+    cmd: "curl -s -X POST -H 'Content-Type: application/json'",
+         " --max-time 10",  // 10 second timeout
+         " --retry 2",      // Retry twice on failure
+         $[count webhook.secret; " -H 'X-Webhook-Secret: ", escapedSecret, "'"; ""],
+         " -d '", escapedPayload, "'",
+         " '", escapedUrl, "'";
+
+    result: @[system; cmd; {[e] .log.error "Webhook curl failed: ", e; "error"}];
 
     if["error" ~ result;
         .log.error "Failed to send webhook";

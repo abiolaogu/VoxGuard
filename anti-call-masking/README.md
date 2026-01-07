@@ -1,10 +1,20 @@
 # Anti-Call Masking Detection System
 
-Real-time fraud detection system using **LumaDB** to identify and prevent call masking attacks in VoIP networks.
+[![LumaDB](https://img.shields.io/badge/LumaDB-Unified%20Platform-blue.svg)](https://github.com/abiolaogu/lumadb)
+[![Rust](https://img.shields.io/badge/Rust-1.70%2B-orange.svg)](https://www.rust-lang.org)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.100%2B-009688.svg)](https://fastapi.tiangolo.com)
+
+Real-time fraud detection system for identifying call masking attacks using **LumaDB** unified database platform.
+Designed for **sub-millisecond latency** and **horizontal scalability**.
 
 ## Overview
 
-Call masking fraud occurs when attackers use multiple originating phone numbers (A-numbers) to obscure the true source of calls to a target number (B-number). This system detects **multicall masking attacks** where 5+ distinct callers contact the same recipient within a 5-second window.
+Call masking (CLI spoofing) is a technique used by fraudsters to disguise their identity by rotating through multiple caller IDs. This system detects such patterns in real-time with:
+
+- **Sub-millisecond Detection**: LumaDB + Rust + FastAPI powered detection
+- **Unified Data Platform**: Single LumaDB instance replaces PostgreSQL, Redis, ClickHouse, and Kafka
+- **XGBoost ML Inference**: Machine learning-based masking probability scoring
+- **Real-time CDR Metrics**: ASR, ALOC, and Overlap Ratio calculations
 
 ### Detection Rule
 
@@ -12,17 +22,40 @@ Call masking fraud occurs when attackers use multiple originating phone numbers 
 |-----------|-------|-------------|
 | Window | 5 seconds | Sliding time window |
 | Threshold | 5 | Minimum distinct A-numbers |
+| ML Threshold | 0.7 | XGBoost masking probability |
 | Action | Disconnect | Terminate all flagged calls |
 
 ## Architecture
 
 ```
-┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
-│   SIP Clients   │────>│  Voice Switch    │────>│  LumaDB Fraud   │
-│                 │     │  (FreeSWITCH/    │     │  Detection      │
-│                 │<────│   Kamailio)      │<────│  Engine         │
-└─────────────────┘     └──────────────────┘     └─────────────────┘
-                        Call Events (ESL)        Disconnect Commands
+┌─────────────────────────────────────────────────────────────────────┐
+│                        Voice Switch / SIP Clients                    │
+└───────────────────────────────┬─────────────────────────────────────┘
+                                │
+                    ┌───────────▼───────────┐
+                    │   SIP Processor       │ Port 8000
+                    │   (FastAPI + XGBoost) │
+                    └───────────┬───────────┘
+                                │
+        ┌───────────────────────┼───────────────────────┐
+        │                       │                       │
+        ▼                       ▼                       ▼
+┌───────────────┐      ┌───────────────┐      ┌───────────────┐
+│ Detection     │      │ ACM Detection │      │   LumaDB      │
+│ Service       │      │ (Python)      │      │   Unified     │
+│ (Rust)        │      │ Port 5001     │      │   Database    │
+│ Port 8080     │      └───────┬───────┘      │               │
+└───────┬───────┘              │              │ • PostgreSQL  │
+        │                      │              │ • Redis       │
+        └──────────────────────┴──────────────│ • ClickHouse  │
+                                              │ • Kafka       │
+                                              │               │
+                                              │ Ports:        │
+                                              │ 5432 (PG)     │
+                                              │ 6379 (Redis)  │
+                                              │ 8123 (CH)     │
+                                              │ 9092 (Kafka)  │
+                                              └───────────────┘
 ```
 
 ## LumaDB - Unified Database Platform
@@ -49,8 +82,8 @@ This system uses [LumaDB](https://github.com/abiolaogu/LumaDB) as a unified data
 
 ### Prerequisites
 
-- **Docker & Docker Compose** (recommended)
-- **Python 3.11+** (for local development)
+- **Docker & Docker Compose** v2.0+
+- **8GB RAM** recommended for LumaDB
 
 ### Installation
 
@@ -59,349 +92,167 @@ This system uses [LumaDB](https://github.com/abiolaogu/LumaDB) as a unified data
 git clone https://github.com/abiolaogu/Anti_Call-Masking.git
 cd Anti_Call-Masking/anti-call-masking
 
-# Start with Docker (recommended)
+# Start with LumaDB (default)
 docker-compose up -d
 
-# Verify services are running
-docker-compose ps
+# Verify services
+curl http://localhost:8080/health   # Rust detection service
+curl http://localhost:8000/health   # SIP processor
+curl http://localhost:5001/health   # ACM detection
+curl http://localhost:8180/health   # LumaDB REST API
 ```
 
-### Verify Installation
+### Legacy Mode (Optional)
+
+To use the old stack (ClickHouse + DragonflyDB + PostgreSQL):
 
 ```bash
-# Health check
-curl http://localhost:5001/health
+docker-compose --profile legacy up -d
+```
 
-# Get detection statistics
-curl http://localhost:5001/acm/stats
+## Services
 
-# Submit a test call event
-curl -X POST http://localhost:5001/acm/call \
+| Service | Port | Description |
+|---------|------|-------------|
+| **LumaDB** | 5432, 6379, 8123, 9092 | Unified database platform |
+| **Detection Service** | 8080 | Rust-based sliding window detection |
+| **SIP Processor** | 8000 | FastAPI SIP parsing + XGBoost ML |
+| **ACM Detection** | 5001 | Python LumaDB-native detection |
+| **Prometheus** | 9091 | Metrics collection (--profile monitoring) |
+| **Grafana** | 3000 | Dashboards (--profile monitoring) |
+
+## LumaDB Protocol Compatibility
+
+LumaDB provides wire-compatible protocols for seamless integration:
+
+| Protocol | Port | Replaces |
+|----------|------|----------|
+| PostgreSQL | 5432 | PostgreSQL 16 |
+| Redis | 6379 | Redis 7, DragonflyDB |
+| ClickHouse HTTP | 8123 | ClickHouse 23.8 |
+| Kafka | 9092 | Kafka, Redpanda |
+| REST API | 8180 | Custom APIs |
+| GraphQL | 4000 | Hasura, PostGraphile |
+| gRPC | 50051 | Custom gRPC |
+| Prometheus | 9090 | Native metrics |
+
+## API Endpoints
+
+### SIP Processor (Port 8000)
+
+```bash
+# Analyze a call for masking
+curl -X POST http://localhost:8000/api/v1/analyze \
   -H "Content-Type: application/json" \
-  -d '{"a_number": "A001", "b_number": "B999"}'
+  -d '{
+    "call_id": "abc123",
+    "a_number": "+12025551234",
+    "b_number": "+19876543210",
+    "distinct_a_count": 6
+  }'
 
-# Get recent alerts
-curl http://localhost:5001/acm/alerts?minutes=10
+# Get CDR metrics
+curl http://localhost:8000/api/v1/metrics/+19876543210
+```
+
+### Detection Service (Port 8080)
+
+```bash
+# Submit call event
+curl -X POST http://localhost:8080/event \
+  -H "Content-Type: application/json" \
+  -d '{
+    "a_number": "+12025551234",
+    "b_number": "+19876543210",
+    "timestamp": 1704672000,
+    "event_type": "INVITE"
+  }'
+```
+
+## Configuration
+
+### LumaDB Settings (`config/lumadb.yaml`)
+
+```yaml
+# PostgreSQL wire protocol
+postgres:
+  port: 5432
+  max_connections: 1000
+
+# Redis wire protocol
+redis:
+  port: 6379
+  max_memory: 1073741824  # 1GB
+
+# ClickHouse HTTP API
+clickhouse:
+  port: 8123
+
+# Kafka protocol
+kafka:
+  port: 9092
+  retention_ms: 604800000  # 7 days
+```
+
+### Detection Settings
+
+```bash
+# Environment variables
+DETECTION_WINDOW_SECONDS=5    # Sliding window
+DETECTION_THRESHOLD=5         # Min distinct A-numbers
+MASKING_PROBABILITY_THRESHOLD=0.7  # XGBoost threshold
 ```
 
 ## Directory Structure
 
 ```
 anti-call-masking/
-├── lumadb/                   # LumaDB-based detection service
-│   ├── api.py                # FastAPI HTTP server
-│   ├── detection.py          # Core detection algorithm
-│   ├── database.py           # LumaDB client (unified interface)
-│   ├── models.py             # Data models and SQL schema
-│   ├── config.py             # Configuration settings
-│   ├── requirements.txt      # Python dependencies
-│   └── Dockerfile            # Container definition
-├── frontend/                 # React dashboard
-├── mobile/                   # Flutter mobile app
-├── integration/              # Voice switch integration
 ├── config/
 │   ├── lumadb.yaml           # LumaDB configuration
-│   └── prometheus.yml        # Metrics configuration
-├── docker-compose.yml        # Container orchestration
-└── README.md
+│   └── prometheus-lumadb.yml # Prometheus config
+├── detection-service-rust/   # Rust detection service
+├── sip-processor/            # FastAPI SIP + XGBoost
+├── lumadb/                   # Python LumaDB detection
+├── frontend/                 # React dashboard
+├── mobile/                   # Flutter mobile app
+├── docs/                     # Documentation
+├── k8s/                      # Kubernetes manifests
+└── docker-compose.yml        # Container orchestration
 ```
-
-## Configuration
-
-### Detection Settings
-
-Configure via environment variables or API:
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `ACM_WINDOW_SECONDS` | 5 | Sliding time window |
-| `ACM_THRESHOLD` | 5 | Min distinct A-numbers |
-| `ACM_COOLDOWN_SECONDS` | 30 | Alert cooldown period |
-| `ACM_AUTO_DISCONNECT` | false | Auto-terminate calls |
-| `ACM_AUTO_BLOCK` | true | Auto-block patterns |
-
-### LumaDB Connection
-
-```yaml
-# config/lumadb.yaml
-storage:
-  engine: lsm
-  data_dir: /data
-  wal:
-    enabled: true
-
-kafka:
-  port: 9092
-  num_partitions: 3
-  retention_hours: 168
-
-query:
-  result_cache_size_mb: 128
-  enable_parallel_scan: true
-```
-
-### Runtime Configuration
-
-```bash
-# Update detection settings via API
-curl -X POST http://localhost:5001/acm/config \
-  -H "Content-Type: application/json" \
-  -d '{"threshold": 5, "window_seconds": 5}'
-
-# Get current configuration
-curl http://localhost:5001/acm/config
-```
-
-## API Reference
-
-### Call Processing
-
-```bash
-# Process single call event
-POST /acm/call
-{
-  "a_number": "2347011111111",
-  "b_number": "2348012345678",
-  "source_ip": "192.168.1.100",
-  "switch_id": "switch-01",
-  "call_id": "uuid-123"
-}
-
-# Response
-{
-  "detected": false,
-  "b_number": "2348012345678",
-  "call_count": 1,
-  "distinct_a_count": 1,
-  "window_seconds": 5,
-  "threshold": 5
-}
-
-# Process batch events
-POST /acm/calls/batch
-{
-  "events": [...]
-}
-```
-
-### Alerts
-
-```bash
-# Get recent alerts
-GET /acm/alerts?minutes=60
-
-# Get specific alert
-GET /acm/alerts/{alert_id}
-
-# Update alert status
-PATCH /acm/alerts/{alert_id}
-{
-  "status": "investigating",
-  "notes": "Under review"
-}
-```
-
-### Threat Levels
-
-```bash
-# Get threat level for B-number
-GET /acm/threat?b_number=2348012345678
-
-# Get all elevated threats
-GET /acm/threats
-```
-
-### Statistics
-
-```bash
-# Get detection stats
-GET /acm/stats
-
-# Response
-{
-  "total_calls": 125000,
-  "total_alerts": 47,
-  "detection_rate": 99.8,
-  "avg_latency_ms": 1.2
-}
-```
-
-## Docker Deployment
-
-### Basic (Detection Only)
-
-```bash
-docker-compose up -d lumadb acm-detection
-```
-
-### With FreeSWITCH Simulator
-
-```bash
-docker-compose --profile with-simulator up -d
-```
-
-### With Monitoring Stack
-
-```bash
-docker-compose --profile monitoring up -d
-# Access Grafana at http://localhost:3000 (admin/admin)
-```
-
-### With Frontend Dashboard
-
-```bash
-docker-compose --profile with-frontend up -d
-# Access dashboard at http://localhost:5173
-```
-
-### Full Stack
-
-```bash
-docker-compose --profile with-simulator --profile monitoring --profile with-frontend up -d
-```
-
-## Performance Targets
-
-| Metric | Target | Notes |
-|--------|--------|-------|
-| Detection Latency | <10ms | P99 |
-| Throughput | 100K+ CPS | Single node |
-| Memory | <4GB | 5-minute window |
-| Detection Rate | >99.9% | True positives |
-| False Positive Rate | <0.1% | |
-
-## Switch Integration
-
-### FreeSWITCH (ESL)
-
-```bash
-# FreeSWITCH event_socket.conf.xml
-<configuration name="event_socket.conf">
-  <settings>
-    <param name="listen-ip" value="0.0.0.0"/>
-    <param name="listen-port" value="8021"/>
-    <param name="password" value="ClueCon"/>
-  </settings>
-</configuration>
-```
-
-Events subscribed:
-- `CHANNEL_CREATE` - Call setup
-- `CHANNEL_ANSWER` - Call answered
-- `CHANNEL_HANGUP` - Call terminated
-
-### Voice-Switch-IM Integration
-
-See [integration/voice-switch-im/README.md](integration/voice-switch-im/README.md) for Voice-Switch-IM integration details.
-
-## Monitoring
-
-### Prometheus Metrics (Port 5001/metrics)
-
-- `acm_calls_processed_total`
-- `acm_alerts_generated_total`
-- `acm_detection_latency_seconds`
-
-### LumaDB Metrics (Port 9090)
-
-LumaDB exposes Prometheus metrics at `:9090/metrics`:
-- Storage metrics
-- Query performance
-- Kafka consumer lag
-- Cache hit rates
 
 ### Health Check
 
 ```bash
-curl http://localhost:5001/health
-# Returns: status, version, database connection, stats
+# Start with monitoring
+docker-compose --profile monitoring up -d
+
+# Access dashboards
+open http://localhost:3000  # Grafana (admin/admin)
+open http://localhost:9091  # Prometheus
 ```
 
-## Frontend Dashboard
-
-React-based dashboard for real-time monitoring:
+## Testing
 
 ```bash
-cd frontend
-npm install
-npm run dev
-# Access at http://localhost:5173
+# Run SIP processor tests
+cd sip-processor
+pip install -r requirements.txt
+pytest tests/ -v
+
+# Run Rust detection tests
+cd detection-service-rust
+cargo test
 ```
 
-Features:
-- Real-time alert notifications
-- Threat level visualization
-- Call traffic analytics
-- Alert management workflow
+## Performance
 
-## Mobile App
-
-Flutter mobile app for on-the-go monitoring:
-
-```bash
-cd mobile
-flutter pub get
-flutter run
-```
-
-Features:
-- Push notifications for critical alerts
-- Quick alert triage
-- Offline-capable
-
-## Troubleshooting
-
-### Common Issues
-
-**No alerts generated:**
-1. Check threshold: `curl http://localhost:5001/acm/config`
-2. Verify LumaDB connection: `curl http://localhost:5001/health`
-3. Review cooldown settings
-
-**High latency:**
-1. Check LumaDB resources: `docker stats lumadb`
-2. Verify query cache settings in `config/lumadb.yaml`
-3. Monitor Prometheus metrics
-
-**LumaDB connection fails:**
-1. Verify container is running: `docker-compose ps`
-2. Check logs: `docker-compose logs lumadb`
-3. Verify port bindings
-
-### Debug Mode
-
-```bash
-# Enable debug logging
-export LOG_LEVEL=DEBUG
-docker-compose up -d acm-detection
-
-# View logs
-docker-compose logs -f acm-detection
-```
-
-## Security Considerations
-
-- **Network Isolation**: Run detection engine in isolated network segment
-- **Authentication**: Enable LumaDB authentication in production
-- **Access Control**: Restrict API port access
-- **Audit Logging**: All actions logged with timestamps
-- **Data Retention**: Configure automatic cleanup in LumaDB
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Run tests: `pytest lumadb/tests/`
-4. Submit pull request
+| Metric | Value |
+|--------|-------|
+| Detection Latency | < 1ms |
+| Throughput | 100K+ events/sec |
+| Memory (LumaDB) | 4-8GB |
+| Storage | ~1GB per 10M CDRs |
 
 ## License
 
-MIT License - See LICENSE file
-
-## References
-
-- [LumaDB](https://github.com/abiolaogu/LumaDB)
-- [FastAPI Documentation](https://fastapi.tiangolo.com/)
-- [FreeSWITCH ESL](https://developer.signalwire.com/freeswitch/FreeSWITCH-Explained/Client-and-Developer-Interfaces/Event-Socket-Library/)
-- [Kamailio MI](https://www.kamailio.org/docs/modules/stable/modules/mi_fifo.html)
-- [SIP RFC 3261](https://tools.ietf.org/html/rfc3261)
+MIT License - see [LICENSE](LICENSE) for details.

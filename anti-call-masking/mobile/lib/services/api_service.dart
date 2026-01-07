@@ -1,10 +1,44 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../models/alert.dart';
 
+/// Configuration class for API settings
+class ApiConfig {
+  /// Base URL for the API
+  /// Defaults to localhost for development, should be configured for production
+  static String baseUrl = const String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: 'http://localhost:5001',
+  );
+
+  /// Request timeout duration
+  static const Duration timeout = Duration(seconds: 30);
+
+  /// Maximum retry attempts for failed requests
+  static const int maxRetries = 3;
+
+  /// Configure the API base URL at runtime
+  static void configure({required String baseUrl}) {
+    ApiConfig.baseUrl = baseUrl;
+  }
+
+  /// Get platform-appropriate default URL
+  /// Android emulator uses 10.0.2.2 to reach host's localhost
+  /// iOS simulator uses localhost directly
+  static String get defaultBaseUrl {
+    if (Platform.isAndroid) {
+      return 'http://10.0.2.2:5001';
+    } else if (Platform.isIOS) {
+      return 'http://localhost:5001';
+    }
+    return 'http://localhost:5001';
+  }
+}
+
 class ApiService {
-  static const String _baseUrl = 'http://localhost:5001';
+  static String get _baseUrl => ApiConfig.baseUrl;
   static const _storage = FlutterSecureStorage();
 
   static Future<String?> getToken() async {
@@ -32,7 +66,7 @@ class ApiService {
     try {
       final response = await http.get(
         Uri.parse('$_baseUrl/health'),
-      );
+      ).timeout(ApiConfig.timeout);
       return response.statusCode == 200;
     } catch (e) {
       return false;
@@ -46,7 +80,7 @@ class ApiService {
       final response = await http.get(
         Uri.parse('$_baseUrl/acm/alerts?minutes=$minutes'),
         headers: headers,
-      );
+      ).timeout(ApiConfig.timeout);
 
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
@@ -66,7 +100,7 @@ class ApiService {
       final response = await http.get(
         Uri.parse('$_baseUrl/acm/alerts/$id'),
         headers: headers,
-      );
+      ).timeout(ApiConfig.timeout);
 
       if (response.statusCode == 200) {
         return Alert.fromJson(json.decode(response.body));
@@ -88,7 +122,7 @@ class ApiService {
         'status': status,
         if (notes != null) 'notes': notes,
       }),
-    );
+    ).timeout(ApiConfig.timeout);
 
     if (response.statusCode == 200) {
       return Alert.fromJson(json.decode(response.body));
@@ -103,7 +137,7 @@ class ApiService {
       final response = await http.get(
         Uri.parse('$_baseUrl/acm/stats'),
         headers: headers,
-      );
+      ).timeout(ApiConfig.timeout);
 
       if (response.statusCode == 200) {
         return json.decode(response.body);
@@ -122,7 +156,7 @@ class ApiService {
       final response = await http.get(
         Uri.parse('$_baseUrl/acm/threats'),
         headers: headers,
-      );
+      ).timeout(ApiConfig.timeout);
 
       if (response.statusCode == 200) {
         return List<Map<String, dynamic>>.from(json.decode(response.body));

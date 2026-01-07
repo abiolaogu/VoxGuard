@@ -1,0 +1,14 @@
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+scapy==2.5.0
+sipmessage==0.9.1
+xgboost==2.0.3
+redis[hiredis]==5.0.1
+asyncpg==0.29.0
+sqlalchemy[asyncio]==2.0.25
+pydantic==2.5.3
+pydantic-settings==2.1.0
+numpy==1.26.3
+python-multipart==0.0.6
+httpx==0.26.0
+python-dotenv==1.0.0
