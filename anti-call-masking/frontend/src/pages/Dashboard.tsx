@@ -1,14 +1,12 @@
-import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   AlertTriangle,
-  Shield,
   Phone,
   Clock,
   TrendingUp,
-  Activity,
   CheckCircle,
   XCircle,
+  RefreshCw,
 } from 'lucide-react';
 import {
   AreaChart,
@@ -166,35 +164,137 @@ function RecentAlerts({ alerts }: { alerts: Alert[] }) {
   );
 }
 
+interface ServiceHealth {
+  name: string;
+  status: 'operational' | 'degraded' | 'down';
+  latency?: number;
+}
+
+function SystemHealth() {
+  const { data: healthData, isLoading, error } = useQuery({
+    queryKey: ['health'],
+    queryFn: statsApi.getHealth,
+    refetchInterval: 30000, // Check every 30 seconds
+  });
+
+  // Default services with fallback status
+  const services: ServiceHealth[] = healthData?.services || [
+    { name: 'kdb+ Engine', status: 'operational', latency: healthData?.kdbLatency },
+    { name: 'Detection Service', status: 'operational', latency: healthData?.detectionLatency },
+    { name: 'API Gateway', status: 'operational', latency: healthData?.apiLatency },
+    { name: 'Database', status: 'operational', latency: healthData?.dbLatency },
+  ];
+
+  // If health check fails, show all services as unknown
+  const displayServices = error ? [
+    { name: 'kdb+ Engine', status: 'degraded' as const },
+    { name: 'Detection Service', status: 'degraded' as const },
+    { name: 'API Gateway', status: 'degraded' as const },
+    { name: 'Database', status: 'degraded' as const },
+  ] : services;
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'operational': return 'bg-green-500';
+      case 'degraded': return 'bg-yellow-500';
+      case 'down': return 'bg-red-500';
+      default: return 'bg-gray-400';
+    }
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'operational': return 'bg-green-100 text-green-800';
+      case 'degraded': return 'bg-yellow-100 text-yellow-800';
+      case 'down': return 'bg-red-100 text-red-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  return (
+    <div className="bg-white rounded-xl shadow-sm p-6">
+      <h3 className="text-lg font-semibold text-gray-900 mb-4">System Health</h3>
+      {isLoading ? (
+        <div className="space-y-4">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="animate-pulse flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+              <div className="flex items-center gap-3">
+                <div className="w-2 h-2 rounded-full bg-gray-300" />
+                <div className="h-4 w-24 bg-gray-300 rounded" />
+              </div>
+              <div className="h-4 w-16 bg-gray-300 rounded" />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {displayServices.map((service) => (
+            <div key={service.name} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+              <div className="flex items-center gap-3">
+                <div className={cn('w-2 h-2 rounded-full', getStatusColor(service.status))} />
+                <span className="text-sm font-medium text-gray-900">{service.name}</span>
+              </div>
+              <div className="flex items-center gap-4">
+                {service.latency !== undefined && (
+                  <span className="text-xs text-gray-500">{service.latency.toFixed(1)}ms</span>
+                )}
+                <span className={cn('px-2 py-1 text-xs font-medium rounded', getStatusBadge(service.status))}>
+                  {service.status}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function TrafficChart() {
-  // Demo data for traffic visualization
-  const data = Array.from({ length: 24 }, (_, i) => ({
+  const { data: trafficData, isLoading } = useQuery({
+    queryKey: ['traffic'],
+    queryFn: () => statsApi.getTraffic(1440), // Last 24 hours
+    refetchInterval: 60000, // Refresh every minute
+  });
+
+  // Generate fallback data if API not available
+  const data = trafficData?.length ? trafficData.map((t, i) => ({
+    hour: new Date(t.timestamp).getHours() + ':00',
+    calls: t.callsPerSecond * 60, // Convert to calls per minute for display
+    alerts: t.alertsPerMinute,
+  })) : Array.from({ length: 24 }, (_, i) => ({
     hour: `${i}:00`,
-    calls: Math.floor(Math.random() * 1000) + 500,
-    alerts: Math.floor(Math.random() * 10),
+    calls: 0,
+    alerts: 0,
   }));
 
   return (
     <div className="bg-white rounded-xl shadow-sm p-6">
       <h3 className="text-lg font-semibold text-gray-900 mb-4">Traffic Overview (24h)</h3>
-      <div className="h-64">
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={data}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="hour" tick={{ fontSize: 12 }} />
-            <YAxis tick={{ fontSize: 12 }} />
-            <Tooltip />
-            <Area
-              type="monotone"
-              dataKey="calls"
-              stroke="#3b82f6"
-              fill="#3b82f6"
-              fillOpacity={0.2}
-              name="Calls"
-            />
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
+      {isLoading ? (
+        <div className="h-64 flex items-center justify-center">
+          <RefreshCw className="h-8 w-8 animate-spin text-gray-400" />
+        </div>
+      ) : (
+        <div className="h-64">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={data}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="hour" tick={{ fontSize: 12 }} />
+              <YAxis tick={{ fontSize: 12 }} />
+              <Tooltip />
+              <Area
+                type="monotone"
+                dataKey="calls"
+                stroke="#3b82f6"
+                fill="#3b82f6"
+                fillOpacity={0.2}
+                name="Calls/min"
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      )}
     </div>
   );
 }
@@ -260,30 +360,7 @@ export function Dashboard() {
         <RecentAlerts alerts={alerts} />
 
         {/* System Health */}
-        <div className="bg-white rounded-xl shadow-sm p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">System Health</h3>
-          <div className="space-y-4">
-            {[
-              { name: 'kdb+ Engine', status: 'operational', latency: '0.3ms' },
-              { name: 'Detection Service', status: 'operational', latency: '0.8ms' },
-              { name: 'API Gateway', status: 'operational', latency: '1.2ms' },
-              { name: 'Database', status: 'operational', latency: '2.1ms' },
-            ].map((service) => (
-              <div key={service.name} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <div className="flex items-center gap-3">
-                  <div className="w-2 h-2 rounded-full bg-green-500" />
-                  <span className="text-sm font-medium text-gray-900">{service.name}</span>
-                </div>
-                <div className="flex items-center gap-4">
-                  <span className="text-xs text-gray-500">{service.latency}</span>
-                  <span className="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded">
-                    {service.status}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+        <SystemHealth />
       </div>
     </div>
   );

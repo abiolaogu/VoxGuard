@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
+import { useState, ReactNode } from 'react';
 import {
   Shield,
   Bell,
-  Clock,
   Server,
   Key,
   Save,
@@ -17,7 +16,7 @@ import { cn } from '../utils/cn';
 interface SettingSection {
   id: string;
   title: string;
-  icon: React.ReactNode;
+  icon: ReactNode;
   adminOnly?: boolean;
 }
 

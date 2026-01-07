@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState, ReactNode } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -23,7 +23,7 @@ const navigation = [
   { name: 'Settings', href: '/settings', icon: Settings },
 ];
 
-export function Layout({ children }: { children: React.ReactNode }) {
+export function Layout({ children }: { children: ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
