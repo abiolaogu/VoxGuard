@@ -1,163 +1,84 @@
 # Anti-Call Masking Detection System
 
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![kdb+](https://img.shields.io/badge/kdb%2B-4.0-green.svg)](https://kx.com)
-[![Go](https://img.shields.io/badge/Go-1.21-00ADD8.svg)](https://golang.org)
-[![Flutter](https://img.shields.io/badge/Flutter-3.0-02569B.svg)](https://flutter.dev)
+[![Rust](https://img.shields.io/badge/Rust-1.70%2B-orange.svg)](https://www.rust-lang.org)
+[![ClickHouse](https://img.shields.io/badge/ClickHouse-23.8-yellow.svg)](https://clickhouse.com)
+[![DragonflyDB](https://img.shields.io/badge/DragonflyDB-High%20Perf-blue.svg)](https://dragonflydb.io)
 
-Real-time fraud detection system for identifying call masking attacks using kdb+ time-series analytics. Detects when 5+ distinct A-numbers call the same B-number within a 5-second sliding window.
+Real-time fraud detection system for identifying call masking attacks using **Rust** and **ClickHouse**.
+Designed for **"almost no latency"** and **infinite horizontal scalability**.
 
 ## Overview
 
-Call masking (also known as CLI spoofing) is a technique used by fraudsters to disguise their identity by rotating through multiple caller IDs (A-numbers) when calling a target (B-number). This system detects such patterns in real-time with sub-millisecond latency.
+Call masking (also known as CLI spoofing) is a technique used by fraudsters to disguise their identity.
+This system detects such patterns in real-time with **sub-millisecond latency** using an in-memory sliding window (DragonflyDB) and asynchronously persists data for analytics (ClickHouse).
 
 ### Key Features
 
-- **Sub-millisecond Detection**: kdb+ powered detection with <1ms latency
-- **5-Second Sliding Window**: Configurable time-based detection window
-- **Real-time Alerts**: Instant notifications for fraud attempts
-- **Auto-Response**: Automatic call disconnection and number blocking
-- **Multi-Role Access**: Admin, SOC Analyst, Developer, and Executive views
-- **Cross-Platform**: Web dashboard, REST API, and mobile apps
+-   **Zero Latency**: Rust + DragonflyDB ensures detection takes < 1ms.
+-   **Horizontal Scalability**: Stateless detection service can scale to 100+ nodes.
+-   **Massive Throughput**: ClickHouse handles billions of records for analytics.
+-   **Real-time Alerts**: Instant notifications for fraud attempts.
+-   **Open Source**: No proprietary licenses required.
 
 ## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                        Voice Switch                              │
-│   ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐        │
-│   │ Kamailio │  │ Kamailio │  │ OpenSIPS │  │MongooseIM│        │
-│   │   SBC    │  │   C4     │  │    C5    │  │   XMPP   │        │
-│   └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘        │
-└────────┼─────────────┼──────────────┼─────────────┼─────────────┘
-         │             │              │             │
-         └─────────────┴──────┬───────┴─────────────┘
-                              │
-                    ┌─────────▼─────────┐
-                    │    Carrier API    │
-                    │    (Go/Gin)       │
-                    └─────────┬─────────┘
-                              │
-         ┌────────────────────┼────────────────────┐
-         │                    │                    │
-┌────────▼────────┐  ┌────────▼────────┐  ┌───────▼───────┐
-│     kdb+        │  │   YugabyteDB    │  │  DragonflyDB  │
-│  Time-Series    │  │   (PostgreSQL)  │  │    (Cache)    │
-│  & Detection    │  │                 │  │               │
-└─────────────────┘  └─────────────────┘  └───────────────┘
+│   (Kamailio / OpenSIPS / Asterisk)                              │
+└────────┼────────────────────────────────────────────────────────┘
+         │ HTTP / gRPC
+         ▼
+┌───────────────────────────┐         ┌─────────────────────────┐
+│  Detection Service (Rust) │ <─────> │      DragonflyDB        │
+│  (Stateless, Scalable)    │         │ (Hot Sliding Window)    │
+└────────┬──────────────────┘         └─────────────────────────┘
+         │
+         │ Async Batch Write
+         ▼
+┌───────────────────────────┐
+│       ClickHouse          │
+│   (Historical Data)       │
+└───────────────────────────┘
 ```
 
 ## Quick Start
 
 ### Prerequisites
 
-- Docker & Docker Compose
-- kdb+ License (optional - uses on-demand license for evaluation)
-- Node.js 18+ (for frontend development)
-- Flutter 3.0+ (for mobile development)
+-   Docker & Docker Compose
 
-### 1. Clone the Repository
-
-```bash
-git clone https://github.com/abiolaogu/Anti_Call-Masking.git
-cd Anti_Call-Masking
-```
-
-### 2. Start with Docker Compose
+### 1. Start the Stack
 
 ```bash
 cd anti-call-masking
 docker-compose up -d
 ```
 
-### 3. Access the Applications
+### 2. Verify Services
 
-| Service | URL | Description |
-|---------|-----|-------------|
-| Web Dashboard | http://localhost:5173 | Admin/Analyst interface |
-| API Gateway | http://localhost:8080 | REST API |
-| kdb+ HTTP API | http://localhost:5001 | Fraud detection API |
-| kdb+ IPC | localhost:5000 | Native kdb+ interface |
+-   **Rust API**: http://localhost:8080/health
+-   **ClickHouse**: http://localhost:8123
+-   **DragonflyDB**: port 6379
 
-### 4. Demo Credentials
-
-| Role | Email | Password |
-|------|-------|----------|
-| Admin | admin@acm.com | demo123 |
-| Analyst | analyst@acm.com | demo123 |
-| Developer | developer@acm.com | demo123 |
-| Viewer | viewer@acm.com | demo123 |
-
-## Detection Logic
-
-The system uses a sliding window algorithm to detect multicall masking:
-
-```q
-// kdb+ detection query
-.acm.checkMasking:{[bNumber]
-    windowStart:.z.p - .acm.cfg.windowNanos;
-    recent:select from callWindow where b_number=bNumber, time>windowStart;
-    distinctANumbers:count distinct recent`a_number;
-    distinctANumbers >= .acm.cfg.threshold
-}
-```
-
-**Detection Parameters:**
-- **Window**: 5 seconds (configurable)
-- **Threshold**: 5 distinct A-numbers (configurable)
-- **Severity Levels**: Critical (10+), High (7-9), Medium (5-6)
-
-## API Reference
-
-### Submit Call Event
+### 3. Simulate Attack
 
 ```bash
-curl -X POST http://localhost:5001/acm/call \
-  -H "Content-Type: application/json" \
-  -d '{
-    "a_number": "+2347011111111",
-    "b_number": "+2348012345678",
-    "source_ip": "192.168.1.100"
-  }'
-```
-
-### Get Active Threats
-
-```bash
-curl http://localhost:5001/acm/threats
-```
-
-### Get Alert Details
-
-```bash
-curl http://localhost:5001/acm/alerts?minutes=60
+# Send 5 calls from different A-numbers to the same B-number
+curl -X POST http://localhost:8080/event -H "Content-Type: application/json" -d '{"call_id":"1", "a_number":"+111", "b_number":"+234999", "timestamp":"2023-01-01T00:00:00Z"}'
+# ... repeat with different a_numbers
 ```
 
 ## Project Structure
 
 ```
-Anti_Call-Masking/
-├── anti-call-masking/           # Main application
-│   ├── frontend/                # React admin dashboard
-│   │   ├── src/
-│   │   │   ├── components/
-│   │   │   ├── pages/
-│   │   │   ├── services/
-│   │   │   └── stores/
-│   │   └── package.json
-│   ├── mobile/                  # Flutter mobile app
-│   │   ├── lib/
-│   │   │   ├── screens/
-│   │   │   ├── providers/
-│   │   │   └── services/
-│   │   └── pubspec.yaml
-│   ├── kdb/                     # kdb+ scripts
-│   │   ├── schema/
-│   │   └── scripts/
-│   ├── docs/                    # Documentation
-│   │   ├── manuals/
-│   │   └── training/
-│   └── docker-compose.yml
+anti-call-masking/
+├── detection-service-rust/  # Main Rust Application
+│   ├── src/                 # Source code
+│   └── Dockerfile
+├── docker-compose.yml       # Infrastructure (ClickHouse, Dragonfly, Rust)
+├── k8s-legacy/              # Old Kubernetes manifests (Deprecated)
+├── config/                  # Configuration files
 └── README.md
 ```
 

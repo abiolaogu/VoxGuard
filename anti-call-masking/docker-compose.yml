@@ -2,32 +2,56 @@ version: '3.8'
 
 services:
   # kdb+ Fraud Detection Engine
-  fraud-detection:
-    image: kx/kdb:4.0
-    container_name: fraud-detection
-    hostname: fraud-detection
+  # ClickHouse (Scalable Storage)
+  clickhouse:
+    image: clickhouse/clickhouse-server:23.8
+    container_name: clickhouse
+    hostname: clickhouse
     ports:
-      - "5012:5012"    # Main IPC port
-      - "5013:5013"    # Admin port
-      - "9090:9090"    # Prometheus metrics
+      - "8123:8123" # HTTP API
+      - "9000:9000" # Native TCP
     volumes:
-      - ./src:/app/src:ro
-      - ./tests:/app/tests:ro
-      - ./logs:/app/logs
-      - ./archive:/app/archive
-      - ./data:/app/data
-    environment:
-      - QHOME=/opt/kx
-      - QLIC=/opt/kx/lic
-    working_dir: /app
-    command: ["q", "src/main.q", "-p", "5012", "-noswitch"]
+      - clickhouse-data:/var/lib/clickhouse
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
     networks:
       - voip-network
-    healthcheck:
-      test: ["CMD", "q", "-e", "1+1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+    restart: unless-stopped
+
+  # DragonflyDB (High-Performance Cache)
+  dragonfly:
+    image: docker.dragonflydb.io/dragonflydb/dragonfly
+    container_name: dragonfly
+    hostname: dragonfly
+    ports:
+      - "6379:6379"
+    volumes:
+      - dragonfly-data:/data
+    networks:
+      - voip-network
+    restart: unless-stopped
+
+  # Rust Fraud Detection Service
+  detection-service:
+    build:
+      context: ./detection-service-rust
+      dockerfile: Dockerfile
+    container_name: detection-service
+    hostname: detection-service
+    ports:
+      - "8080:8080"
+    environment:
+      - CLICKHOUSE_URL=http://clickhouse:8123
+      - REDIS_URL=redis://dragonfly:6379
+      - DETECTION_WINDOW_SECONDS=5
+      - DETECTION_THRESHOLD=5
+    networks:
+      - voip-network
+    depends_on:
+      - clickhouse
+      - dragonfly
     restart: unless-stopped
 
   # FreeSWITCH Simulator (for testing)
@@ -38,39 +62,19 @@ services:
     container_name: freeswitch-sim
     hostname: freeswitch-sim
     ports:
-      - "8021:8021"    # ESL port
+      - "8021:8021" # ESL port
       - "5060:5060/udp" # SIP UDP
       - "5060:5060/tcp" # SIP TCP
     environment:
       - ESL_PASSWORD=ClueCon
-      - FRAUD_DETECTION_HOST=fraud-detection
-      - FRAUD_DETECTION_PORT=5012
+      - FRAUD_DETECTION_HOST=detection-service
+      - FRAUD_DETECTION_PORT=8080
     networks:
       - voip-network
     depends_on:
-      - fraud-detection
+      - detection-service
     profiles:
       - with-simulator
-
-  # Event generator for load testing
-  load-generator:
-    image: kx/kdb:4.0
-    container_name: load-generator
-    hostname: load-generator
-    volumes:
-      - ./src:/app/src:ro
-      - ./tests:/app/tests:ro
-    working_dir: /app
-    command: ["q", "tests/test_load.q"]
-    environment:
-      - FRAUD_DETECTION_HOST=fraud-detection
-      - FRAUD_DETECTION_PORT=5012
-    networks:
-      - voip-network
-    depends_on:
-      - fraud-detection
-    profiles:
-      - load-test
 
   # Prometheus for metrics collection
   prometheus:
@@ -112,19 +116,63 @@ services:
     profiles:
       - monitoring
 
-  # Redis for caching (optional)
-  redis:
+  # Redis for CDR real-time counters (dedicated for SIP processor)
+  redis-cdr:
     image: redis:7-alpine
-    container_name: redis
-    hostname: redis
+    container_name: redis-cdr
+    hostname: redis-cdr
     ports:
-      - "6379:6379"
+      - "6380:6379"
     volumes:
-      - redis-data:/data
+      - redis-cdr-data:/data
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
     networks:
       - voip-network
-    profiles:
-      - with-cache
+    restart: unless-stopped
+
+  # PostgreSQL for long-term CDR logs
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres
+    hostname: postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: cdr_user
+      POSTGRES_PASSWORD: cdr_secure_password
+      POSTGRES_DB: cdr_logs
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./sip-processor/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - voip-network
+    restart: unless-stopped
+
+  # FastAPI SIP Processor Service
+  sip-processor:
+    build:
+      context: ./sip-processor
+      dockerfile: Dockerfile
+    container_name: sip-processor
+    hostname: sip-processor
+    ports:
+      - "8000:8000"
+    environment:
+      - REDIS_URL=redis://redis-cdr:6379
+      - POSTGRES_URL=postgresql+asyncpg://cdr_user:cdr_secure_password@postgres:5432/cdr_logs
+      - SIP_INTERFACE=eth0
+      - SIP_PORT=5060
+      - DETECTION_WINDOW_SECONDS=5
+      - DETECTION_THRESHOLD=5
+      - MODEL_PATH=models/xgboost_masking.json
+    networks:
+      - voip-network
+    depends_on:
+      - redis-cdr
+      - postgres
+    cap_add:
+      - NET_RAW
+    restart: unless-stopped
 
 networks:
   voip-network:
@@ -137,3 +185,7 @@ volumes:
   prometheus-data:
   grafana-data:
   redis-data:
+  redis-cdr-data:
+  postgres-data:
+  clickhouse-data:
+  dragonfly-data:
