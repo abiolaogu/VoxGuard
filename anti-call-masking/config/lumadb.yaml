@@ -1,13 +1,53 @@
 # LumaDB Configuration for Anti-Call Masking Detection System
 # =============================================================
-# This replaces kdb+, Kafka, Redis, and PostgreSQL configurations
+# LumaDB is the UNIFIED database platform replacing:
+#   - PostgreSQL (wire protocol on port 5432)
+#   - Redis/DragonflyDB (wire protocol on port 6379)
+#   - ClickHouse (HTTP API on port 8123)
+#   - Kafka (wire protocol on port 9092)
+#   - kdb+ time-series storage
 
 server:
   node_id: 1
   data_dir: /data
   log_dir: /var/log/lumadb
 
-# API Configuration
+# =============================================================================
+# PostgreSQL Wire Protocol (replaces PostgreSQL)
+# =============================================================================
+postgres:
+  host: "0.0.0.0"
+  port: 5432
+  max_connections: 1000
+  default_database: default
+  auth_method: trust  # trust, md5, scram-sha-256
+  ssl_enabled: false
+
+# =============================================================================
+# Redis Wire Protocol (replaces Redis/DragonflyDB)
+# =============================================================================
+redis:
+  host: "0.0.0.0"
+  port: 6379
+  max_connections: 10000
+  max_memory: 1073741824  # 1GB
+  eviction_policy: allkeys-lru
+  # Supported commands: GET, SET, INCR, DECR, EXPIRE, TTL, DEL, SADD, SREM, 
+  #                     SMEMBERS, SCARD, LPUSH, RPUSH, LRANGE, LLEN, PIPELINE
+
+# =============================================================================
+# ClickHouse HTTP API (replaces ClickHouse)
+# =============================================================================
+clickhouse:
+  host: "0.0.0.0"
+  port: 8123
+  max_connections: 500
+  query_timeout_secs: 300
+  # Full ClickHouse SQL compatibility for analytics queries
+
+# =============================================================================
+# REST/GraphQL/gRPC APIs
+# =============================================================================
 api:
   rest:
     host: "0.0.0.0"
@@ -24,8 +64,9 @@ api:
     port: 50051
     max_message_size: 16777216  # 16MB
 
-# Kafka Protocol (100% Kafka-compatible)
-# Replaces: Kafka, Redpanda
+# =============================================================================
+# Kafka Protocol (100% Kafka-compatible, replaces Kafka/Redpanda)
+# =============================================================================
 kafka:
   host: "0.0.0.0"
   port: 9092
@@ -37,8 +78,9 @@ kafka:
   retention_ms: 604800000  # 7 days
   retention_bytes: -1  # Unlimited
 
+# =============================================================================
 # Storage Engine Configuration
-# Replaces: kdb+ time-series storage
+# =============================================================================
 storage:
   lsm:
     memtable_size: 67108864  # 64MB
@@ -50,8 +92,8 @@ storage:
     sync_mode: async  # sync, async, none
     segment_size: 67108864  # 64MB
   cache:
-    block_cache_size: 1073741824  # 1GB (replaces Redis)
-    index_cache_size: 268435456   # 256MB
+    block_cache_size: 2147483648  # 2GB (in-memory cache)
+    index_cache_size: 536870912   # 512MB
   # Time-series optimizations (replacing kdb+)
   timeseries:
     compression: gorilla  # 8-12x compression for numeric data
@@ -63,7 +105,9 @@ storage:
     compression: zstd
     dictionary_encoding: true
 
+# =============================================================================
 # Streaming Engine (100x faster than Kafka)
+# =============================================================================
 streaming:
   reactor_threads: 0  # 0 = auto-detect
   io_depth: 256
@@ -71,18 +115,22 @@ streaming:
   batch_size: 1000
   batch_timeout_us: 100
 
+# =============================================================================
 # Query Engine
+# =============================================================================
 query:
   max_concurrent_queries: 100
   query_timeout_secs: 300
-  memory_limit: 2147483648  # 2GB
+  memory_limit: 4294967296  # 4GB
   optimizer:
     enable_predicate_pushdown: true
     enable_projection_pushdown: true
     enable_join_reordering: true
     enable_simd: true  # AVX-512/NEON acceleration
 
+# =============================================================================
 # Security (disabled for development)
+# =============================================================================
 security:
   auth_enabled: false
   auth_method: jwt
@@ -91,7 +139,9 @@ security:
   tls_enabled: false
   audit_enabled: false
 
+# =============================================================================
 # Logging
+# =============================================================================
 logging:
   level: info  # debug, info, warn, error
   format: json
@@ -102,11 +152,29 @@ logging:
     max_files: 10
     compress: true
 
+# =============================================================================
 # Metrics (Prometheus compatible)
+# =============================================================================
 metrics:
   enabled: true
+  port: 9090
   endpoint: /metrics
   prometheus:
     enabled: true
     namespace: lumadb
     include_runtime: true
+
+# =============================================================================
+# Anti-Call Masking Specific Configuration
+# =============================================================================
+acm:
+  # Detection parameters
+  detection_window_seconds: 5
+  detection_threshold: 5
+  
+  # CDR retention
+  cdr_retention_days: 90
+  
+  # Alert configuration
+  alert_topic: acm.alerts
+  events_topic: acm.call_events
