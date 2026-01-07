@@ -1,0 +1,26 @@
+============================================================
+ISOLATION FOREST FRAUD DETECTION - MODEL METRICS
+============================================================
+
+## Dataset Summary
+- Total Samples (CLIs): 1898
+- Fraud Samples: 10
+- Normal Samples: 1888
+
+## Model Performance
+- **Precision**: 0.1053
+- **Recall**: 1.0000
+- **F1 Score**: 0.1905
+
+## Confusion Matrix
+                 Predicted Normal  Predicted Fraud
+  Actual Normal        1803               85
+  Actual Fraud            0               10
+
+## Interpretation
+- True Positives (correctly detected fraud): 10
+- False Positives (normal flagged as fraud): 85
+- True Negatives (correctly identified normal): 1803
+- False Negatives (missed fraud): 0
+
+============================================================
