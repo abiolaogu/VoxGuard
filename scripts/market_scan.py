@@ -1,169 +1,347 @@
-
 #!/usr/bin/env python3
 """
-Market Research Scanner
-Fetches Google Trends RSS feed and generates a daily briefing report.
+Context-Aware Market Research Scanner
+Uses semantic analysis via Anthropic API to filter relevant news and auto-create GitHub issues.
 """
 
-import requests
-import xml.etree.ElementTree as ET
+import os
+import re
+import sys
+import feedparser
 from datetime import datetime
 from pathlib import Path
+from anthropic import Anthropic
+from github import Github
 
 
-def fetch_trends_rss(geo='NG'):
+def extract_project_description(file_path):
     """
-    Fetch Google Trends RSS feed for a specific geography.
+    Extract project description from CLAUDE.md or README.md.
 
     Args:
-        geo: Country code (default: 'NG' for Nigeria)
+        file_path: Path to the markdown file
 
     Returns:
-        XML string content
+        Extracted project description or None
     """
-    url = f'https://trends.google.com/trends/trendingsearches/daily/rss?geo={geo}'
-    response = requests.get(url, timeout=10)
-    response.raise_for_status()
-    return response.text
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+
+        # Look for common patterns:
+        # - "Project Description:" followed by text
+        # - First paragraph after main heading
+        # - "Identity:" line (from CLAUDE.md format)
+
+        # Pattern 1: Explicit "Project Description"
+        desc_match = re.search(r'(?:Project Description|Description):\s*(.+?)(?:\n\n|\n#|$)', content, re.IGNORECASE | re.DOTALL)
+        if desc_match:
+            return desc_match.group(1).strip()
+
+        # Pattern 2: "Identity:" from CLAUDE.md
+        identity_match = re.search(r'\*\*Identity:\*\*\s*(.+?)(?:\n|$)', content)
+        if identity_match:
+            return identity_match.group(1).strip()
+
+        # Pattern 3: First substantial paragraph
+        lines = content.split('\n')
+        for i, line in enumerate(lines):
+            if line.startswith('#'):
+                # Get text after heading until next heading or double newline
+                remaining = '\n'.join(lines[i+1:])
+                para_match = re.search(r'^\s*(.+?)(?:\n\n|\n#|$)', remaining, re.DOTALL)
+                if para_match:
+                    desc = para_match.group(1).strip()
+                    if len(desc) > 20:  # Ensure it's substantial
+                        return desc
+
+        return None
+
+    except FileNotFoundError:
+        return None
 
 
-def parse_trending_topics(xml_content, limit=3):
+def read_project_context():
     """
-    Parse XML content to extract trending topics.
-
-    Args:
-        xml_content: XML string from RSS feed
-        limit: Number of top topics to extract (default: 3)
+    Read project context from CLAUDE.md or README.md.
 
     Returns:
-        List of dictionaries with topic information
+        Project description string
     """
-    root = ET.fromstring(xml_content)
-    topics = []
+    base_path = Path(__file__).parent.parent
 
-    # Find all items in the RSS feed
-    for item in root.findall('.//item')[:limit]:
-        title = item.find('title')
-        description = item.find('description')
-        link = item.find('link')
-        pub_date = item.find('pubDate')
+    # Try CLAUDE.md first
+    claude_md = base_path / 'CLAUDE.md'
+    description = extract_project_description(claude_md)
 
-        # Extract traffic volume if available
-        traffic = item.find('.//{http://www.google.com/trends/trendingsearches}approx_traffic')
+    if description:
+        print(f"📖 Found project context in CLAUDE.md")
+        return description
 
-        topic = {
-            'title': title.text if title is not None else 'N/A',
-            'description': description.text if description is not None else 'N/A',
-            'link': link.text if link is not None else 'N/A',
-            'pub_date': pub_date.text if pub_date is not None else 'N/A',
-            'traffic': traffic.text if traffic is not None else 'N/A'
-        }
-        topics.append(topic)
+    # Fallback to README.md
+    readme_md = base_path / 'README.md'
+    description = extract_project_description(readme_md)
 
-    return topics
+    if description:
+        print(f"📖 Found project context in README.md")
+        return description
+
+    # Ultimate fallback
+    print("⚠️  No project description found in CLAUDE.md or README.md")
+    return "BillyRonks Global - An autonomous builder and technology company"
 
 
-def generate_markdown_report(topics, geo='Nigeria'):
+def fetch_rss_feeds():
     """
-    Generate a markdown report from trending topics.
-
-    Args:
-        topics: List of topic dictionaries
-        geo: Geographic location name
+    Fetch RSS feeds from Google News Technology and TechCrunch.
 
     Returns:
-        Markdown formatted string
+        List of news items with title, link, and summary
     """
-    today = datetime.now().strftime('%Y-%m-%d')
+    feeds = [
+        ('Google News Technology', 'https://news.google.com/rss/search?q=technology&hl=en-US&gl=US&ceid=US:en'),
+        ('TechCrunch', 'https://techcrunch.com/feed/')
+    ]
 
-    report = f"""# Daily Market Research Briefing
-**Date:** {today}
-**Region:** {geo}
-**Source:** Google Trends
+    news_items = []
 
-## Top Trending Topics
+    for source_name, feed_url in feeds:
+        print(f"📡 Fetching {source_name}...")
+        try:
+            feed = feedparser.parse(feed_url)
 
-"""
+            for entry in feed.entries[:10]:  # Get top 10 from each source
+                news_items.append({
+                    'source': source_name,
+                    'title': entry.get('title', 'No title'),
+                    'link': entry.get('link', ''),
+                    'summary': entry.get('summary', entry.get('description', ''))
+                })
 
-    for i, topic in enumerate(topics, 1):
-        report += f"### {i}. {topic['title']}\n\n"
+            print(f"   ✓ Found {len(feed.entries[:10])} articles")
 
-        if topic['traffic'] != 'N/A':
-            report += f"**Approximate Traffic:** {topic['traffic']}\n\n"
+        except Exception as e:
+            print(f"   ✗ Error fetching {source_name}: {e}")
 
-        if topic['description'] != 'N/A':
-            # Clean up description HTML if present
-            desc = topic['description'].replace('<b>', '**').replace('</b>', '**')
-            report += f"{desc}\n\n"
-
-        if topic['link'] != 'N/A':
-            report += f"[More Information]({topic['link']})\n\n"
-
-        report += "---\n\n"
-
-    report += f"""
-## Analysis Notes
-
-*This report was automatically generated by the market_scan.py script on {today}.*
-
-## Next Steps
-
-- Review trending topics for relevance to mobile gaming market
-- Identify potential opportunities or threats
-- Cross-reference with competitive intelligence
-"""
-
-    return report
+    return news_items
 
 
-def save_report(report, output_path='docs/product/research/daily_briefing.md'):
+def analyze_relevance(project_description, headline, anthropic_api_key):
     """
-    Save the markdown report to a file.
+    Use Anthropic API to determine if a headline is relevant to the project.
 
     Args:
-        report: Markdown content string
-        output_path: Path to save the report
+        project_description: The project's description
+        headline: News headline to analyze
+        anthropic_api_key: Anthropic API key
+
+    Returns:
+        Tuple of (is_relevant: bool, explanation: str)
     """
-    output_file = Path(output_path)
-    output_file.parent.mkdir(parents=True, exist_ok=True)
+    client = Anthropic(api_key=anthropic_api_key)
 
-    with open(output_file, 'w', encoding='utf-8') as f:
-        f.write(report)
+    prompt = f"""My project is: {project_description}
 
-    print(f"Report saved to: {output_path}")
+News Headline: {headline}
+
+Is this news directly relevant to my project? Answer YES or NO. If YES, explain the opportunity in one sentence."""
+
+    try:
+        message = client.messages.create(
+            model="claude-3-5-sonnet-20241022",
+            max_tokens=150,
+            messages=[
+                {"role": "user", "content": prompt}
+            ]
+        )
+
+        response = message.content[0].text.strip()
+
+        # Parse response
+        is_relevant = response.upper().startswith('YES')
+
+        if is_relevant:
+            # Extract explanation (everything after YES)
+            explanation = response[3:].strip()
+            if explanation.startswith('.') or explanation.startswith(','):
+                explanation = explanation[1:].strip()
+            return True, explanation
+
+        return False, ""
+
+    except Exception as e:
+        print(f"   ✗ Error calling Anthropic API: {e}")
+        return False, ""
+
+
+def check_issue_exists(github_client, repo_name, news_url):
+    """
+    Check if an issue with this URL already exists.
+
+    Args:
+        github_client: GitHub client instance
+        repo_name: Repository name (owner/repo)
+        news_url: URL to check for
+
+    Returns:
+        True if issue exists, False otherwise
+    """
+    try:
+        repo = github_client.get_repo(repo_name)
+        issues = repo.get_issues(state='all', labels=['strategic-opportunity'])
+
+        for issue in issues:
+            if news_url in issue.body:
+                return True
+
+        return False
+
+    except Exception as e:
+        print(f"   ✗ Error checking existing issues: {e}")
+        return False
+
+
+def create_github_issue(github_client, repo_name, headline, explanation, news_url):
+    """
+    Create a GitHub issue for a relevant news item.
+
+    Args:
+        github_client: GitHub client instance
+        repo_name: Repository name (owner/repo)
+        headline: News headline
+        explanation: Relevance explanation from LLM
+        news_url: Source URL
+
+    Returns:
+        Created issue object or None
+    """
+    try:
+        repo = github_client.get_repo(repo_name)
+
+        # Get or create the label
+        try:
+            label = repo.get_label('strategic-opportunity')
+        except:
+            label = repo.create_label('strategic-opportunity', '8B5CF6', 'AI-identified strategic opportunity')
+
+        title = f"Opportunity: {headline}"
+        body = f"""**Relevance Analysis:** {explanation}
+
+**Source:** {news_url}
+
+---
+*Auto-generated by context-aware market research scanner*"""
+
+        issue = repo.create_issue(
+            title=title,
+            body=body,
+            labels=[label]
+        )
+
+        print(f"   ✓ Created issue #{issue.number}: {headline[:50]}...")
+        return issue
+
+    except Exception as e:
+        print(f"   ✗ Error creating GitHub issue: {e}")
+        return None
 
 
 def main():
     """Main execution function."""
-    try:
-        print("Fetching Google Trends RSS feed for Nigeria...")
-        xml_content = fetch_trends_rss(geo='NG')
+    print("🤖 Context-Aware Market Research Scanner")
+    print("=" * 50)
 
-        print("Parsing trending topics...")
-        topics = parse_trending_topics(xml_content, limit=3)
+    # Step 1: Read project context
+    print("\n📋 Step 1: Reading project context...")
+    project_description = read_project_context()
+    print(f"   Context: {project_description}")
 
-        print(f"Found {len(topics)} trending topics")
+    # Check for required environment variables
+    anthropic_api_key = os.getenv('ANTHROPIC_API_KEY')
+    github_token = os.getenv('GITHUB_TOKEN')
+    github_repo = os.getenv('GITHUB_REPOSITORY')  # Format: owner/repo
 
-        print("Generating markdown report...")
-        report = generate_markdown_report(topics, geo='Nigeria')
-
-        print("Saving report...")
-        save_report(report)
-
-        print("Daily briefing generated successfully!")
-
-    except requests.RequestException as e:
-        print(f"Error fetching RSS feed: {e}")
+    if not anthropic_api_key:
+        print("\n❌ Error: ANTHROPIC_API_KEY environment variable not set")
         return 1
-    except ET.ParseError as e:
-        print(f"Error parsing XML: {e}")
+
+    if not github_token:
+        print("\n❌ Error: GITHUB_TOKEN environment variable not set")
         return 1
-    except Exception as e:
-        print(f"Unexpected error: {e}")
-        return 1
+
+    if not github_repo:
+        print("\n⚠️  Warning: GITHUB_REPOSITORY not set, using default 'billyronks/billyronks-production-01'")
+        github_repo = 'billyronks/billyronks-production-01'
+
+    # Step 2: Fetch news feeds
+    print("\n📰 Step 2: Fetching global news signals...")
+    news_items = fetch_rss_feeds()
+    print(f"   Total articles fetched: {len(news_items)}")
+
+    if not news_items:
+        print("\n⚠️  No news items found")
+        return 0
+
+    # Step 3: Semantic filtering
+    print(f"\n🧠 Step 3: Semantic filtering ({len(news_items)} articles)...")
+    github_client = Github(github_token)
+    relevant_count = 0
+    created_count = 0
+    skipped_count = 0
+
+    for i, item in enumerate(news_items, 1):
+        print(f"\n   [{i}/{len(news_items)}] Analyzing: {item['title'][:60]}...")
+
+        # Check relevance
+        is_relevant, explanation = analyze_relevance(
+            project_description,
+            item['title'],
+            anthropic_api_key
+        )
+
+        if is_relevant:
+            relevant_count += 1
+            print(f"   ✓ RELEVANT: {explanation[:80]}...")
+
+            # Step 4: Deduplication check
+            if check_issue_exists(github_client, github_repo, item['link']):
+                print(f"   ⊘ Issue already exists, skipping...")
+                skipped_count += 1
+                continue
+
+            # Step 5: Create GitHub issue
+            issue = create_github_issue(
+                github_client,
+                github_repo,
+                item['title'],
+                explanation,
+                item['link']
+            )
+
+            if issue:
+                created_count += 1
+        else:
+            print(f"   ⊘ Not relevant")
+
+    # Summary
+    print("\n" + "=" * 50)
+    print("✅ Scan complete!")
+    print(f"   Articles analyzed: {len(news_items)}")
+    print(f"   Relevant opportunities: {relevant_count}")
+    print(f"   New issues created: {created_count}")
+    print(f"   Duplicates skipped: {skipped_count}")
 
     return 0
 
 
 if __name__ == '__main__':
-    exit(main())
+    try:
+        exit(main())
+    except KeyboardInterrupt:
+        print("\n\n⚠️  Scan interrupted by user")
+        exit(130)
+    except Exception as e:
+        print(f"\n❌ Unexpected error: {e}")
+        import traceback
+        traceback.print_exc()
+        exit(1)
