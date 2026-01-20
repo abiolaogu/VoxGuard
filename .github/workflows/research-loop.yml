@@ -1,0 +1,26 @@
+name: Daily Market Research
+on:
+  schedule:
+    - cron: "0 8 * * *" # Runs at 8 AM daily
+  workflow_dispatch:
+
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Market Scan
+        # In a real setup, this runs a python script. 
+        # For the template, we create the placeholder structure.
+        run: |
+          echo "Scanning for Market Signals..."
+          # This is where we would trigger the Python script mentioned in Section 4.1
+      - name: Create Daily Insight
+        uses: peter-evans/create-issue-from-file@v4
+        with:
+          title: "Daily Market Insight"
+          content: "Automated research placeholder. Configure scripts/research_collect.py to activate."
+          labels: research-insight
