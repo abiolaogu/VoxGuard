@@ -1,0 +1,45 @@
+name: Universal Product Derivation
+on:
+  workflow_dispatch:
+    inputs:
+      config_file:
+        description: 'Path to derivation config (e.g., configs/derive-cms.yaml)'
+        required: true
+
+jobs:
+  derive:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Parse Generic Config
+        id: config
+        run: |
+          # Dynamically load whichever file was passed in the input
+          CONFIG=$(yq -o=json ${{ inputs.config_file }})
+          echo "config=$CONFIG" >> $GITHUB_OUTPUT
+
+      - name: Create New Repository
+        run: |
+          # Creates repo based on the target name in the YAML
+          gh repo create ${{ fromJson(steps.config.outputs.config).target.repository }} --private
+
+      - name: Universal Transformation
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            You are the Repository Transformation Engine.
+            Task: Extract a standalone product based STRICTLY on this configuration.
+            
+            Configuration Data:
+            ${{ steps.config.outputs.config }}
+
+            Instructions:
+            1. Extract ONLY the paths listed in 'extraction.include'.
+            2. Remove any paths listed in 'extraction.exclude'.
+            3. Apply the specific regex replacements defined in 'extraction.replacements'.
+            4. Inject the 'standalone_additions' templates if defined.
+            5. Update package.json/requirements.txt to match the new 'target.name'.
+            
+            Context: This is a generic transformation. Do not assume context outside this config.
