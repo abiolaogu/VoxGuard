@@ -33,3 +33,5 @@
 ## Common Tasks
 
 - **Market Research:** Run `python scripts/market_scan.py` to fetch trending topics from Google Trends and generate a daily briefing report at `docs/product/research/daily_briefing.md`.
+
+- **Universal Transformation Kit:** Use `./scripts/install_transformation_kit.sh [TARGET_REPO]` to install the universal CI/CD system into any repository. See `docs/universal-transformation-kit.md` for full documentation.
