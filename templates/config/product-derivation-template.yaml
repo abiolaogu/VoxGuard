@@ -1,32 +1,18 @@
 derivation:
-  name: {{NEW_PRODUCT_NAME}}  # e.g., billy-cms
-  display_name: '{{READABLE_NAME}}' # e.g., BillyCMS Standalone
-  
+  name: product-name
   source:
-    repository: {{CURRENT_REPO}} # e.g., billyronks-07foods
+    repository: your-org/source-repo
     branch: main
-  
   target:
-    repository: {{TARGET_REPO_NAME}} # e.g., billyronks-cms-product
+    repository: your-org/target-product-repo
     type: standalone_product
 
   extraction:
-    # List every folder you want to copy to the new repo
     include:
-      - {{PATH_TO_MODULE_1}} # e.g., src/backend/cms
-      - {{PATH_TO_MODULE_2}} # e.g., src/frontend/admin_panel
-    
-    # List stuff inside those folders you DON'T want
+      - src/specific-module/**
+      - requirements.txt
     exclude:
-      - {{PATH_TO_EXCLUDE}} # e.g., src/backend/cms/07foods_specific_branding
-    
-    # Find and Replace rules (e.g., renaming imports)
+      - src/other-modules/**
     replacements:
-      - from: '{{OLD_IMPORT_PATH}}'
-        to: '{{NEW_IMPORT_PATH}}'
-      - from: '{{OLD_PROJECT_NAME}}'
-        to: '{{NEW_PRODUCT_NAME}}'
-
-  sync:
-    enabled: true
-    direction: bidirectional # or 'one_way'
+      - from: 'OldName'
+        to: 'NewProduct'
