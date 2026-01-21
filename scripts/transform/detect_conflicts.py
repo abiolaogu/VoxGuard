@@ -1,24 +1,40 @@
-import hashlib
-import argparse
-from pathlib import Path
-import yaml
+import sys
+import os
 
-def detect_conflicts(primary_path, secondary_path, config_path, last_sync_manifest):
-    conflicts = []
-    
-    # Load the specific config for this sync pair
-    with open(config_path) as f:
-        sync_config = yaml.safe_load(f)
+def detect_merge_conflicts(directory):
+    """
+    Scans a directory for standard Git merge conflict markers.
+    """
+    conflict_markers = [
+        b'<<<<<<< ',
+        b'=======\n',
+        b'>>>>>>> '
+    ]
+    conflicts_found = []
 
-    # Generic Loop: Works for ANY defined module
-    for module in sync_config['sync_relationship']['sync_modules']:
-        # ... [Standard hashing logic remains the same] ...
-        pass
+    for root, dirs, files in os.walk(directory):
+        if '.git' in dirs:
+            dirs.remove('.git') # Skip .git directory
+        
+        for filename in files:
+            filepath = os.path.join(root, filename)
+            try:
+                with open(filepath, 'rb') as f:
+                    content = f.read()
+                    if any(marker in content for marker in conflict_markers):
+                        conflicts_found.append(filepath)
+            except (IOError, OSError):
+                continue
     
-    return conflicts
+    if conflicts_found:
+        print("CONFLICTS DETECTED in the following files:")
+        for f in conflicts_found:
+            print(f" - {f}")
+        sys.exit(1)
+    else:
+        print("No conflicts detected.")
+        sys.exit(0)
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--config", required=True, help="Path to sync-config.yaml")
-    args = parser.parse_args()
-    # ... logic continues ...
+    target_dir = sys.argv[1] if len(sys.argv) > 1 else "."
+    detect_merge_conflicts(target_dir)
