@@ -1,5 +1,22 @@
 # Autonomous Factory Constitution
 
+## ⚠️ Setup Requirements
+
+**CRITICAL:** Before using this Factory Template, you MUST configure the following secrets in your repository:
+
+1. **ANTHROPIC_API_KEY**: Your Anthropic API key for Claude Code Action
+   - Get your key at: https://console.anthropic.com/
+   - Required for AI-powered product derivation
+
+2. **FACTORY_ADMIN_TOKEN**: GitHub Personal Access Token (PAT)
+   - Required scopes: `repo` and `workflow`
+   - Used for creating repositories and managing workflows
+   - Create at: https://github.com/settings/tokens
+
+**To add secrets:** Navigate to **Settings → Secrets and variables → Actions** in your repository.
+
+---
+
 ## Universal Rules
 
 1. **The Prime Directive:** Speed is life. "Vibe coding" applies.
