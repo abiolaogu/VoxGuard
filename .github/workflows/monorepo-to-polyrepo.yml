@@ -1,0 +1,46 @@
+name: Monorepo to Polyrepo Conversion
+on:
+  workflow_dispatch:
+    inputs:
+      module_path:
+        description: 'Path to module (e.g., packages/billing)'
+        required: true
+      new_repo_name:
+        description: 'New Repository Name (e.g., billyronks/billing-service)'
+        required: true
+
+jobs:
+  split:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Monorepo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create New Repo
+        env:
+          GH_TOKEN: ${{ secrets.FACTORY_ADMIN_TOKEN }}
+        run: |
+          gh repo create ${{ inputs.new_repo_name }} --private || echo "Repo exists"
+
+      - name: Extract History & Push
+        env:
+          TARGET_REPO: ${{ inputs.new_repo_name }}
+          MODULE_PATH: ${{ inputs.module_path }}
+          GH_TOKEN: ${{ secrets.FACTORY_ADMIN_TOKEN }}
+        run: |
+          # Install git-filter-repo for history preservation
+          sudo apt-get install python3-pip -y
+          pip3 install git-filter-repo
+
+          # Clone a fresh copy to not mess up the current workspace
+          git clone . temp-repo
+          cd temp-repo
+
+          # Filter history to ONLY this folder
+          git filter-repo --path $MODULE_PATH/ --to-subdirectory-filter $MODULE_PATH/
+
+          # Push to new home
+          git remote add origin https://oauth2:$GH_TOKEN@github.com/$TARGET_REPO.git
+          git push -u origin main --force
