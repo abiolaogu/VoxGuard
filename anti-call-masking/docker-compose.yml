@@ -339,6 +339,7 @@ services:
       - '--storage.tsdb.path=/prometheus'
       - '--storage.tsdb.retention.time=30d'
       - '--web.enable-lifecycle'
+      - '--storage.tsdb.retention.time=15d'
     networks:
       - acm-network
 
@@ -446,7 +447,7 @@ networks:
     driver: bridge
     ipam:
       config:
-        - subnet: 172.28.0.0/16
+        - subnet: 172.30.0.0/16
 
 # ==========================================================================
 # VOLUMES
