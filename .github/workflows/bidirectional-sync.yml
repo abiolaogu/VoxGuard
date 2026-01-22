@@ -1,7 +1,5 @@
 name: Bidirectional Sync
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
     inputs:
       target_repo:
