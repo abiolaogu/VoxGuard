@@ -6,46 +6,61 @@ on:
   workflow_dispatch:
 
 jobs:
-  ingest-research:
+  # PHASE 1: Detect the file and open a "Ticket" for Claude
+  create-analysis-ticket:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
       issues: write
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 2
 
-      - name: Detect New Research
-        id: detect
-        run: |
-          NEW_FILES=$(git diff --name-only HEAD~1 HEAD | grep 'research/incoming/' || echo "")
-          echo "files=$NEW_FILES" >> $GITHUB_OUTPUT
-
-      - name: Process with Claude
-        if: steps.detect.outputs.files != ''
-        uses: anthropics/claude-code-action@v1
-        with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          prompt: |
-            TASK: Analyze the newly added research files: ${{ steps.detect.outputs.files }}
-
-            1. Extract key market insights and product opportunities.
-            2. Define validation criteria and recommended tech stack.
-            3. OUTPUT: Generate a JSON object describing the "Opportunity".
-
-      - name: Create Opportunity Issue
-        if: steps.detect.outputs.files != ''
+      - name: Detect New Files & Open Issue
         uses: actions/github-script@v7
         with:
           script: |
-            // In a real scenario, we parse the JSON from Claude.
-            // For this template, we create a placeholder issue to demonstrate the flow.
-            await github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title: "[Opportunity] New Market Signal Detected",
-              body: "### Research Ingestion Report\n\nNew files were detected in `research/incoming/`. \n\n**Action Required:** Review extracted insights and add 'approved-for-development' label to initiate product.",
-              labels: ['research-insight', 'opportunity', 'P1']
-            });
+            const { execSync } = require('child_process');
+            
+            // 1. Find what changed in the research folder
+            try {
+              const diff = execSync('git diff --name-only HEAD~1 HEAD | grep "research/incoming/" || true').toString().trim();
+              if (!diff) {
+                console.log("No new research files found.");
+                return;
+              }
+              
+              const files = diff.split('\n').filter(Boolean);
+
+              // 2. Create an Issue for each file to trigger Claude
+              for (const file of files) {
+                const fileName = file.split('/').pop();
+                
+                // The PROMPT goes here, inside the issue body
+                const analysisPrompt = `
+                @claude **SYSTEM EVENT:** New research detected in \`${file}\`.
+                
+                **TASK:** Analyze this research artifact and extract product opportunities.
+                
+                1. **Summarize:** What is this document about? (Market Report, Competitor News, etc.)
+                2. **Extract:** List any key "Opportunities" or "Gaps" identified.
+                3. **Recommend:** If valid, suggest a new product concept.
+                
+                (Note: Please read the file content from the repository context).
+                `;
+
+                await github.rest.issues.create({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  title: `🕵️ Research Ingestion: ${fileName}`,
+                  body: analysisPrompt,
+                  labels: ['research-ingestion', 'trigger-claude']
+                });
+                
+                console.log(`Created issue for ${fileName}`);
+              }
+            } catch (error) {
+              console.error("Error processing git diff:", error);
+              core.setFailed(error.message);
+            }
