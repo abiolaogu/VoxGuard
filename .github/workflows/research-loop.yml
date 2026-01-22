@@ -1,26 +1,36 @@
-name: Daily Market Research
+name: Continuous Research Loop
 on:
   schedule:
-    - cron: "0 8 * * *" # Runs at 8 AM daily
+    - cron: '0 8 * * *' # Daily at 8 AM
   workflow_dispatch:
 
 jobs:
-  research:
+  gather-intelligence:
     runs-on: ubuntu-latest
     permissions:
       contents: write
       issues: write
     steps:
-      - uses: actions/checkout@v4
-      - name: Market Scan
-        # In a real setup, this runs a python script. 
-        # For the template, we create the placeholder structure.
-        run: |
-          echo "Scanning for Market Signals..."
-          # This is where we would trigger the Python script mentioned in Section 4.1
-      - name: Create Daily Insight
-        uses: peter-evans/create-issue-from-file@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Scrape Market Signals
+        uses: anthropics/claude-code-action@v1
         with:
-          title: "Daily Market Insight"
-          content: "Automated research placeholder. Configure scripts/research_collect.py to activate."
-          labels: research-insight
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          prompt: |
+            TASK: Perform daily market research for this product category.
+
+            1. Search for recent news, competitor launches, and trending topics related to our tech stack (React Native, AI Agents, SaaS).
+            2. Summarize findings into a daily report.
+            3. If a high-value opportunity is found, output it as a JSON object to creating a GitHub Issue.
+            4. Save the report to 'docs/product/research/YYYY-MM-DD-daily-brief.md'.
+
+      - name: Commit Research
+        run: |
+          git config user.name "Research Bot"
+          git config user.email "bot@billyronks.com"
+          git add docs/product/research
+          git commit -m "chore: Daily market research update" || echo "No new research"
+          git push
