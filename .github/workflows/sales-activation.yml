@@ -1,0 +1,39 @@
+name: Sales Activation Pipeline
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      product_name:
+        description: 'Product to activate sales for'
+        required: true
+        default: 'LuckyBag'
+
+jobs:
+  activate-sales:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Load ICP Config
+        id: icp
+        run: |
+          echo "Reading Target Audience from config/ideal-customer-profile.yaml..."
+          cat config/ideal-customer-profile.yaml
+
+      - name: Enrich Leads (Clay Simulation)
+        run: |
+          echo "Connecting to Clay API..."
+          echo "Finding CTOs in Fintech companies using Kubernetes..."
+          echo "FOUND: 142 qualified leads."
+
+      - name: Generate Outreach (11x.ai Simulation)
+        run: |
+          echo "Triggering AI SDR Agent (Alice)..."
+          echo "Generating personalized email sequence for product: ${{ github.event.release.tag_name || inputs.product_name }}"
+          echo "Drafting messaging based on 'recent_funding' signal."
+
+      - name: Sync to HubSpot
+        run: |
+          echo "Pushing 142 contacts to HubSpot Pipeline: 'Product Launch'..."
+          echo "Status: SUCCESS"
