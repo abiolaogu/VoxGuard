@@ -1,66 +1,205 @@
-version: '3.8'
-
-# =============================================================================
-# Anti-Call Masking Detection System - LumaDB Edition
-# =============================================================================
-# LumaDB is the default unified database platform, providing:
-#   - PostgreSQL wire protocol (port 5432) - replaces PostgreSQL
-#   - Redis-compatible caching (port 6379) - replaces DragonflyDB/Redis
-#   - Kafka-compatible streaming (port 9092) - for event streaming
-#   - ClickHouse-compatible analytics (port 8123) - replaces ClickHouse
-#   - REST API (port 8080), GraphQL (port 4000), gRPC (port 50051)
-#   - Built-in Prometheus metrics (port 9090)
-#
-# Default: docker-compose up -d
-# Legacy: docker-compose --profile legacy up -d
-# =============================================================================
+# ============================================================================
+# Anti-Call Masking Platform - Docker Compose
+# Nigerian ICL Complete Stack Deployment
+# Version: 2.0 | Date: 2026-01-22
+# ============================================================================
 
 services:
-  # =========================================================================
-  # LumaDB - Unified Database Platform (DEFAULT)
-  # =========================================================================
-  lumadb:
-    image: ghcr.io/abiolaogu/lumadb:latest
-    container_name: lumadb
-    hostname: lumadb
+  # ==========================================================================
+  # DETECTION ENGINE (Rust)
+  # ==========================================================================
+  acm-engine:
+    build:
+      context: ../../detection-engine
+      dockerfile: Dockerfile
+    image: acm/detection-engine:2.0
+    container_name: acm-engine
+    restart: unless-stopped
     ports:
-      - "5432:5432" # PostgreSQL wire protocol
-      - "6379:6379" # Redis-compatible cache
-      - "9092:9092" # Kafka-compatible streaming
-      - "8123:8123" # ClickHouse-compatible HTTP API
-      - "8180:8080" # LumaDB REST API
-      - "4000:4000" # GraphQL API
-      - "50051:50051" # gRPC
-      - "9090:9090" # Prometheus metrics
-    volumes:
-      - lumadb-data:/data
-      - lumadb-wal:/wal
-      - ./config/lumadb.yaml:/etc/lumadb/config.yaml:ro
-      - ./sip-processor/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - "8080:8080"
+      - "9090:9090"  # Prometheus metrics
     environment:
-      - LUMADB_NODE_ID=1
-      - LUMADB_DATA_DIR=/data
-      - LUMADB_LOG_DIR=/var/log/lumadb
-      - LUMADB_PG_PORT=5432
-      - LUMADB_REDIS_PORT=6379
-      - LUMADB_KAFKA_PORT=9092
-      - LUMADB_CLICKHOUSE_PORT=8123
-      - LUMADB_REST_PORT=8080
-      - LUMADB_GRAPHQL_PORT=4000
-      - LUMADB_GRPC_PORT=50051
-      - LUMADB_METRICS_PORT=9090
-      - LUMADB_AUTH_ENABLED=false
-      - RUST_LOG=info
+      RUST_LOG: info,acm_detection=debug
+      RUST_BACKTRACE: 1
+      
+      # Server config
+      ACM_HOST: 0.0.0.0
+      ACM_PORT: 8080
+      ACM_METRICS_PORT: 9090
+      ACM_REGION: lagos
+      ACM_NODE_ID: acm-engine-1
+      
+      # DragonflyDB
+      DRAGONFLY_URL: redis://dragonfly:6379
+      DRAGONFLY_POOL_SIZE: 32
+      
+      # YugabyteDB
+      YUGABYTE_URL: postgres://opensips:${YUGABYTE_PASSWORD:-acm_secure_2026}@yugabyte:5433/opensips
+      YUGABYTE_POOL_SIZE: 16
+      
+      # ClickHouse
+      CLICKHOUSE_URL: http://clickhouse:8123
+      CLICKHOUSE_DATABASE: acm
+      
+      # QuestDB (real-time analytics)
+      QUESTDB_PG_HOST: questdb
+      QUESTDB_PG_PORT: 8812
+      QUESTDB_ILP_HOST: questdb
+      QUESTDB_ILP_PORT: 9009
+      QUESTDB_HTTP_HOST: questdb
+      QUESTDB_HTTP_PORT: 9000
+      
+      # NCC Compliance
+      NCC_ENABLED: ${NCC_ENABLED:-false}
+      NCC_ATRS_URL: https://atrs-api.ncc.gov.ng/v1
+      NCC_CLIENT_ID: ${NCC_CLIENT_ID:-}
+      NCC_CLIENT_SECRET: ${NCC_CLIENT_SECRET:-}
+      NCC_ICL_LICENSE: ${NCC_ICL_LICENSE:-}
+      
+      # Detection thresholds
+      ACM_CPM_WARNING: 40
+      ACM_CPM_CRITICAL: 60
+      ACM_ACD_WARNING: 10
+      ACM_ACD_CRITICAL: 5
+    depends_on:
+      dragonfly:
+        condition: service_healthy
+      yugabyte:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
     networks:
-      acm-network:
-        ipv4_address: 172.30.0.10
+      - acm-network
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:8080/health" ]
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 4G
+        reservations:
+          cpus: '2'
+          memory: 2G
+
+  # ==========================================================================
+  # OPENSIPS (SIP Server)
+  # ==========================================================================
+  opensips:
+    image: opensips/opensips:3.4
+    container_name: opensips
+    restart: unless-stopped
+    ports:
+      - "5060:5060/udp"
+      - "5060:5060/tcp"
+      - "5061:5061/tcp"  # TLS
+      - "8888:8888"      # MI HTTP
+    volumes:
+      - ../../opensips-integration/opensips-acm.cfg:/usr/local/etc/opensips/opensips.cfg:ro
+      - opensips-tls:/etc/opensips/tls
+    environment:
+      # Database
+      DB_HOST: yugabyte
+      DB_PORT: 5433
+      DB_USER: opensips
+      DB_PASS: ${YUGABYTE_PASSWORD:-acm_secure_2026}
+      DB_NAME: opensips
+      
+      # Cache
+      REDIS_HOST: dragonfly
+      REDIS_PORT: 6379
+      
+      # ACM Engine
+      ACM_ENGINE_HOST: acm-engine
+      ACM_ENGINE_PORT: 8080
+    depends_on:
+      acm-engine:
+        condition: service_healthy
+      dragonfly:
+        condition: service_healthy
+      yugabyte:
+        condition: service_healthy
+    networks:
+      - acm-network
+    cap_add:
+      - NET_ADMIN
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+
+  # ==========================================================================
+  # DRAGONFLYDB (High-Performance Cache)
+  # ==========================================================================
+  dragonfly:
+    image: docker.dragonflydb.io/dragonflydb/dragonfly:v1.14.0
+    container_name: dragonfly
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: >
+      --maxmemory=4gb
+      --proactor_threads=4
+      --cache_mode=true
+      --hz=100
+      --tcp-keepalive=60
+      --snapshot_cron="0 */6 * * *"
+      --dir=/data
+      --dbfilename=acm_cache.rdb
+    volumes:
+      - dragonfly-data:/data
+    networks:
+      - acm-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 5G
+        reservations:
+          cpus: '2'
+          memory: 4G
+
+  # ==========================================================================
+  # YUGABYTEDB (Distributed PostgreSQL)
+  # ==========================================================================
+  yugabyte:
+    image: yugabytedb/yugabyte:2.20.1.0-b97
+    container_name: yugabyte
+    restart: unless-stopped
+    ports:
+      - "5433:5433"   # YSQL
+      - "9000:9000"   # Master web UI
+      - "9042:9042"   # YCQL
+      - "7000:7000"   # Master RPC
+    command: >
+      bin/yugabyted start
+      --base_dir=/home/yugabyte/yb_data
+      --daemon=false
+      --ui=true
+      --tserver_flags="yb_enable_read_committed_isolation=true,ysql_enable_packed_row=true"
+    environment:
+      YSQL_USER: opensips
+      YSQL_PASSWORD: ${YUGABYTE_PASSWORD:-acm_secure_2026}
+      YSQL_DB: opensips
+    volumes:
+      - yugabyte-data:/home/yugabyte/yb_data
+      - ../../database/yugabyte:/docker-entrypoint-initdb.d:ro
+    networks:
+      - acm-network
+    healthcheck:
+      test: ["CMD", "bin/ysqlsh", "-U", "yugabyte", "-d", "yugabyte", "-c", "SELECT 1"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 30s
-    restart: unless-stopped
+      start_period: 60s
     deploy:
       resources:
         limits:
@@ -70,263 +209,268 @@ services:
           cpus: '2'
           memory: 4G
 
-  # =========================================================================
-  # Rust Fraud Detection Service (DEFAULT - uses LumaDB)
-  # =========================================================================
-  detection-service:
-    build:
-      context: ./detection-service-rust
-      dockerfile: Dockerfile
-    container_name: detection-service
-    hostname: detection-service
-    ports:
-      - "8080:8080"
-    environment:
-      # LumaDB provides ClickHouse-compatible HTTP API
-      - CLICKHOUSE_URL=http://lumadb:8123
-      # LumaDB provides Redis-compatible wire protocol
-      - REDIS_URL=redis://lumadb:6379
-      - DETECTION_WINDOW_SECONDS=5
-      - DETECTION_THRESHOLD=5
-    networks:
-      - voip-network
-    depends_on:
-      - lumadb
-    restart: unless-stopped
-
-  # =========================================================================
-  # FastAPI SIP Processor Service (DEFAULT - uses LumaDB)
-  # =========================================================================
-  sip-processor:
-    build:
-      context: ./sip-processor
-      dockerfile: Dockerfile
-    container_name: sip-processor
-    hostname: sip-processor
-    ports:
-      - "8000:8000"
-    environment:
-      # LumaDB provides Redis-compatible wire protocol
-      - REDIS_URL=redis://lumadb:6379
-      # LumaDB provides PostgreSQL wire protocol
-      - POSTGRES_URL=postgresql+asyncpg://lumadb:lumadb@lumadb:5432/default
-      - SIP_INTERFACE=eth0
-      - SIP_PORT=5060
-      - DETECTION_WINDOW_SECONDS=5
-      - DETECTION_THRESHOLD=5
-      - MODEL_PATH=models/xgboost_masking.json
-    networks:
-      - voip-network
-    depends_on:
-      - lumadb
-    cap_add:
-      - NET_RAW
-    restart: unless-stopped
-
-  # =========================================================================
-  # ACM Detection Service (Python + LumaDB native)
-  # =========================================================================
-  acm-detection:
-    build:
-      context: ./lumadb
-      dockerfile: Dockerfile
-    container_name: acm-detection
-    hostname: acm-detection
-    ports:
-      - "5001:5001"
-    environment:
-      - LUMADB_REST_HOST=lumadb
-      - LUMADB_REST_PORT=8080
-      - LUMADB_PG_HOST=lumadb
-      - LUMADB_PG_PORT=5432
-      - LUMADB_PG_USER=lumadb
-      - LUMADB_PG_PASSWORD=lumadb
-      - LUMADB_PG_DATABASE=default
-      - LUMADB_KAFKA_HOST=lumadb
-      - LUMADB_KAFKA_PORT=9092
-      - DETECTION_WINDOW_SECONDS=5
-      - DETECTION_THRESHOLD=5
-      - LOG_LEVEL=INFO
-    networks:
-      - voip-network
-    depends_on:
-      - lumadb
-    restart: unless-stopped
-
-  # =========================================================================
-  # FreeSWITCH Simulator (for testing)
-  # =========================================================================
-  freeswitch-sim:
-    build:
-      context: .
-      dockerfile: Dockerfile.freeswitch-sim
-    container_name: freeswitch-sim
-    hostname: freeswitch-sim
-    ports:
-      - "8021:8021" # ESL port
-      - "5060:5060/udp" # SIP UDP
-      - "5060:5060/tcp" # SIP TCP
-    environment:
-      - ESL_PASSWORD=ClueCon
-      - FRAUD_DETECTION_HOST=detection-service
-      - FRAUD_DETECTION_PORT=8080
-    networks:
-      - acm-network
-    depends_on:
-      - detection-service
-    profiles:
-      - with-simulator
-
-  # =========================================================================
-  # Prometheus (uses LumaDB metrics endpoint)
-  # =========================================================================
-  prometheus:
-    image: prom/prometheus:v2.48.0
-    container_name: prometheus
-    hostname: prometheus
-    ports:
-      - "9091:9090"
-    volumes:
-      - ./config/prometheus-lumadb.yml:/etc/prometheus/prometheus.yml:ro
-      - prometheus-data:/prometheus
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--web.enable-lifecycle'
-      - '--storage.tsdb.retention.time=15d'
-    networks:
-      - voip-network
-    depends_on:
-      - lumadb
-    profiles:
-      - monitoring
-
-  # =========================================================================
-  # Grafana for dashboards
-  # =========================================================================
-  grafana:
-    image: grafana/grafana:10.2.2
-    container_name: grafana
-    hostname: grafana
-    ports:
-      - "3000:3000"
-    volumes:
-      - ./config/grafana/provisioning:/etc/grafana/provisioning:ro
-      - ./config/grafana/dashboards:/var/lib/grafana/dashboards:ro
-      - grafana-data:/var/lib/grafana
-    environment:
-      - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=admin
-      - GF_USERS_ALLOW_SIGN_UP=false
-      - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-piechart-panel
-    networks:
-      - acm-network
-    depends_on:
-      - prometheus
-    profiles:
-      - monitoring
-
-  # =========================================================================
-  # LEGACY: ClickHouse (Scalable Storage) - Optional
-  # =========================================================================
+  # ==========================================================================
+  # CLICKHOUSE (Analytics)
+  # ==========================================================================
   clickhouse:
-    image: clickhouse/clickhouse-server:23.8
+    image: clickhouse/clickhouse-server:24.1
     container_name: clickhouse
-    hostname: clickhouse
+    restart: unless-stopped
     ports:
-      - "8124:8123" # HTTP API (offset)
-      - "9001:9000" # Native TCP (offset)
+      - "8123:8123"   # HTTP
+      - "9000:9001"   # Native (remapped to avoid YB conflict)
     volumes:
       - clickhouse-data:/var/lib/clickhouse
+      - clickhouse-logs:/var/log/clickhouse-server
+      - ../../database/clickhouse:/docker-entrypoint-initdb.d:ro
+    environment:
+      CLICKHOUSE_USER: acm
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-acm_analytics_2026}
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
     ulimits:
       nofile:
         soft: 262144
         hard: 262144
     networks:
-      - voip-network
-    profiles:
-      - legacy
-    restart: unless-stopped
+      - acm-network
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8123/ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 8G
+        reservations:
+          cpus: '2'
+          memory: 4G
 
-  # =========================================================================
-  # LEGACY: DragonflyDB (High-Performance Cache) - Optional
-  # =========================================================================
-  dragonfly:
-    image: docker.dragonflydb.io/dragonflydb/dragonfly
-    container_name: dragonfly
-    hostname: dragonfly
+  # ==========================================================================
+  # QUESTDB (Real-time Time-Series Analytics - replaces kdb+)
+  # ==========================================================================
+  questdb:
+    image: questdb/questdb:7.4.0
+    container_name: questdb
+    restart: unless-stopped
     ports:
-      - "6380:6379" # Offset to avoid LumaDB conflict
+      - "9009:9009"    # InfluxDB Line Protocol (high-speed ingestion)
+      - "8812:8812"    # PostgreSQL wire protocol (queries)
+      - "9003:9003"    # Min health server
+      - "9000:9000"    # Web Console & REST API (remapped if needed)
     volumes:
-      - dragonfly-data:/data
-    networks:
-      - voip-network
-    profiles:
-      - legacy
-    restart: unless-stopped
-
-  # =========================================================================
-  # LEGACY: PostgreSQL - Optional
-  # =========================================================================
-  postgres:
-    image: postgres:16-alpine
-    container_name: postgres
-    hostname: postgres
-    ports:
-      - "5433:5432" # Offset to avoid LumaDB conflict
+      - questdb-data:/var/lib/questdb
     environment:
-      POSTGRES_USER: cdr_user
-      POSTGRES_PASSWORD: cdr_secure_password
-      POSTGRES_DB: cdr_logs
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
-      - ./sip-processor/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
-    networks:
-      - voip-network
-    profiles:
-      - legacy
-    restart: unless-stopped
-
-  # =========================================================================
-  # LEGACY: Redis for CDR - Optional
-  # =========================================================================
-  redis-cdr:
-    image: redis:7-alpine
-    container_name: redis-cdr
-    hostname: redis-cdr
-    ports:
-      - "6381:6379" # Offset to avoid LumaDB conflict
-    volumes:
-      - redis-cdr-data:/data
-    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+      QDB_CAIRO_COMMIT_LAG: 1000
+      QDB_SHARED_WORKER_COUNT: 4
+      QDB_PG_USER: admin
+      QDB_PG_PASSWORD: quest
+      QDB_TELEMETRY_ENABLED: "false"
+      QDB_LINE_TCP_MAINTENANCE_JOB_INTERVAL: 1000
+      # Performance tuning for high-throughput
+      QDB_CAIRO_MAX_UNCOMMITTED_ROWS: 500000
+      QDB_LINE_TCP_MSG_BUFFER_SIZE: 32768
+      QDB_LINE_TCP_MAX_MEASUREMENT_SIZE: 8192
     networks:
       - acm-network
-    depends_on:
-      - acm-detection
-    profiles:
-      - legacy
-    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9003"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 8G
+        reservations:
+          cpus: '2'
+          memory: 4G
 
+  # ==========================================================================
+  # MANAGEMENT API (Go)
+  # ==========================================================================
+  management-api:
+    build:
+      context: ../../management-api
+      dockerfile: Dockerfile
+    image: acm/management-api:2.0
+    container_name: management-api
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    environment:
+      PORT: 8081
+      YUGABYTE_URL: postgres://opensips:${YUGABYTE_PASSWORD:-acm_secure_2026}@yugabyte:5433/opensips
+      DRAGONFLY_URL: redis://dragonfly:6379
+      CLICKHOUSE_URL: http://clickhouse:8123
+      ACM_ENGINE_URL: http://acm-engine:8080
+      JWT_SECRET: ${JWT_SECRET:-change_me_in_production}
+    depends_on:
+      - acm-engine
+      - yugabyte
+    networks:
+      - acm-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # ==========================================================================
+  # MONITORING STACK
+  # ==========================================================================
+  
+  # Prometheus
+  prometheus:
+    image: prom/prometheus:v2.48.0
+    container_name: prometheus
+    restart: unless-stopped
+    ports:
+      - "9091:9090"
+    volumes:
+      - ../../monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ../../monitoring/prometheus/alerts:/etc/prometheus/alerts:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.enable-lifecycle'
+    networks:
+      - acm-network
+
+  # Grafana
+  grafana:
+    image: grafana/grafana:10.2.0
+    container_name: grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-acm_grafana_2026}
+      GF_INSTALL_PLUGINS: grafana-clickhouse-datasource
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ../../monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ../../monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+      - clickhouse
+    networks:
+      - acm-network
+
+  # Homer SIP Capture
+  homer:
+    image: sipcapture/homer-app:latest
+    container_name: homer
+    restart: unless-stopped
+    ports:
+      - "9080:9080"
+    environment:
+      DB_HOST: homer-postgres
+      DB_USER: homer
+      DB_PASS: ${HOMER_DB_PASSWORD:-homer_secure_2026}
+    depends_on:
+      - homer-postgres
+    networks:
+      - acm-network
+
+  homer-postgres:
+    image: postgres:15
+    container_name: homer-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: homer
+      POSTGRES_PASSWORD: ${HOMER_DB_PASSWORD:-homer_secure_2026}
+      POSTGRES_DB: homer
+    volumes:
+      - homer-pg-data:/var/lib/postgresql/data
+    networks:
+      - acm-network
+
+  heplify-server:
+    image: sipcapture/heplify-server:latest
+    container_name: heplify-server
+    restart: unless-stopped
+    ports:
+      - "9060:9060/udp"
+    environment:
+      HEPLIFYSERVER_HEPADDR: "0.0.0.0:9060"
+      HEPLIFYSERVER_DBDRIVER: postgres
+      HEPLIFYSERVER_DBADDR: homer-postgres:5432
+      HEPLIFYSERVER_DBUSER: homer
+      HEPLIFYSERVER_DBPASS: ${HOMER_DB_PASSWORD:-homer_secure_2026}
+      HEPLIFYSERVER_DBNAME: homer
+    depends_on:
+      - homer-postgres
+    networks:
+      - acm-network
+
+  # ==========================================================================
+  # NCC COMPLIANCE SERVICES
+  # ==========================================================================
+  
+  # Daily SFTP Uploader (runs as cron)
+  ncc-sftp-uploader:
+    build:
+      context: ../../ncc-compliance/sftp-uploader
+      dockerfile: Dockerfile
+    image: acm/ncc-sftp:2.0
+    container_name: ncc-sftp-uploader
+    restart: unless-stopped
+    environment:
+      NCC_SFTP_HOST: ${NCC_SFTP_HOST:-sftp.ncc.gov.ng}
+      NCC_SFTP_PORT: 22
+      NCC_SFTP_USER: ${NCC_SFTP_USER:-}
+      NCC_ICL_LICENSE: ${NCC_ICL_LICENSE:-}
+      CLICKHOUSE_URL: http://clickhouse:8123
+    volumes:
+      - ncc-keys:/etc/acm/keys:ro
+      - ncc-reports:/var/acm/reports
+    depends_on:
+      - clickhouse
+    networks:
+      - acm-network
+    # Runs daily at 01:00 AM WAT
+    entrypoint: ["crond", "-f"]
+
+# ==========================================================================
+# NETWORKS
+# ==========================================================================
 networks:
   acm-network:
     driver: bridge
     ipam:
       config:
-        - subnet: 172.30.0.0/16
+        - subnet: 172.28.0.0/16
 
+# ==========================================================================
+# VOLUMES
+# ==========================================================================
 volumes:
-  # LumaDB volumes (default)
-  lumadb-data:
-  lumadb-wal:
-
-  # Monitoring volumes
+  dragonfly-data:
+    driver: local
+  yugabyte-data:
+    driver: local
+  clickhouse-data:
+    driver: local
+  clickhouse-logs:
+    driver: local
+  questdb-data:
+    driver: local
   prometheus-data:
     driver: local
   grafana-data:
-
-  # Legacy volumes (optional)
-  clickhouse-data:
-  dragonfly-data:
-  postgres-data:
-  redis-data:
-  redis-cdr-data:
+    driver: local
+  homer-pg-data:
+    driver: local
+  opensips-tls:
+    driver: local
+  ncc-keys:
+    driver: local
+  ncc-reports:
+    driver: local
