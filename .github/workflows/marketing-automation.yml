@@ -1,0 +1,40 @@
+name: Go-to-Market Automation
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  generate-assets:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Generate Marketing Content
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          prompt: |
+            TASK: Generate marketing assets for the new release: ${{ github.event.release.tag_name }}
+
+            RELEASE NOTES:
+            ${{ github.event.release.body }}
+
+            OUTPUTS REQUIRED:
+            1. 'marketing/blog-post.md': A technical blog post announcing the features.
+            2. 'marketing/social-posts.md': 5 LinkedIn/Twitter posts.
+            3. 'marketing/press-release.md': A formal press release.
+
+            Style: Professional, exciting, and metrics-driven.
+
+      - name: Open Review Issue
+        uses: peter-evans/create-issue-from-file@v4
+        with:
+          title: "Marketing Assets for Release ${{ github.event.release.tag_name }}"
+          content-filepath: marketing/social-posts.md
+          labels: marketing, review-required
