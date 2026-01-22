@@ -9,11 +9,12 @@
 
 1. [The Assembly Line Philosophy](#-the-assembly-line-philosophy)
 2. [Getting Started](#-getting-started)
-3. [Day-to-Day Workflows](#-day-to-day-workflows)
-4. [The Brain: MCP Server](#-the-brain-mcp-server)
-5. [The Rules: Tiered Autonomy](#-the-rules-tiered-autonomy)
-6. [Manual Override & Troubleshooting](#-manual-override--troubleshooting)
-7. [Quick Reference](#-quick-reference)
+3. [The Research Loop](#-the-research-loop)
+4. [Day-to-Day Workflows](#-day-to-day-workflows)
+5. [The Brain: MCP Server](#-the-brain-mcp-server)
+6. [The Rules: Tiered Autonomy](#-the-rules-tiered-autonomy)
+7. [Manual Override & Troubleshooting](#-manual-override--troubleshooting)
+8. [Quick Reference](#-quick-reference)
 
 ---
 
@@ -121,6 +122,331 @@ gh workflow run research-loop.yml
 ```
 
 If all files are present, you're ready to operate the factory! 🎉
+
+---
+
+## 🔁 The Research Loop
+
+### What is the Research Loop?
+
+The **Research Loop** is Factory v4.0's autonomous intelligence gathering system. It continuously monitors the market, analyzes trends, and surfaces opportunities—all without human intervention.
+
+Think of it as your factory's "eyes and ears" that never sleep.
+
+### The Three Components
+
+#### 1️⃣ Continuous Market Intelligence (Daily Automated Scanning)
+
+**Workflow:** `.github/workflows/research-loop.yml`
+
+**Schedule:** Every day at 8 AM UTC
+
+**What It Does:**
+- Extracts your project context from `CLAUDE.md`
+- Scans news sources for competitor launches, regulatory changes, and market trends
+- Filters for **signal vs. noise** (ignores generic tech news)
+- Creates GitHub Issues for actionable intelligence
+
+**Example Output:**
+
+If a competitor launches a new feature relevant to your product:
+
+```
+Title: feat(intelligence): AI-powered invoice categorization detected in market
+
+Body:
+🕵️ Competitor Update: QuickBooks just launched AI-powered invoice categorization.
+
+Key Features:
+- Automatic expense categorization using GPT-4
+- 95% accuracy claimed
+- Available on Pro tier ($35/month)
+
+Recommendation: We should implement similar categorization to stay competitive.
+Our existing OCR pipeline can be extended with Claude API for this feature.
+
+Source: TechCrunch Article (2026-01-22)
+```
+
+**Manual Trigger:**
+
+```bash
+gh workflow run research-loop.yml
+```
+
+**Customization:**
+
+The workflow reads your `CLAUDE.md` to understand your product niche. Update your project description to improve relevance filtering:
+
+```markdown
+# CLAUDE.md
+## Identity
+
+**You are an autonomous builder for:** Invoice Processing SaaS for SMBs
+
+**Core Features:** OCR, QuickBooks sync, expense categorization, receipt management
+```
+
+---
+
+#### 2️⃣ Research Ingestion Pipeline (Manual Research Processing)
+
+**Workflow:** `.github/workflows/research-ingestion.yml`
+
+**Trigger:** When you push files to `research/incoming/`
+
+**What It Does:**
+- Detects new research files (PDFs, markdown, competitor analysis, etc.)
+- Creates a GitHub Issue for each file
+- Claude analyzes the content and extracts opportunities
+- Posts analysis as a comment on the issue
+
+**How to Use:**
+
+```bash
+# Step 1: Create a research file
+cat > research/incoming/stripe-competitor-analysis.md <<EOF
+# Stripe Expands into Invoicing
+
+Stripe just launched "Stripe Invoicing Pro" with these features:
+- Recurring invoice templates
+- Multi-currency support
+- Automated payment reminders
+- Integration with Stripe Tax
+
+Pricing: $50/month + 0.5% per transaction
+
+Market Opportunity:
+We could build a lighter-weight version targeting freelancers
+at $15/month with similar core features but without the enterprise bloat.
+EOF
+
+# Step 2: Commit and push
+git add research/incoming/stripe-competitor-analysis.md
+git commit -m "research: Add Stripe invoicing competitor analysis"
+git push
+
+# Step 3: Wait for automation
+# - Workflow triggers automatically
+# - Issue created: "🕵️ Research Ingestion: stripe-competitor-analysis.md"
+# - Claude analyzes and comments with product recommendations
+```
+
+**Claude's Analysis Format:**
+
+```
+@claude analyzed stripe-competitor-analysis.md
+
+SUMMARY:
+This document analyzes Stripe's new invoicing product targeting SMBs and enterprises.
+
+KEY OPPORTUNITIES:
+1. Underserved Market: Freelancers ($15/month price point)
+2. Feature Gap: Simpler UX without enterprise complexity
+3. Competitive Advantage: Faster setup (<5 minutes vs. 30+ minutes)
+
+PRODUCT RECOMMENDATION:
+Build "InvoiceLight" - A lightweight invoicing tool for freelancers/solopreneurs.
+- Core features: Recurring templates, payment reminders, multi-currency
+- Differentiation: Zero setup, beautiful templates, mobile-first design
+- Pricing: $15/month (vs. Stripe's $50/month)
+
+NEXT STEPS:
+If approved, add label `approved-for-development` to trigger product creation.
+```
+
+**Pro Tip:** Drop any type of research here:
+- Competitor changelogs (scraped from websites)
+- Market research reports (PDF exports)
+- Customer interview notes (markdown summaries)
+- Trend analysis (Google Trends data)
+
+---
+
+#### 3️⃣ Context-Aware Market Scanner (Local Script)
+
+**Script:** `scripts/market_scan.py`
+
+**Purpose:** Run on-demand market scans locally or in CI/CD
+
+**How It Works:**
+
+1. **Reads Context:** Extracts project description from `CLAUDE.md` or `README.md`
+2. **Fetches News:** Pulls latest articles from Google News and TechCrunch RSS feeds
+3. **Semantic Filtering:** Uses Claude API to determine if each headline is relevant
+4. **Deduplication:** Checks if issue already exists for this news URL
+5. **Creates Issues:** Auto-generates GitHub issues for relevant opportunities
+
+**Manual Execution:**
+
+```bash
+# Step 1: Set environment variables
+export ANTHROPIC_API_KEY="sk-ant-..."
+export GITHUB_TOKEN="ghp_..."
+export GITHUB_REPOSITORY="billyronks/factory-template"
+
+# Step 2: Run the scanner
+python scripts/market_scan.py
+```
+
+**Example Output:**
+
+```
+🤖 Context-Aware Market Research Scanner
+==================================================
+
+📋 Step 1: Reading project context...
+📖 Found project context in CLAUDE.md
+   Context: Invoice Processing SaaS for SMBs
+
+📰 Step 2: Fetching global news signals...
+📡 Fetching Google News Technology...
+   ✓ Found 10 articles
+📡 Fetching TechCrunch...
+   ✓ Found 10 articles
+   Total articles fetched: 20
+
+🧠 Step 3: Semantic filtering (20 articles)...
+
+   [1/20] Analyzing: OpenAI launches GPT-5 with vision capabilities...
+   ⊘ Not relevant
+
+   [2/20] Analyzing: QuickBooks announces AI-powered expense categorization...
+   ✓ RELEVANT: Direct competitor adding AI features we should match
+   ✓ Created issue #42: Opportunity: QuickBooks announces AI-powered expense...
+
+   [3/20] Analyzing: Stripe acquires invoice automation startup...
+   ✓ RELEVANT: Payment processor moving into our market segment
+   ✓ Created issue #43: Opportunity: Stripe acquires invoice automation startup
+
+   ...
+
+==================================================
+✅ Scan complete!
+   Articles analyzed: 20
+   Relevant opportunities: 3
+   New issues created: 3
+   Duplicates skipped: 0
+```
+
+**Integrate into CI/CD:**
+
+Add scheduled scanning to your workflow:
+
+```yaml
+# .github/workflows/research-loop.yml
+on:
+  schedule:
+    - cron: '0 8 * * *'  # Daily at 8 AM
+  workflow_dispatch:
+
+jobs:
+  market-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install anthropic PyGithub feedparser
+
+      - name: Run market scanner
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: python scripts/market_scan.py
+```
+
+---
+
+### The Research Loop Cycle
+
+Here's how all three components work together:
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    RESEARCH LOOP                        │
+└─────────────────────────────────────────────────────────┘
+
+1. CONTINUOUS INTELLIGENCE (Automated Daily)
+   ├─ research-loop.yml runs at 8 AM UTC
+   ├─ Claude scans competitor news and market trends
+   └─ Creates issues for actionable intelligence
+         │
+         ↓
+2. MANUAL RESEARCH (Human-Triggered)
+   ├─ You drop PDFs/markdown into research/incoming/
+   ├─ research-ingestion.yml detects new files
+   └─ Claude analyzes and extracts opportunities
+         │
+         ↓
+3. ON-DEMAND SCANNING (Local or CI/CD)
+   ├─ Run market_scan.py for immediate insights
+   ├─ Fetches RSS feeds + semantic filtering
+   └─ Auto-creates GitHub issues for opportunities
+         │
+         ↓
+4. OPPORTUNITY APPROVAL
+   ├─ Review issues tagged with strategic-opportunity or research-ingestion
+   ├─ Add label: approved-for-development
+   └─ Triggers Product Initiation workflow
+         │
+         ↓
+5. PRODUCT CREATION
+   └─ New repository spawned with reusable components
+```
+
+---
+
+### Best Practices for the Research Loop
+
+#### ✅ DO:
+- **Keep CLAUDE.md updated** with your current product focus (affects relevance filtering)
+- **Review research issues weekly** to catch emerging trends early
+- **Archive old research files** after analysis (move from `incoming/` to `archive/`)
+- **Tag urgent opportunities** with `priority-high` for faster review
+- **Use the `/research` directory structure:**
+  ```
+  research/
+  ├── incoming/          # New research (triggers workflow)
+  ├── archive/           # Processed research (for reference)
+  └── opportunities/     # Approved concepts (pre-development)
+  ```
+
+#### ❌ DON'T:
+- **Don't commit large binary files** (>10MB) to `research/incoming/`—use cloud links instead
+- **Don't ignore research issues** for more than 2 weeks (market moves fast)
+- **Don't disable the research-loop workflow** unless absolutely necessary
+- **Don't skip context in CLAUDE.md** (generic descriptions produce irrelevant results)
+
+---
+
+### Measuring Research Loop Effectiveness
+
+Track these metrics to optimize your intelligence gathering:
+
+```bash
+# Number of opportunities identified (last 30 days)
+gh issue list --label strategic-opportunity --state all --limit 100 \
+  | grep "$(date -d '30 days ago' +%Y-%m)" | wc -l
+
+# Conversion rate: Opportunities → Approved Products
+gh issue list --label approved-for-development --state all --limit 100
+
+# Average time from research → product creation
+# (Manual calculation: Check issue creation date vs. product-initiation workflow run)
+```
+
+**Good Benchmarks:**
+- **Signal-to-Noise Ratio:** 10-20% of scanned articles should be relevant
+- **Approval Rate:** 20-30% of research opportunities should get approved for development
+- **Response Time:** Review research issues within 48 hours of creation
 
 ---
 
