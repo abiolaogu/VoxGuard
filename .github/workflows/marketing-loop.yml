@@ -1,0 +1,13 @@
+name: Marketing Launch
+on:
+  release:
+    types: [published] # Triggers when you publish a release
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate Content
+        run: echo "Generating press release for version ${{ github.ref_name }}"
+      - name: Update HubSpot
+        run: echo "Sending signal to HubSpot CRM..."

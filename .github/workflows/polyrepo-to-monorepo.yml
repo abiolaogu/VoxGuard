@@ -1,0 +1,44 @@
+name: Polyrepo to Monorepo Consolidation
+on:
+  workflow_dispatch:
+    inputs:
+      repos_to_merge:
+        description: 'Comma-separated list of repos (e.g., billyronks/auth-service,billyronks/payment-service)'
+        required: true
+
+jobs:
+  consolidate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Monorepo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Merge Repositories
+        env:
+          GH_TOKEN: ${{ secrets.FACTORY_ADMIN_TOKEN }}
+          REPOS: ${{ inputs.repos_to_merge }}
+        run: |
+          git config user.name "Consolidation Bot"
+          git config user.email "bot@billyronks.com"
+
+          IFS=',' read -ra ADDR <<< "$REPOS"
+          for repo in "${ADDR[@]}"; do
+            echo "Processing $repo..."
+            # Clean name (e.g., billyronks/auth -> auth)
+            folder_name=$(basename $repo)
+
+            # Add remote and fetch
+            git remote add $folder_name https://github.com/$repo.git
+            git fetch $folder_name
+
+            # Merge into subdirectory (Preserving History)
+            git merge -s ours --no-commit --allow-unrelated-histories $folder_name/main
+            git read-tree --prefix=packages/$folder_name -u $folder_name/main
+            git commit -m "Merge $repo into packages/$folder_name"
+
+            git remote remove $folder_name
+          done
+
+          git push

@@ -1,0 +1,20 @@
+icp:
+  b2b_saas:
+    company_size: "50-500"
+    industries:
+      - "technology"
+      - "financial services"
+      - "healthcare"
+    funding_stage: ["series_a", "series_b", "series_c"]
+    technologies:
+      - "kubernetes"
+      - "aws"
+      - "microservices"
+    titles:
+      - "CTO"
+      - "VP Engineering"
+      - "Head of Platform"
+    signals:
+      - "recent_funding"
+      - "hiring_engineering"
+      - "technology_adoption"
