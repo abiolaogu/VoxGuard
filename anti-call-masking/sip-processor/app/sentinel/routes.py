@@ -4,13 +4,15 @@ Sentinel API routes
 FastAPI endpoints for CDR ingestion and alert management.
 """
 import time
-from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Query
+from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Query, Body
 from typing import Optional
+from pydantic import BaseModel, Field
 import asyncpg
 
 from .parser import CDRParser
 from .database import SentinelDatabase
 from .models import CDRIngestResponse
+from .detector import FraudDetectionEngine, SDHFDetector
 
 router = APIRouter(prefix="/api/v1/sentinel", tags=["sentinel"])
 
@@ -147,3 +149,104 @@ async def health_check():
         "service": "sentinel-anti-masking",
         "version": "1.0.0"
     }
+
+
+class SDHFDetectionRequest(BaseModel):
+    """Request model for SDHF detection"""
+    time_window_hours: int = Field(24, ge=1, le=168, description="Time window in hours (1-168)")
+    min_unique_destinations: int = Field(50, ge=1, description="Minimum unique destinations")
+    max_avg_duration_seconds: float = Field(3.0, ge=0, description="Maximum average duration in seconds")
+
+
+@router.post("/detect/sdhf")
+async def detect_sdhf(
+    request: SDHFDetectionRequest = Body(...),
+    db_pool: asyncpg.Pool = Depends(get_db_pool)
+):
+    """
+    Run SDHF (Short Duration High Frequency) detection
+
+    Analyzes call records to detect potential SIM Box fraud patterns.
+    Flags numbers making many calls to unique destinations with short average duration.
+
+    **Request Body:**
+    - time_window_hours: Time window to analyze (default: 24, max: 168)
+    - min_unique_destinations: Minimum unique destinations to trigger (default: 50)
+    - max_avg_duration_seconds: Maximum average duration for suspicious pattern (default: 3.0)
+
+    **Returns:**
+    - alerts_generated: Number of alerts created
+    - alert_ids: List of created alert IDs
+    - suspects: List of suspect phone numbers
+    """
+    try:
+        detector = SDHFDetector(db_pool)
+        alert_ids = await detector.generate_sdhf_alerts(
+            time_window_hours=request.time_window_hours,
+            min_unique_destinations=request.min_unique_destinations,
+            max_avg_duration_seconds=request.max_avg_duration_seconds
+        )
+
+        # Get suspect numbers from alerts
+        if alert_ids:
+            async with db_pool.acquire() as conn:
+                query = "SELECT suspect_number FROM sentinel_fraud_alerts WHERE id = ANY($1)"
+                rows = await conn.fetch(query, alert_ids)
+                suspects = [row['suspect_number'] for row in rows]
+        else:
+            suspects = []
+
+        return {
+            "status": "success",
+            "alerts_generated": len(alert_ids),
+            "alert_ids": alert_ids,
+            "suspects": suspects
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"SDHF detection failed: {str(e)}")
+
+
+@router.patch("/alerts/{alert_id}")
+async def update_alert(
+    alert_id: int,
+    reviewed: bool = Body(...),
+    reviewer_notes: Optional[str] = Body(None),
+    db_pool: asyncpg.Pool = Depends(get_db_pool)
+):
+    """
+    Update a fraud alert (mark as reviewed, add notes)
+
+    **Path Parameters:**
+    - alert_id: ID of the alert to update
+
+    **Request Body:**
+    - reviewed: Mark alert as reviewed (true/false)
+    - reviewer_notes: Optional notes from reviewer
+
+    **Returns:**
+    Updated alert status
+    """
+    try:
+        query = """
+            UPDATE sentinel_fraud_alerts
+            SET reviewed = $1, reviewer_notes = $2
+            WHERE id = $3
+            RETURNING id, reviewed, reviewer_notes
+        """
+
+        async with db_pool.acquire() as conn:
+            row = await conn.fetchrow(query, reviewed, reviewer_notes, alert_id)
+
+            if not row:
+                raise HTTPException(status_code=404, detail=f"Alert {alert_id} not found")
+
+            return {
+                "status": "success",
+                "alert": dict(row)
+            }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to update alert: {str(e)}")
