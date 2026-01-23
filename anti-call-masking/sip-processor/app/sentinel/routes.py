@@ -11,7 +11,7 @@ import asyncpg
 
 from .parser import CDRParser
 from .database import SentinelDatabase
-from .models import CDRIngestResponse
+from .models import CDRIngestResponse, CallRecord
 from .detector import FraudDetectionEngine, SDHFDetector
 
 router = APIRouter(prefix="/api/v1/sentinel", tags=["sentinel"])
@@ -250,3 +250,146 @@ async def update_alert(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to update alert: {str(e)}")
+
+
+class RealTimeCallEvent(BaseModel):
+    """Real-time call event model"""
+    caller_number: str = Field(..., description="Caller phone number in E.164 format")
+    callee_number: str = Field(..., description="Callee phone number in E.164 format")
+    duration_seconds: int = Field(..., ge=0, description="Call duration in seconds")
+    call_direction: Optional[str] = Field(None, regex="^(inbound|outbound)$", description="Call direction")
+    timestamp: str = Field(..., description="ISO 8601 timestamp (e.g., 2024-01-15T14:32:15Z)")
+
+
+class RealTimeEventResponse(BaseModel):
+    """Response model for real-time event"""
+    status: str
+    event_id: str
+    risk_score: float = Field(..., ge=0.0, le=1.0, description="Risk score between 0.0 and 1.0")
+
+
+@router.post("/events/call", response_model=RealTimeEventResponse)
+async def receive_call_event(
+    event: RealTimeCallEvent = Body(...),
+    db_pool: asyncpg.Pool = Depends(get_db_pool)
+):
+    """
+    Accept real-time call events from external systems for immediate analysis
+
+    This endpoint receives individual call events in real-time and performs
+    immediate risk scoring based on recent call patterns for the caller.
+
+    **Request Body:**
+    - caller_number: Caller phone number in E.164 format
+    - callee_number: Callee phone number in E.164 format
+    - duration_seconds: Call duration in seconds
+    - call_direction: Call direction (inbound/outbound)
+    - timestamp: ISO 8601 timestamp
+
+    **Returns:**
+    - status: "accepted"
+    - event_id: Unique event identifier
+    - risk_score: Real-time risk score (0.0-1.0)
+
+    **Risk Scoring Logic:**
+    - Analyzes caller's pattern in last 24 hours
+    - Considers: unique destinations, average duration, call frequency
+    - Higher scores indicate higher fraud risk
+    """
+    try:
+        from datetime import datetime
+        import uuid
+
+        # Parse timestamp
+        try:
+            call_timestamp = datetime.fromisoformat(event.timestamp.replace('Z', '+00:00'))
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid timestamp format. Use ISO 8601 (e.g., 2024-01-15T14:32:15Z)")
+
+        # Create call record
+        call_record = CallRecord(
+            call_timestamp=call_timestamp,
+            caller_number=event.caller_number,
+            callee_number=event.callee_number,
+            duration_seconds=event.duration_seconds,
+            call_direction=event.call_direction
+        )
+
+        # Insert call record into database
+        db = SentinelDatabase(db_pool)
+        await db.insert_call_records([call_record])
+
+        # Calculate risk score based on recent activity
+        risk_score = await calculate_risk_score(event.caller_number, db_pool)
+
+        # Generate event ID
+        event_id = f"evt_{uuid.uuid4().hex[:12]}"
+
+        return RealTimeEventResponse(
+            status="accepted",
+            event_id=event_id,
+            risk_score=round(risk_score, 2)
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to process call event: {str(e)}")
+
+
+async def calculate_risk_score(caller_number: str, db_pool: asyncpg.Pool) -> float:
+    """
+    Calculate real-time risk score for a caller based on recent activity
+
+    Risk factors:
+    - High number of unique destinations (24h window)
+    - Short average call duration
+    - High call frequency
+
+    Returns score between 0.0 (low risk) and 1.0 (high risk)
+    """
+    try:
+        async with db_pool.acquire() as conn:
+            # Get caller stats for last 24 hours
+            query = """
+                SELECT
+                    COUNT(DISTINCT callee_number) as unique_destinations,
+                    AVG(duration_seconds) as avg_duration,
+                    COUNT(*) as call_count
+                FROM call_records
+                WHERE caller_number = $1
+                  AND call_timestamp >= NOW() - INTERVAL '24 hours'
+            """
+            row = await conn.fetchrow(query, caller_number)
+
+            if not row or row['call_count'] == 0:
+                return 0.0  # No recent activity
+
+            unique_destinations = row['unique_destinations'] or 0
+            avg_duration = row['avg_duration'] or 0
+            call_count = row['call_count'] or 0
+
+            # Risk scoring algorithm
+            risk_score = 0.0
+
+            # Factor 1: Unique destinations (weight: 0.5)
+            # > 100 destinations = max risk
+            destination_risk = min(unique_destinations / 100.0, 1.0) * 0.5
+            risk_score += destination_risk
+
+            # Factor 2: Short call duration (weight: 0.3)
+            # < 3 seconds avg = max risk
+            if avg_duration > 0:
+                duration_risk = max(1.0 - (avg_duration / 3.0), 0.0) * 0.3
+                risk_score += duration_risk
+
+            # Factor 3: High call frequency (weight: 0.2)
+            # > 200 calls = max risk
+            frequency_risk = min(call_count / 200.0, 1.0) * 0.2
+            risk_score += frequency_risk
+
+            return min(risk_score, 1.0)
+
+    except Exception:
+        # Return neutral score on error
+        return 0.5
