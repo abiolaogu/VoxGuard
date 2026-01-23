@@ -393,3 +393,57 @@ async def calculate_risk_score(caller_number: str, db_pool: asyncpg.Pool) -> flo
     except Exception:
         # Return neutral score on error
         return 0.5
+
+
+@router.get("/metrics")
+async def get_metrics():
+    """
+    Get Prometheus-formatted metrics for monitoring
+
+    Returns metrics in Prometheus exposition format including:
+    - CDR ingestion counters
+    - Alert generation statistics
+    - API performance histograms
+    - Cache and database pool utilization
+    """
+    from .metrics import get_metrics
+    from fastapi.responses import PlainTextResponse
+
+    metrics = get_metrics()
+    return PlainTextResponse(
+        content=metrics.get_prometheus_metrics(),
+        media_type="text/plain"
+    )
+
+
+@router.get("/metrics/json")
+async def get_metrics_json():
+    """
+    Get metrics in JSON format
+
+    Returns the same metrics as /metrics endpoint but in JSON format
+    for easier programmatic access and debugging.
+    """
+    from .metrics import get_metrics
+
+    metrics = get_metrics()
+    return metrics.get_json_metrics()
+
+
+@router.get("/performance/stats")
+async def get_performance_stats():
+    """
+    Get detailed performance statistics
+
+    Returns performance statistics for all monitored operations including
+    percentiles, cache statistics, and operation-specific metrics.
+    """
+    from .performance import get_performance_monitor, get_cache
+
+    perf_monitor = get_performance_monitor()
+    cache = get_cache()
+
+    return {
+        "performance": perf_monitor.get_all_stats(),
+        "cache": cache.get_stats()
+    }
