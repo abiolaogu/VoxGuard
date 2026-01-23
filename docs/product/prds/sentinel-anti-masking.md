@@ -305,15 +305,15 @@ Request Body: {
 
 ### Phase 1: Foundation (Sprint 1)
 - [x] PRD Creation (this document)
-- [ ] Database migration files
-- [ ] Basic CDR ingestion endpoint
-- [ ] Unit tests for parser
+- [x] Database migration files
+- [x] Basic CDR ingestion endpoint
+- [x] Unit tests for parser
 
 ### Phase 2: Detection Engine (Sprint 2)
-- [ ] SDHF rule implementation
-- [ ] Alert generation logic
-- [ ] Integration with lumadb
-- [ ] Mock data generator (5K records)
+- [x] SDHF rule implementation
+- [x] Alert generation logic
+- [x] Integration with lumadb
+- [x] Mock data generator (5K records)
 
 ### Phase 3: API & Integration (Sprint 3)
 - [ ] Real-time event receiver
