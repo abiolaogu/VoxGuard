@@ -166,7 +166,7 @@ class SDHFDetector:
 
     async def _create_alert(self, alert: SentinelFraudAlert) -> int:
         """
-        Create a fraud alert in the database
+        Create a fraud alert in the database and broadcast to WebSocket clients
 
         Args:
             alert: SentinelFraudAlert object
@@ -180,11 +180,11 @@ class SDHFDetector:
                 call_count, unique_destinations, avg_duration_seconds, detection_rule
             )
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-            RETURNING id
+            RETURNING id, created_at
         """
 
         async with self.pool.acquire() as conn:
-            alert_id = await conn.fetchval(
+            row = await conn.fetchrow(
                 query,
                 alert.alert_type,
                 alert.suspect_number,
@@ -195,6 +195,28 @@ class SDHFDetector:
                 alert.avg_duration_seconds,
                 alert.detection_rule
             )
+
+        alert_id = row['id']
+        created_at = row['created_at']
+
+        # Broadcast alert to WebSocket clients
+        try:
+            from .websocket import notify_new_alert
+            await notify_new_alert({
+                "id": alert_id,
+                "alert_type": alert.alert_type,
+                "suspect_number": alert.suspect_number,
+                "alert_severity": alert.alert_severity,
+                "evidence_summary": alert.evidence_summary,
+                "call_count": alert.call_count,
+                "unique_destinations": alert.unique_destinations,
+                "avg_duration_seconds": alert.avg_duration_seconds,
+                "detection_rule": alert.detection_rule,
+                "created_at": created_at.isoformat() + "Z" if created_at else None
+            })
+        except Exception as e:
+            # Don't fail alert creation if WebSocket broadcast fails
+            print(f"Warning: Failed to broadcast alert via WebSocket: {e}")
 
         return alert_id
 

@@ -31,6 +31,12 @@ Sentinel is a high-performance batch processing and analysis engine designed to 
 - ✅ Mock CDR data generator (5K records)
 - ✅ Comprehensive unit tests for detector
 
+### Phase 3: Real-Time & Integration ✅
+- ✅ Real-time event receiver endpoint
+- ✅ WebSocket alert notifications
+- ✅ Risk scoring for real-time calls
+- ✅ End-to-end integration tests
+
 ## API Endpoints
 
 ### 1. CDR Ingestion
@@ -129,6 +135,91 @@ curl -X PATCH http://localhost:8000/api/v1/sentinel/alerts/101 \
 GET /api/v1/sentinel/health
 
 curl http://localhost:8000/api/v1/sentinel/health
+```
+
+### 6. Real-Time Call Event (Phase 3)
+```bash
+POST /api/v1/sentinel/events/call
+Content-Type: application/json
+
+# Submit real-time call event for immediate analysis
+curl -X POST http://localhost:8000/api/v1/sentinel/events/call \
+  -H "Content-Type: application/json" \
+  -d '{
+    "caller_number": "+2348012345678",
+    "callee_number": "+2349087654321",
+    "duration_seconds": 2,
+    "call_direction": "outbound",
+    "timestamp": "2024-01-15T14:32:15Z"
+  }'
+```
+
+**Response:**
+```json
+{
+  "status": "accepted",
+  "event_id": "evt_abc123def456",
+  "risk_score": 0.73
+}
+```
+
+**Risk Score Calculation:**
+- Analyzes caller's pattern in last 24 hours
+- Factors: unique destinations (50%), short duration (30%), call frequency (20%)
+- 0.0 = low risk, 1.0 = high risk
+- Thresholds: <0.3 low, 0.3-0.6 medium, 0.6-0.8 high, >0.8 critical
+
+### 7. WebSocket Alert Stream (Phase 3)
+```javascript
+// Connect to WebSocket for real-time alert notifications
+const ws = new WebSocket('ws://localhost:8000/api/v1/sentinel/ws/alerts');
+
+ws.onopen = () => {
+    console.log('Connected to Sentinel alert stream');
+};
+
+ws.onmessage = (event) => {
+    const message = JSON.parse(event.data);
+
+    if (message.type === 'alert') {
+        console.log('New fraud alert:', message.data);
+        // Update dashboard UI
+        displayAlert(message.data);
+    } else if (message.type === 'heartbeat') {
+        console.log('Connection alive');
+    } else if (message.type === 'connected') {
+        console.log('Welcome:', message.message);
+    }
+};
+
+ws.onerror = (error) => {
+    console.error('WebSocket error:', error);
+};
+
+ws.onclose = () => {
+    console.log('Connection closed - attempting reconnect...');
+    setTimeout(connectWebSocket, 5000);
+};
+```
+
+**Alert Message Format:**
+```json
+{
+  "type": "alert",
+  "timestamp": "2024-01-15T14:32:15Z",
+  "data": {
+    "id": 123,
+    "alert_type": "SDHF_SIMBOX",
+    "suspect_number": "+2348012345678",
+    "alert_severity": "HIGH",
+    "evidence_summary": "75 unique destinations, avg 2.1s duration",
+    "call_count": 75,
+    "unique_destinations": 75,
+    "avg_duration_seconds": 2.1,
+    "detection_rule": "SDHF_001",
+    "created_at": "2024-01-15T14:32:15Z"
+  }
+}
 ```
 
 ## SDHF Detection Algorithm
