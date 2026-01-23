@@ -37,6 +37,12 @@ Sentinel is a high-performance batch processing and analysis engine designed to 
 - ✅ Risk scoring for real-time calls
 - ✅ End-to-end integration tests
 
+### Phase 4: Production Hardening ✅
+- ✅ Performance optimization (caching, connection pooling, batch processing)
+- ✅ Production deployment configs (Docker, Kubernetes, monitoring)
+- ✅ Monitoring & alerting setup (Prometheus, Grafana)
+- ✅ Production documentation (deployment guide, operations runbook)
+
 ## API Endpoints
 
 ### 1. CDR Ingestion
@@ -420,14 +426,154 @@ tests/sentinel/
 - Detection: SQL-optimized with indexes
 - Deduplication: In-memory + database check
 
-## Future Enhancements (Phase 3+)
+## Phase 4: Production Features
 
-### Phase 3: Real-time Integration
-- [ ] Real-time event receiver endpoint
-- [ ] WebSocket alert notifications
-- [ ] Frontend dashboard integration
+### Performance Monitoring
 
-### Phase 4: Advanced Detection
+Access performance metrics:
+
+```bash
+# Prometheus metrics
+curl http://localhost:8000/api/v1/sentinel/metrics
+
+# JSON metrics
+curl http://localhost:8000/api/v1/sentinel/metrics/json
+
+# Performance stats with percentiles
+curl http://localhost:8000/api/v1/sentinel/performance/stats
+```
+
+**Available Metrics:**
+- `sentinel_cdr_records_ingested_total` - Total CDR records processed
+- `sentinel_alerts_generated_total` - Total fraud alerts generated
+- `sentinel_alerts_by_severity_total` - Alerts by severity level
+- `sentinel_api_request_duration_seconds` - API latency percentiles
+- `sentinel_cache_hit_rate` - Cache effectiveness
+- `sentinel_database_pool_utilization` - Connection pool usage
+- `sentinel_active_websocket_connections` - Current WebSocket clients
+- `sentinel_unreviewed_alerts` - Pending alert count
+
+### Production Deployment
+
+**Docker Production Build:**
+```bash
+docker build -f Dockerfile.prod -t sentinel-engine:1.0.0 .
+docker run -p 8000:8000 \
+  -e DATABASE_URL=postgresql://user:pass@postgres:5432/sentinel \
+  sentinel-engine:1.0.0
+```
+
+**Kubernetes Deployment:**
+```bash
+# Apply all manifests
+kubectl apply -f k8s/
+
+# Check deployment status
+kubectl get pods -n anti-call-masking -l app=sentinel-engine
+
+# View logs
+kubectl logs -n anti-call-masking -l app=sentinel-engine --tail=100 -f
+```
+
+**Key Features:**
+- Multi-stage Docker build for optimized image size
+- Non-root container user for security
+- Horizontal Pod Autoscaler (3-10 replicas)
+- Health checks (liveness & readiness probes)
+- Resource limits and requests
+- Pod anti-affinity for high availability
+
+### Monitoring Setup
+
+**Prometheus Configuration:**
+```yaml
+scrape_configs:
+  - job_name: 'sentinel-engine'
+    scrape_interval: 30s
+    kubernetes_sd_configs:
+      - role: pod
+        namespaces:
+          names:
+            - anti-call-masking
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+        action: keep
+        regex: true
+```
+
+**Grafana Dashboard:**
+- Import `monitoring/grafana-dashboard.json`
+- Includes 11 panels covering ingestion, alerts, performance, and errors
+- Pre-configured alerts for slow responses and high error rates
+
+**Alert Rules:**
+- High ingestion error rate (>1/sec for 5min)
+- Slow API responses (p95 > 500ms)
+- Detection duration exceeds 60 seconds
+- Unreviewed alerts backlog (>100)
+- Database pool exhaustion (>90% utilization)
+- Service down or multiple instances down
+
+See `monitoring/prometheus-rules.yaml` for complete alert definitions.
+
+### Performance Optimization
+
+**Connection Pool Configuration:**
+```python
+from app.sentinel.performance import PoolConfig
+
+# Production settings
+DATABASE_POOL_MIN_SIZE = 10
+DATABASE_POOL_MAX_SIZE = 50
+BATCH_INSERT_SIZE = 1000
+```
+
+**Caching:**
+```python
+from app.sentinel.performance import cached
+
+@cached(ttl_seconds=300, key_prefix="alerts")
+async def get_alerts(severity: str):
+    # Results cached for 5 minutes
+    return await fetch_alerts(severity)
+```
+
+**Performance Monitoring:**
+```python
+from app.sentinel.performance import monitor_performance
+
+@monitor_performance("detect_sdhf")
+async def detect_sdhf_patterns():
+    # Automatically tracks duration and records metrics
+    pass
+```
+
+### Operations
+
+**Production Documentation:**
+- [Production Deployment Guide](../../docs/PRODUCTION_DEPLOYMENT.md) - Full deployment instructions
+- [Operations Runbook](../../docs/OPERATIONS_RUNBOOK.md) - Troubleshooting and incident response
+
+**Health Checks:**
+```bash
+# Basic health
+curl http://localhost:8000/health
+
+# Detailed health (with component checks)
+curl http://localhost:8000/api/v1/sentinel/health
+```
+
+**Scaling:**
+```bash
+# Manual scaling
+kubectl scale deployment sentinel-engine --replicas=5 -n anti-call-masking
+
+# HPA will auto-scale based on CPU/memory (70% CPU, 80% memory triggers)
+```
+
+## Future Enhancements (v2.0)
+
+### Advanced Detection
 - [ ] Geographic anomaly detection
 - [ ] Behavioral profiling
 - [ ] Machine learning models (XGBoost)

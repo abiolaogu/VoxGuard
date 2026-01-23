@@ -1,0 +1,86 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sentinel-config
+  namespace: anti-call-masking
+  labels:
+    app: sentinel-engine
+data:
+  # Application configuration
+  app.config: |
+    {
+      "app_name": "Sentinel Anti-Call Masking Engine",
+      "app_version": "1.0.0",
+      "environment": "production",
+      "log_level": "INFO",
+      "debug": false
+    }
+
+  # Performance tuning
+  performance.config: |
+    {
+      "database": {
+        "pool_min_size": 10,
+        "pool_max_size": 50,
+        "pool_timeout": 30,
+        "query_timeout": 30,
+        "max_queries_per_connection": 50000,
+        "batch_insert_size": 1000
+      },
+      "cache": {
+        "enabled": true,
+        "ttl_seconds": 300,
+        "alert_ttl_seconds": 60
+      },
+      "processing": {
+        "batch_size": 1000,
+        "max_concurrent_batches": 5,
+        "max_csv_file_size_mb": 100
+      }
+    }
+
+  # Detection algorithm thresholds
+  detection.config: |
+    {
+      "sdhf": {
+        "time_window_hours": 24,
+        "min_unique_destinations": 50,
+        "max_avg_duration_seconds": 3.0,
+        "severity_thresholds": {
+          "critical": {
+            "min_destinations": 200,
+            "max_duration": 1.5
+          },
+          "high": {
+            "min_destinations": 100,
+            "max_duration": 2.0
+          },
+          "medium": {
+            "min_destinations": 75,
+            "max_duration": 1.0
+          }
+        }
+      }
+    }
+
+  # Monitoring and alerting
+  monitoring.config: |
+    {
+      "prometheus": {
+        "enabled": true,
+        "metrics_path": "/api/v1/sentinel/metrics"
+      },
+      "health_checks": {
+        "database_check": true,
+        "cache_check": true,
+        "alert_lag_threshold_seconds": 300
+      }
+    }
+
+  # WebSocket configuration
+  websocket.config: |
+    {
+      "heartbeat_interval_seconds": 30,
+      "max_connections": 1000,
+      "connection_timeout_seconds": 60
+    }
