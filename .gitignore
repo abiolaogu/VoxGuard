@@ -1,0 +1,44 @@
+# Rust
+target/
+Cargo.lock
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# Go
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Environment
+.env
+.env.local
+
+# Logs
+*.log
+logs/
+
+# Build artifacts
+dist/
+build/
+node_modules/
+
+# Coverage
+coverage/
+htmlcov/
+.coverage
