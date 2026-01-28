@@ -1,0 +1,60 @@
+name: Autonomous Codegen
+
+on:
+  push:
+    paths:
+      - 'backend/hasura/metadata/**'
+      - 'packages/shared/contracts/**/*.graphql'
+  workflow_dispatch:
+
+jobs:
+  codegen:
+    name: Generate Types from GraphQL
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 9
+          
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        
+      - name: Start Hasura (for introspection)
+        run: |
+          docker-compose -f infrastructure/docker/docker-compose.yml up -d hasura
+          sleep 15
+          
+      - name: Generate TypeScript types
+        run: pnpm codegen
+        
+      - name: Generate Flutter types
+        run: |
+          cd packages/flutter
+          dart pub get
+          dart run build_runner build --delete-conflicting-outputs
+          
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: 'chore(codegen): regenerate types from schema'
+          title: '🤖 Auto-generated types update'
+          body: |
+            This PR was automatically generated after Hasura metadata changes.
+            
+            ## Changes
+            - Updated TypeScript types for Web package
+            - Updated Dart types for Flutter package
+            - Updated Kotlin types for Android package
+            - Updated Swift types for iOS package
+          branch: codegen/auto-update
+          labels: codegen, automated

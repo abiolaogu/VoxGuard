@@ -1,0 +1,263 @@
+# Anti-Call Masking Platform - GraphQL Schema
+# 
+# This is the source of truth for all client types.
+# Changes trigger autonomous codegen workflow.
+
+# ============================================================================
+# Scalars
+# ============================================================================
+
+scalar DateTime
+scalar JSON
+scalar UUID
+
+# ============================================================================
+# Anti-Masking Domain
+# ============================================================================
+
+type Call {
+  id: UUID!
+  aNumber: String!
+  bNumber: String!
+  sourceIP: String!
+  timestamp: DateTime!
+  status: CallStatus!
+  isFlagged: Boolean!
+  fraudScore: Float
+  alertId: UUID
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  alert: FraudAlert
+}
+
+enum CallStatus {
+  RINGING
+  ACTIVE
+  COMPLETED
+  FAILED
+  BLOCKED
+}
+
+type FraudAlert {
+  id: UUID!
+  bNumber: String!
+  fraudType: FraudType!
+  score: Float!
+  severity: Severity!
+  distinctCallers: Int!
+  aNumbers: [String!]!
+  sourceIPs: [String!]!
+  status: AlertStatus!
+  acknowledgedBy: String
+  acknowledgedAt: DateTime
+  resolvedBy: String
+  resolvedAt: DateTime
+  resolution: ResolutionType
+  nccReported: Boolean!
+  detectedAt: DateTime!
+  updatedAt: DateTime!
+  calls: [Call!]!
+}
+
+enum FraudType {
+  CLI_MASKING
+  SIMBOX
+  WANGIRI
+  IRSF
+  PBX_HACKING
+}
+
+enum Severity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum AlertStatus {
+  PENDING
+  ACKNOWLEDGED
+  INVESTIGATING
+  RESOLVED
+  REPORTED_NCC
+}
+
+enum ResolutionType {
+  CONFIRMED_FRAUD
+  FALSE_POSITIVE
+  ESCALATED
+  WHITELISTED
+}
+
+type Gateway {
+  id: UUID!
+  name: String!
+  ipAddress: String!
+  carrierName: String!
+  gatewayType: GatewayType!
+  isActive: Boolean!
+  isBlacklisted: Boolean!
+  blacklistReason: String
+  fraudThreshold: Float!
+  cpmLimit: Int!
+  acdThreshold: Float!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+enum GatewayType {
+  LOCAL
+  INTERNATIONAL
+  TRANSIT
+}
+
+# ============================================================================
+# Identity Domain
+# ============================================================================
+
+type User {
+  id: UUID!
+  email: String!
+  firstName: String!
+  lastName: String!
+  role: UserRole!
+  status: UserStatus!
+  kycLevel: KYCLevel!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+enum UserRole {
+  USER
+  PROVIDER
+  ANALYST
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum UserStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+  DEACTIVATED
+}
+
+enum KYCLevel {
+  NONE
+  BASIC
+  INTERMEDIATE
+  FULL
+}
+
+# ============================================================================
+# Queries
+# ============================================================================
+
+type Query {
+  # Anti-Masking
+  call(id: UUID!): Call
+  calls(limit: Int, offset: Int, status: CallStatus): [Call!]!
+  alert(id: UUID!): FraudAlert
+  alerts(limit: Int, offset: Int, status: AlertStatus, severity: Severity): [FraudAlert!]!
+  alertsCount(status: AlertStatus): Int!
+  gateway(id: UUID!): Gateway
+  gateways(limit: Int, offset: Int, isActive: Boolean): [Gateway!]!
+  
+  # Identity
+  me: User
+  user(id: UUID!): User
+  users(limit: Int, offset: Int, role: UserRole): [User!]!
+  
+  # Dashboard
+  dashboardSummary: DashboardSummary!
+}
+
+type DashboardSummary {
+  totalCalls24h: Int!
+  totalAlerts24h: Int!
+  pendingAlerts: Int!
+  criticalAlerts: Int!
+  resolvedAlerts24h: Int!
+  fraudRate: Float!
+  topGateways: [GatewayStats!]!
+}
+
+type GatewayStats {
+  gateway: Gateway!
+  totalCalls: Int!
+  fraudCalls: Int!
+  fraudRate: Float!
+}
+
+# ============================================================================
+# Mutations
+# ============================================================================
+
+type Mutation {
+  # Alert Workflow
+  acknowledgeAlert(alertId: UUID!): FraudAlert!
+  startInvestigation(alertId: UUID!): FraudAlert!
+  resolveAlert(alertId: UUID!, resolution: ResolutionType!, notes: String): FraudAlert!
+  reportToNCC(alertId: UUID!): FraudAlert!
+  
+  # Gateway Management
+  createGateway(input: CreateGatewayInput!): Gateway!
+  updateGateway(id: UUID!, input: UpdateGatewayInput!): Gateway!
+  blacklistGateway(id: UUID!, reason: String!): Gateway!
+  enableGateway(id: UUID!): Gateway!
+  disableGateway(id: UUID!): Gateway!
+  
+  # Identity
+  register(input: RegisterInput!): AuthPayload!
+  login(email: String!, password: String!): AuthPayload!
+  logout: Boolean!
+  refreshToken: AuthPayload!
+  updateProfile(input: UpdateProfileInput!): User!
+}
+
+input CreateGatewayInput {
+  name: String!
+  ipAddress: String!
+  carrierName: String!
+  gatewayType: GatewayType!
+  fraudThreshold: Float
+  cpmLimit: Int
+  acdThreshold: Float
+}
+
+input UpdateGatewayInput {
+  name: String
+  fraudThreshold: Float
+  cpmLimit: Int
+  acdThreshold: Float
+}
+
+input RegisterInput {
+  email: String!
+  password: String!
+  firstName: String!
+  lastName: String!
+}
+
+input UpdateProfileInput {
+  firstName: String
+  lastName: String
+}
+
+type AuthPayload {
+  accessToken: String!
+  refreshToken: String!
+  expiresAt: DateTime!
+  user: User!
+}
+
+# ============================================================================
+# Subscriptions
+# ============================================================================
+
+type Subscription {
+  alertCreated: FraudAlert!
+  alertUpdated(id: UUID!): FraudAlert!
+  callRegistered: Call!
+  gatewayBlacklisted: Gateway!
+}
