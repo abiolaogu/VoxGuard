@@ -1,0 +1,197 @@
+{
+    "name": "Fraud Alert Notification",
+    "nodes": [
+        {
+            "parameters": {},
+            "id": "webhook-trigger",
+            "name": "Webhook",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 1,
+            "position": [
+                250,
+                300
+            ],
+            "webhookId": "fraud-alert-webhook"
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "string": [
+                        {
+                            "value1": "={{ $json.event.data.new.severity }}",
+                            "operation": "equal",
+                            "value2": "CRITICAL"
+                        }
+                    ]
+                }
+            },
+            "id": "if-critical",
+            "name": "Is Critical?",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 1,
+            "position": [
+                450,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "channel": "#fraud-alerts-critical",
+                "text": "🚨 *CRITICAL FRAUD ALERT*\n\n*B-Number:* {{ $json.event.data.new.b_number }}\n*Type:* {{ $json.event.data.new.fraud_type }}\n*Score:* {{ $json.event.data.new.score }}\n*Distinct Callers:* {{ $json.event.data.new.distinct_callers }}\n*Detected At:* {{ $json.event.data.new.detected_at }}\n\n<{{ $env.DASHBOARD_URL }}/alerts/{{ $json.event.data.new.id }}|View Alert>",
+                "attachments": [],
+                "otherOptions": {}
+            },
+            "id": "slack-critical",
+            "name": "Slack (Critical)",
+            "type": "n8n-nodes-base.slack",
+            "typeVersion": 2,
+            "position": [
+                650,
+                200
+            ],
+            "credentials": {
+                "slackApi": {
+                    "id": "1",
+                    "name": "Slack API"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "channel": "#fraud-alerts",
+                "text": "⚠️ *Fraud Alert*\n\n*B-Number:* {{ $json.event.data.new.b_number }}\n*Type:* {{ $json.event.data.new.fraud_type }}\n*Severity:* {{ $json.event.data.new.severity }}\n*Score:* {{ $json.event.data.new.score }}\n\n<{{ $env.DASHBOARD_URL }}/alerts/{{ $json.event.data.new.id }}|View Alert>",
+                "attachments": [],
+                "otherOptions": {}
+            },
+            "id": "slack-normal",
+            "name": "Slack (Normal)",
+            "type": "n8n-nodes-base.slack",
+            "typeVersion": 2,
+            "position": [
+                650,
+                400
+            ],
+            "credentials": {
+                "slackApi": {
+                    "id": "1",
+                    "name": "Slack API"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "fromEmail": "alerts@billyronks.com",
+                "toEmail": "soc-team@billyronks.com",
+                "subject": "🚨 Critical Fraud Alert - {{ $json.event.data.new.b_number }}",
+                "text": "",
+                "html": "<h2>Critical Fraud Alert Detected</h2><p><strong>B-Number:</strong> {{ $json.event.data.new.b_number }}</p><p><strong>Fraud Type:</strong> {{ $json.event.data.new.fraud_type }}</p><p><strong>Score:</strong> {{ $json.event.data.new.score }}</p><p><strong>Distinct Callers:</strong> {{ $json.event.data.new.distinct_callers }}</p><p><a href='{{ $env.DASHBOARD_URL }}/alerts/{{ $json.event.data.new.id }}'>View Alert Dashboard</a></p>",
+                "options": {}
+            },
+            "id": "email-critical",
+            "name": "Email (Critical)",
+            "type": "n8n-nodes-base.emailSend",
+            "typeVersion": 2,
+            "position": [
+                850,
+                200
+            ],
+            "credentials": {
+                "smtp": {
+                    "id": "2",
+                    "name": "SMTP"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "url": "={{ $env.HASURA_URL }}",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "{\n  \"query\": \"mutation InsertDomainEvent($event: domain_events_insert_input!) { insert_domain_events_one(object: $event) { id } }\",\n  \"variables\": {\n    \"event\": {\n      \"aggregate_type\": \"FraudAlert\",\n      \"aggregate_id\": \"{{ $json.event.data.new.id }}\",\n      \"event_type\": \"AlertNotificationSent\",\n      \"event_data\": { \"channels\": [\"slack\", \"email\"] }\n    }\n  }\n}",
+                "options": {}
+            },
+            "id": "log-event",
+            "name": "Log Event",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4,
+            "position": [
+                1050,
+                300
+            ],
+            "credentials": {
+                "httpHeaderAuth": {
+                    "id": "3",
+                    "name": "Hasura Admin"
+                }
+            }
+        }
+    ],
+    "connections": {
+        "Webhook": {
+            "main": [
+                [
+                    {
+                        "node": "Is Critical?",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Is Critical?": {
+            "main": [
+                [
+                    {
+                        "node": "Slack (Critical)",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Slack (Normal)",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Slack (Critical)": {
+            "main": [
+                [
+                    {
+                        "node": "Email (Critical)",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Slack (Normal)": {
+            "main": [
+                [
+                    {
+                        "node": "Log Event",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Email (Critical)": {
+            "main": [
+                [
+                    {
+                        "node": "Log Event",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {},
+    "staticData": null
+}
