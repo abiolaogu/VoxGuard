@@ -1,8 +1,133 @@
 version: "3.9"
 
+# Production-Ready Docker Compose with HA
+# Uses YugabyteDB cluster instead of single PostgreSQL
+
 services:
   # ============================================================================
-  # Core Infrastructure
+  # YugabyteDB Cluster (3-node for HA)
+  # ============================================================================
+
+  yb-master-1:
+    image: yugabytedb/yugabyte:2.20.1.0-b97
+    container_name: acm-yb-master-1
+    command: >
+      bash -c "
+        /home/yugabyte/bin/yb-master
+        --fs_data_dirs=/mnt/disk1
+        --master_addresses=yb-master-1:7100,yb-master-2:7100,yb-master-3:7100
+        --rpc_bind_addresses=yb-master-1:7100
+        --replication_factor=3
+        --callhome_enabled=false
+      "
+    ports:
+      - "7000:7000"
+    volumes:
+      - yb-master-1-data:/mnt/disk1
+    networks:
+      - acm-network
+    depends_on:
+      - yb-master-2
+      - yb-master-3
+
+  yb-master-2:
+    image: yugabytedb/yugabyte:2.20.1.0-b97
+    container_name: acm-yb-master-2
+    command: >
+      bash -c "
+        /home/yugabyte/bin/yb-master
+        --fs_data_dirs=/mnt/disk1
+        --master_addresses=yb-master-1:7100,yb-master-2:7100,yb-master-3:7100
+        --rpc_bind_addresses=yb-master-2:7100
+        --replication_factor=3
+        --callhome_enabled=false
+      "
+    volumes:
+      - yb-master-2-data:/mnt/disk1
+    networks:
+      - acm-network
+
+  yb-master-3:
+    image: yugabytedb/yugabyte:2.20.1.0-b97
+    container_name: acm-yb-master-3
+    command: >
+      bash -c "
+        /home/yugabyte/bin/yb-master
+        --fs_data_dirs=/mnt/disk1
+        --master_addresses=yb-master-1:7100,yb-master-2:7100,yb-master-3:7100
+        --rpc_bind_addresses=yb-master-3:7100
+        --replication_factor=3
+        --callhome_enabled=false
+      "
+    volumes:
+      - yb-master-3-data:/mnt/disk1
+    networks:
+      - acm-network
+
+  yb-tserver-1:
+    image: yugabytedb/yugabyte:2.20.1.0-b97
+    container_name: acm-yb-tserver-1
+    command: >
+      bash -c "
+        /home/yugabyte/bin/yb-tserver
+        --fs_data_dirs=/mnt/disk1
+        --tserver_master_addrs=yb-master-1:7100,yb-master-2:7100,yb-master-3:7100
+        --rpc_bind_addresses=yb-tserver-1:9100
+        --pgsql_proxy_bind_address=0.0.0.0:5433
+        --callhome_enabled=false
+      "
+    ports:
+      - "5433:5433"
+      - "9042:9042"
+    volumes:
+      - yb-tserver-1-data:/mnt/disk1
+    networks:
+      - acm-network
+    depends_on:
+      - yb-master-1
+      - yb-master-2
+      - yb-master-3
+
+  yb-tserver-2:
+    image: yugabytedb/yugabyte:2.20.1.0-b97
+    container_name: acm-yb-tserver-2
+    command: >
+      bash -c "
+        /home/yugabyte/bin/yb-tserver
+        --fs_data_dirs=/mnt/disk1
+        --tserver_master_addrs=yb-master-1:7100,yb-master-2:7100,yb-master-3:7100
+        --rpc_bind_addresses=yb-tserver-2:9100
+        --pgsql_proxy_bind_address=0.0.0.0:5433
+        --callhome_enabled=false
+      "
+    volumes:
+      - yb-tserver-2-data:/mnt/disk1
+    networks:
+      - acm-network
+    depends_on:
+      - yb-master-1
+
+  yb-tserver-3:
+    image: yugabytedb/yugabyte:2.20.1.0-b97
+    container_name: acm-yb-tserver-3
+    command: >
+      bash -c "
+        /home/yugabyte/bin/yb-tserver
+        --fs_data_dirs=/mnt/disk1
+        --tserver_master_addrs=yb-master-1:7100,yb-master-2:7100,yb-master-3:7100
+        --rpc_bind_addresses=yb-tserver-3:9100
+        --pgsql_proxy_bind_address=0.0.0.0:5433
+        --callhome_enabled=false
+      "
+    volumes:
+      - yb-tserver-3-data:/mnt/disk1
+    networks:
+      - acm-network
+    depends_on:
+      - yb-master-1
+
+  # ============================================================================
+  # DragonflyDB (Primary + Replica for HA)
   # ============================================================================
 
   dragonflydb:
@@ -12,34 +137,33 @@ services:
       - "6379:6379"
     volumes:
       - dragonfly-data:/data
+      - ./../../backend/dragonflydb/config/dragonfly.conf:/etc/dragonfly.conf
     command: >
-      --maxmemory=2gb --proactor_threads=4 --cache_mode=true
+      --maxmemory=2gb --proactor_threads=4 --cache_mode=true --requirepass=${DRAGONFLY_PASSWORD:-acm-secret}
     healthcheck:
-      test: [ "CMD", "redis-cli", "ping" ]
+      test: [ "CMD", "redis-cli", "-a", "${DRAGONFLY_PASSWORD:-acm-secret}", "ping" ]
       interval: 5s
       timeout: 5s
       retries: 5
     networks:
       - acm-network
 
-  postgres:
-    image: postgres:16-alpine
-    container_name: acm-postgres
-    ports:
-      - "5432:5432"
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: acm
+  dragonflydb-replica:
+    image: docker.dragonflydb.io/dragonflydb/dragonfly:v1.14.3
+    container_name: acm-dragonfly-replica
     volumes:
-      - postgres-data:/var/lib/postgresql/data
-    healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
-      interval: 5s
-      timeout: 5s
-      retries: 5
+      - dragonfly-replica-data:/data
+    command: >
+      --maxmemory=2gb --proactor_threads=2 --cache_mode=true --requirepass=${DRAGONFLY_PASSWORD:-acm-secret} --replicaof=dragonflydb:6379
+    depends_on:
+      dragonflydb:
+        condition: service_healthy
     networks:
       - acm-network
+
+  # ============================================================================
+  # QuestDB (Time-Series)
+  # ============================================================================
 
   questdb:
     image: questdb/questdb:7.4.0
@@ -52,7 +176,8 @@ services:
       - questdb-data:/var/lib/questdb
     environment:
       QDB_PG_USER: admin
-      QDB_PG_PASSWORD: quest
+      QDB_PG_PASSWORD: ${QUESTDB_PASSWORD:-quest-secret}
+      QDB_TELEMETRY_ENABLED: "false"
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:9000/status" ]
       interval: 10s
@@ -71,25 +196,19 @@ services:
     ports:
       - "8080:8080"
     environment:
-      ## PostgreSQL database URL
-      HASURA_GRAPHQL_DATABASE_URL: postgres://postgres:postgres@postgres:5432/acm
-      ## Enable console
+      HASURA_GRAPHQL_DATABASE_URL: postgres://yugabyte:yugabyte@yb-tserver-1:5433/acm
       HASURA_GRAPHQL_ENABLE_CONSOLE: "true"
-      ## Dev mode for relaxed CORS
-      HASURA_GRAPHQL_DEV_MODE: "true"
-      ## Admin secret
-      HASURA_GRAPHQL_ADMIN_SECRET: acm-admin-secret
-      ## JWT configuration
-      HASURA_GRAPHQL_JWT_SECRET: '{"type":"HS256","key":"your-256-bit-secret-key-here-min-32-chars!"}'
-      ## Unauthorized role
+      HASURA_GRAPHQL_DEV_MODE: ${DEV_MODE:-false}
+      HASURA_GRAPHQL_ADMIN_SECRET: ${HASURA_ADMIN_SECRET:-acm-admin-secret}
+      HASURA_GRAPHQL_JWT_SECRET: '{"type":"HS256","key":"${JWT_SECRET:-your-256-bit-secret-key-here-min-32-chars!}"}'
       HASURA_GRAPHQL_UNAUTHORIZED_ROLE: anonymous
-      ## Enable subscriptions
       HASURA_GRAPHQL_ENABLE_SUBSCRIPTIONS: "true"
-      ## Logging
-      HASURA_GRAPHQL_LOG_LEVEL: info
+      HASURA_GRAPHQL_ENABLE_TELEMETRY: "false"
+      HASURA_GRAPHQL_CORS_DOMAIN: ${CORS_DOMAIN:-*}
+      ACTIONS_HANDLER_URL: http://actions-handler:3000
+      EVENTS_HANDLER_URL: http://n8n:5678/webhook
     depends_on:
-      postgres:
-        condition: service_healthy
+      - yb-tserver-1
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:8080/healthz" ]
       interval: 10s
@@ -108,19 +227,72 @@ services:
     ports:
       - "5678:5678"
     environment:
-      - N8N_HOST=0.0.0.0
-      - N8N_PORT=5678
-      - N8N_PROTOCOL=http
-      - GENERIC_TIMEZONE=Africa/Lagos
-      - N8N_BASIC_AUTH_ACTIVE=true
-      - N8N_BASIC_AUTH_USER=admin
-      - N8N_BASIC_AUTH_PASSWORD=acm-n8n-secret
+      N8N_HOST: 0.0.0.0
+      N8N_PORT: 5678
+      N8N_PROTOCOL: http
+      GENERIC_TIMEZONE: Africa/Lagos
+      N8N_BASIC_AUTH_ACTIVE: "true"
+      N8N_BASIC_AUTH_USER: ${N8N_USER:-admin}
+      N8N_BASIC_AUTH_PASSWORD: ${N8N_PASSWORD:-acm-n8n-secret}
+      WEBHOOK_URL: http://n8n:5678/
+      HASURA_URL: http://hasura:8080/v1/graphql
+      HASURA_GRAPHQL_ADMIN_SECRET: ${HASURA_ADMIN_SECRET:-acm-admin-secret}
+      DASHBOARD_URL: ${DASHBOARD_URL:-http://localhost:3000}
+      APP_URL: ${APP_URL:-http://localhost:3000}
     volumes:
       - n8n-data:/home/node/.n8n
-      - ../../backend/n8n/workflows:/home/node/.n8n/workflows
+      - ./../../backend/n8n/workflows:/home/node/.n8n/workflows
     depends_on:
-      - postgres
+      - hasura
+    networks:
+      - acm-network
+
+  # ============================================================================
+  # Actions Handler (Custom Business Logic)
+  # ============================================================================
+
+  actions-handler:
+    build:
+      context: ./../../packages/shared
+      dockerfile: Dockerfile.actions
+    container_name: acm-actions
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      HASURA_ADMIN_SECRET: ${HASURA_ADMIN_SECRET:-acm-admin-secret}
+      DATABASE_URL: postgres://yugabyte:yugabyte@yb-tserver-1:5433/acm
+      DRAGONFLY_URL: redis://:${DRAGONFLY_PASSWORD:-acm-secret}@dragonflydb:6379
+      JWT_SECRET: ${JWT_SECRET:-your-256-bit-secret-key-here-min-32-chars!}
+    depends_on:
+      - hasura
       - dragonflydb
+    networks:
+      - acm-network
+
+  # ============================================================================
+  # Detection Engine (Rust)
+  # ============================================================================
+
+  detection-engine:
+    build:
+      context: ./../../anti-call-masking/detection-service-rust
+      dockerfile: Dockerfile
+    container_name: acm-detection
+    ports:
+      - "8081:8080"
+    environment:
+      RUST_LOG: info
+      DRAGONFLY_URL: redis://:${DRAGONFLY_PASSWORD:-acm-secret}@dragonflydb:6379
+      QUESTDB_URL: http://questdb:9000
+      QUESTDB_ILP: questdb:9009
+      HASURA_URL: http://hasura:8080/v1/graphql
+      HASURA_ADMIN_SECRET: ${HASURA_ADMIN_SECRET:-acm-admin-secret}
+    depends_on:
+      dragonflydb:
+        condition: service_healthy
+      questdb:
+        condition: service_healthy
     networks:
       - acm-network
 
@@ -135,11 +307,13 @@ services:
       - "9090:9090"
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./alerts.yml:/etc/prometheus/alerts.yml
       - prometheus-data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
       - '--web.enable-lifecycle'
+      - '--storage.tsdb.retention.time=30d'
     networks:
       - acm-network
 
@@ -149,44 +323,45 @@ services:
     ports:
       - "3001:3000"
     environment:
-      GF_SECURITY_ADMIN_USER: admin
-      GF_SECURITY_ADMIN_PASSWORD: acm-grafana-secret
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-acm-grafana-secret}
       GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
     volumes:
       - grafana-data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
     depends_on:
       - prometheus
     networks:
       - acm-network
 
   # ============================================================================
-  # Detection Engine (Rust)
+  # Jaeger (Distributed Tracing - Optional)
   # ============================================================================
 
-  detection-engine:
-    build:
-      context: ../../anti-call-masking/detection-service-rust
-      dockerfile: Dockerfile
-    container_name: acm-detection
+  jaeger:
+    image: jaegertracing/all-in-one:1.53
+    container_name: acm-jaeger
     ports:
-      - "8081:8080"
+      - "16686:16686" # UI
+      - "6831:6831/udp" # Thrift compact
+      - "14268:14268" # Thrift HTTP
+      - "4317:4317" # OTLP gRPC
     environment:
-      RUST_LOG: info
-      DRAGONFLY_URL: redis://dragonflydb:6379
-      QUESTDB_URL: http://questdb:9000
-      HASURA_URL: http://hasura:8080/v1/graphql
-    depends_on:
-      dragonflydb:
-        condition: service_healthy
-      questdb:
-        condition: service_healthy
+      COLLECTOR_OTLP_ENABLED: "true"
     networks:
       - acm-network
 
 volumes:
+  yb-master-1-data:
+  yb-master-2-data:
+  yb-master-3-data:
+  yb-tserver-1-data:
+  yb-tserver-2-data:
+  yb-tserver-3-data:
   dragonfly-data:
-  postgres-data:
+  dragonfly-replica-data:
   questdb-data:
   n8n-data:
   prometheus-data:

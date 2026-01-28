@@ -1,0 +1,189 @@
+actions:
+  # ============================================================================
+  # Anti-Masking Actions
+  # ============================================================================
+  - name: acknowledgeAlert
+    definition:
+      kind: synchronous
+      handler: '{{ACTIONS_HANDLER_URL}}/acknowledge-alert'
+      timeout: 30
+    permissions:
+      - role: analyst
+      - role: admin
+    comment: Acknowledge a fraud alert
+    
+  - name: resolveAlert
+    definition:
+      kind: synchronous
+      handler: '{{ACTIONS_HANDLER_URL}}/resolve-alert'
+      timeout: 30
+    permissions:
+      - role: analyst
+      - role: admin
+    comment: Resolve a fraud alert with resolution type
+    
+  - name: reportToNCC
+    definition:
+      kind: synchronous
+      handler: '{{ACTIONS_HANDLER_URL}}/report-to-ncc'
+      timeout: 60
+    permissions:
+      - role: admin
+    comment: Submit alert to NCC ATRS API
+    
+  - name: blacklistGateway
+    definition:
+      kind: synchronous
+      handler: '{{ACTIONS_HANDLER_URL}}/blacklist-gateway'
+      timeout: 30
+    permissions:
+      - role: admin
+    comment: Blacklist a gateway
+    
+  # ============================================================================
+  # Remittance Actions
+  # ============================================================================
+  - name: initiateTransfer
+    definition:
+      kind: synchronous
+      handler: '{{ACTIONS_HANDLER_URL}}/initiate-transfer'
+      timeout: 60
+    permissions:
+      - role: user
+    comment: Initiate a new remittance transfer
+    
+  - name: verifyBankAccount
+    definition:
+      kind: synchronous
+      handler: '{{ACTIONS_HANDLER_URL}}/verify-bank-account'
+      timeout: 30
+    permissions:
+      - role: user
+    comment: Verify Nigerian bank account via NIP
+    
+  - name: getExchangeRate
+    definition:
+      kind: synchronous
+      handler: '{{ACTIONS_HANDLER_URL}}/get-exchange-rate'
+      timeout: 10
+    permissions:
+      - role: user
+    comment: Get current exchange rate for a corridor
+    
+  # ============================================================================
+  # Identity Actions
+  # ============================================================================
+  - name: register
+    definition:
+      kind: synchronous
+      handler: '{{ACTIONS_HANDLER_URL}}/auth/register'
+      timeout: 30
+    permissions:
+      - role: anonymous
+    comment: Register new user
+    
+  - name: login
+    definition:
+      kind: synchronous
+      handler: '{{ACTIONS_HANDLER_URL}}/auth/login'
+      timeout: 30
+    permissions:
+      - role: anonymous
+    comment: User login
+    
+  - name: refreshToken
+    definition:
+      kind: synchronous
+      handler: '{{ACTIONS_HANDLER_URL}}/auth/refresh'
+      timeout: 10
+    permissions:
+      - role: user
+    comment: Refresh access token
+    
+  - name: logout
+    definition:
+      kind: synchronous
+      handler: '{{ACTIONS_HANDLER_URL}}/auth/logout'
+      timeout: 10
+    permissions:
+      - role: user
+    comment: User logout
+    
+  - name: submitKYC
+    definition:
+      kind: synchronous
+      handler: '{{ACTIONS_HANDLER_URL}}/kyc/submit'
+      timeout: 60
+    permissions:
+      - role: user
+    comment: Submit KYC verification documents
+
+custom_types:
+  input_objects:
+    - name: AcknowledgeAlertInput
+      fields:
+        - name: alert_id
+          type: uuid!
+          
+    - name: ResolveAlertInput
+      fields:
+        - name: alert_id
+          type: uuid!
+        - name: resolution
+          type: String!
+        - name: notes
+          type: String
+          
+    - name: InitiateTransferInput
+      fields:
+        - name: beneficiary_id
+          type: uuid!
+        - name: amount
+          type: Float!
+        - name: currency
+          type: String!
+        - name: purpose
+          type: String!
+        - name: narration
+          type: String
+          
+    - name: RegisterInput
+      fields:
+        - name: email
+          type: String!
+        - name: password
+          type: String!
+        - name: first_name
+          type: String!
+        - name: last_name
+          type: String!
+        - name: phone
+          type: String
+          
+    - name: LoginInput
+      fields:
+        - name: email
+          type: String!
+        - name: password
+          type: String!
+          
+  objects:
+    - name: ActionResponse
+      fields:
+        - name: success
+          type: Boolean!
+        - name: message
+          type: String
+        - name: data
+          type: json
+          
+    - name: AuthPayload
+      fields:
+        - name: access_token
+          type: String!
+        - name: refresh_token
+          type: String!
+        - name: expires_at
+          type: timestamptz!
+        - name: user
+          type: json!
