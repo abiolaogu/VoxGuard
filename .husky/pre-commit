@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# Husky pre-commit hook - TDD enforcement
+# Runs tests before allowing commits
+
+set -e
+
+echo "🧪 Running pre-commit checks..."
+
+# Run linting
+echo "📝 Running linters..."
+pnpm lint
+
+# Run tests
+echo "🧪 Running tests..."
+pnpm test
+
+# Format check
+echo "✨ Checking formatting..."
+pnpm format:check
+
+echo "✅ All checks passed!"

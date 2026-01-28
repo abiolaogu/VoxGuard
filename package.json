@@ -1,0 +1,57 @@
+{
+    "name": "anti-call-masking-platform",
+    "version": "1.0.0",
+    "private": true,
+    "description": "Anti-Call Masking Platform - Enterprise DDD Monorepo",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/abiolaogu/Anti_Call-Masking.git"
+    },
+    "author": "BillyRonks Global Limited <tech@billyronks.com>",
+    "license": "MIT",
+    "engines": {
+        "node": ">=20.0.0",
+        "pnpm": ">=9.0.0"
+    },
+    "packageManager": "pnpm@9.0.0",
+    "scripts": {
+        "prepare": "husky install",
+        "dev": "pnpm -r --parallel run dev",
+        "dev:web": "pnpm --filter @acm/web dev",
+        "build": "pnpm -r run build",
+        "build:web": "pnpm --filter @acm/web build",
+        "test": "pnpm -r run test",
+        "test:coverage": "pnpm -r run test:coverage",
+        "lint": "pnpm -r run lint",
+        "lint:fix": "pnpm -r run lint:fix",
+        "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
+        "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\"",
+        "codegen": "pnpm --filter @acm/codegen generate",
+        "codegen:watch": "pnpm --filter @acm/codegen generate:watch",
+        "hasura:console": "cd backend/hasura && hasura console",
+        "hasura:migrate": "cd backend/hasura && hasura migrate apply",
+        "hasura:metadata": "cd backend/hasura && hasura metadata apply",
+        "docker:up": "docker-compose -f infrastructure/docker/docker-compose.yml up -d",
+        "docker:down": "docker-compose -f infrastructure/docker/docker-compose.yml down",
+        "clean": "pnpm -r exec rm -rf node_modules dist .next .turbo"
+    },
+    "devDependencies": {
+        "@commitlint/cli": "^19.0.0",
+        "@commitlint/config-conventional": "^19.0.0",
+        "@types/node": "^20.10.0",
+        "husky": "^9.0.0",
+        "lint-staged": "^15.0.0",
+        "prettier": "^3.2.0",
+        "turbo": "^2.0.0",
+        "typescript": "^5.3.0"
+    },
+    "lint-staged": {
+        "*.{ts,tsx,js,jsx}": [
+            "eslint --fix",
+            "prettier --write"
+        ],
+        "*.{json,md,yml,yaml}": [
+            "prettier --write"
+        ]
+    }
+}

@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Husky commit-msg hook - conventional commits enforcement
+
+npx --no -- commitlint --edit $1

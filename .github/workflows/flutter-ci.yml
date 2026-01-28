@@ -1,0 +1,64 @@
+name: Flutter CI
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'packages/flutter/**'
+      - 'packages/shared/**'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'packages/flutter/**'
+      - 'packages/shared/**'
+
+jobs:
+  build:
+    name: Build & Test Flutter
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.19.0'
+          channel: 'stable'
+          cache: true
+          
+      - name: Get dependencies
+        run: |
+          cd packages/flutter
+          flutter pub get
+          
+      - name: Generate code
+        run: |
+          cd packages/flutter
+          dart run build_runner build --delete-conflicting-outputs
+          
+      - name: Analyze
+        run: |
+          cd packages/flutter
+          flutter analyze
+          
+      - name: Test
+        run: |
+          cd packages/flutter
+          flutter test --coverage
+          
+      - name: Build Android APK
+        run: |
+          cd packages/flutter
+          flutter build apk --release
+          
+      - name: Build iOS (no codesign)
+        run: |
+          cd packages/flutter
+          flutter build ios --no-codesign
+          
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: flutter-apk
+          path: packages/flutter/build/app/outputs/flutter-apk/app-release.apk

@@ -1,0 +1,198 @@
+version: "3.9"
+
+services:
+  # ============================================================================
+  # Core Infrastructure
+  # ============================================================================
+
+  dragonflydb:
+    image: docker.dragonflydb.io/dragonflydb/dragonfly:v1.14.3
+    container_name: acm-dragonfly
+    ports:
+      - "6379:6379"
+    volumes:
+      - dragonfly-data:/data
+    command: >
+      --maxmemory=2gb --proactor_threads=4 --cache_mode=true
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - acm-network
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: acm-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: acm
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - acm-network
+
+  questdb:
+    image: questdb/questdb:7.4.0
+    container_name: acm-questdb
+    ports:
+      - "9000:9000" # REST API / Web Console
+      - "9009:9009" # InfluxDB Line Protocol
+      - "8812:8812" # PostgreSQL wire protocol
+    volumes:
+      - questdb-data:/var/lib/questdb
+    environment:
+      QDB_PG_USER: admin
+      QDB_PG_PASSWORD: quest
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:9000/status" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - acm-network
+
+  # ============================================================================
+  # Hasura GraphQL Engine
+  # ============================================================================
+
+  hasura:
+    image: hasura/graphql-engine:v2.38.0
+    container_name: acm-hasura
+    ports:
+      - "8080:8080"
+    environment:
+      ## PostgreSQL database URL
+      HASURA_GRAPHQL_DATABASE_URL: postgres://postgres:postgres@postgres:5432/acm
+      ## Enable console
+      HASURA_GRAPHQL_ENABLE_CONSOLE: "true"
+      ## Dev mode for relaxed CORS
+      HASURA_GRAPHQL_DEV_MODE: "true"
+      ## Admin secret
+      HASURA_GRAPHQL_ADMIN_SECRET: acm-admin-secret
+      ## JWT configuration
+      HASURA_GRAPHQL_JWT_SECRET: '{"type":"HS256","key":"your-256-bit-secret-key-here-min-32-chars!"}'
+      ## Unauthorized role
+      HASURA_GRAPHQL_UNAUTHORIZED_ROLE: anonymous
+      ## Enable subscriptions
+      HASURA_GRAPHQL_ENABLE_SUBSCRIPTIONS: "true"
+      ## Logging
+      HASURA_GRAPHQL_LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8080/healthz" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - acm-network
+
+  # ============================================================================
+  # n8n Workflow Automation
+  # ============================================================================
+
+  n8n:
+    image: n8nio/n8n:1.25.0
+    container_name: acm-n8n
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_HOST=0.0.0.0
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - GENERIC_TIMEZONE=Africa/Lagos
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=admin
+      - N8N_BASIC_AUTH_PASSWORD=acm-n8n-secret
+    volumes:
+      - n8n-data:/home/node/.n8n
+      - ../../backend/n8n/workflows:/home/node/.n8n/workflows
+    depends_on:
+      - postgres
+      - dragonflydb
+    networks:
+      - acm-network
+
+  # ============================================================================
+  # Monitoring Stack
+  # ============================================================================
+
+  prometheus:
+    image: prom/prometheus:v2.48.0
+    container_name: acm-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.enable-lifecycle'
+    networks:
+      - acm-network
+
+  grafana:
+    image: grafana/grafana:10.3.0
+    container_name: acm-grafana
+    ports:
+      - "3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: acm-grafana-secret
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    depends_on:
+      - prometheus
+    networks:
+      - acm-network
+
+  # ============================================================================
+  # Detection Engine (Rust)
+  # ============================================================================
+
+  detection-engine:
+    build:
+      context: ../../anti-call-masking/detection-service-rust
+      dockerfile: Dockerfile
+    container_name: acm-detection
+    ports:
+      - "8081:8080"
+    environment:
+      RUST_LOG: info
+      DRAGONFLY_URL: redis://dragonflydb:6379
+      QUESTDB_URL: http://questdb:9000
+      HASURA_URL: http://hasura:8080/v1/graphql
+    depends_on:
+      dragonflydb:
+        condition: service_healthy
+      questdb:
+        condition: service_healthy
+    networks:
+      - acm-network
+
+volumes:
+  dragonfly-data:
+  postgres-data:
+  questdb-data:
+  n8n-data:
+  prometheus-data:
+  grafana-data:
+
+
+networks:
+  acm-network:
+    driver: bridge
