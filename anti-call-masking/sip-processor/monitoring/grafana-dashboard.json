@@ -1,0 +1,279 @@
+{
+  "dashboard": {
+    "title": "Sentinel Anti-Call Masking Engine",
+    "tags": ["sentinel", "fraud-detection", "telecom"],
+    "timezone": "browser",
+    "schemaVersion": 16,
+    "version": 0,
+    "refresh": "30s",
+    "panels": [
+      {
+        "id": 1,
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+        "type": "graph",
+        "title": "CDR Ingestion Rate",
+        "targets": [
+          {
+            "expr": "rate(sentinel_cdr_records_ingested_total[5m])",
+            "legendFormat": "Records/sec",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {"format": "ops", "label": "Records/sec"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 2,
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+        "type": "graph",
+        "title": "Alert Generation Rate",
+        "targets": [
+          {
+            "expr": "rate(sentinel_alerts_generated_total[5m])",
+            "legendFormat": "Alerts/sec",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {"format": "ops", "label": "Alerts/sec"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 3,
+        "gridPos": {"h": 6, "w": 6, "x": 0, "y": 8},
+        "type": "singlestat",
+        "title": "Unreviewed Alerts",
+        "targets": [
+          {
+            "expr": "sentinel_unreviewed_alerts",
+            "refId": "A"
+          }
+        ],
+        "valueName": "current",
+        "format": "none",
+        "thresholds": "50,100",
+        "colors": ["#299c46", "#e5ac0e", "#d44a3a"]
+      },
+      {
+        "id": 4,
+        "gridPos": {"h": 6, "w": 6, "x": 6, "y": 8},
+        "type": "singlestat",
+        "title": "Active WebSocket Connections",
+        "targets": [
+          {
+            "expr": "sentinel_active_websocket_connections",
+            "refId": "A"
+          }
+        ],
+        "valueName": "current",
+        "format": "none"
+      },
+      {
+        "id": 5,
+        "gridPos": {"h": 6, "w": 6, "x": 12, "y": 8},
+        "type": "singlestat",
+        "title": "Cache Hit Rate",
+        "targets": [
+          {
+            "expr": "sentinel_cache_hit_rate",
+            "refId": "A"
+          }
+        ],
+        "valueName": "current",
+        "format": "percent",
+        "thresholds": "50,80",
+        "colors": ["#d44a3a", "#e5ac0e", "#299c46"]
+      },
+      {
+        "id": 6,
+        "gridPos": {"h": 6, "w": 6, "x": 18, "y": 8},
+        "type": "singlestat",
+        "title": "DB Pool Utilization",
+        "targets": [
+          {
+            "expr": "sentinel_database_pool_utilization",
+            "refId": "A"
+          }
+        ],
+        "valueName": "current",
+        "format": "percent",
+        "thresholds": "70,90",
+        "colors": ["#299c46", "#e5ac0e", "#d44a3a"]
+      },
+      {
+        "id": 7,
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 14},
+        "type": "graph",
+        "title": "Alerts by Severity",
+        "targets": [
+          {
+            "expr": "rate(sentinel_alerts_by_severity_total{severity=\"CRITICAL\"}[5m])",
+            "legendFormat": "Critical",
+            "refId": "A"
+          },
+          {
+            "expr": "rate(sentinel_alerts_by_severity_total{severity=\"HIGH\"}[5m])",
+            "legendFormat": "High",
+            "refId": "B"
+          },
+          {
+            "expr": "rate(sentinel_alerts_by_severity_total{severity=\"MEDIUM\"}[5m])",
+            "legendFormat": "Medium",
+            "refId": "C"
+          },
+          {
+            "expr": "rate(sentinel_alerts_by_severity_total{severity=\"LOW\"}[5m])",
+            "legendFormat": "Low",
+            "refId": "D"
+          }
+        ],
+        "yaxes": [
+          {"format": "ops", "label": "Alerts/sec"},
+          {"format": "short"}
+        ],
+        "seriesOverrides": [
+          {"alias": "Critical", "color": "#BF1B00"},
+          {"alias": "High", "color": "#E24D42"},
+          {"alias": "Medium", "color": "#EAB839"},
+          {"alias": "Low", "color": "#7EB26D"}
+        ]
+      },
+      {
+        "id": 8,
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 14},
+        "type": "graph",
+        "title": "API Request Duration (p95)",
+        "targets": [
+          {
+            "expr": "sentinel_api_request_duration_seconds{quantile=\"0.95\"}",
+            "legendFormat": "{{endpoint}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {"format": "s", "label": "Duration"},
+          {"format": "short"}
+        ],
+        "alert": {
+          "conditions": [
+            {
+              "evaluator": {"params": [0.5], "type": "gt"},
+              "operator": {"type": "and"},
+              "query": {"params": ["A", "5m", "now"]},
+              "reducer": {"params": [], "type": "avg"},
+              "type": "query"
+            }
+          ],
+          "frequency": "60s",
+          "handler": 1,
+          "name": "API Response Time Alert",
+          "message": "API response time exceeded 500ms threshold"
+        }
+      },
+      {
+        "id": 9,
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 22},
+        "type": "graph",
+        "title": "Ingestion Duration (Percentiles)",
+        "targets": [
+          {
+            "expr": "sentinel_ingestion_duration_seconds{quantile=\"0.5\"}",
+            "legendFormat": "p50",
+            "refId": "A"
+          },
+          {
+            "expr": "sentinel_ingestion_duration_seconds{quantile=\"0.95\"}",
+            "legendFormat": "p95",
+            "refId": "B"
+          },
+          {
+            "expr": "sentinel_ingestion_duration_seconds{quantile=\"0.99\"}",
+            "legendFormat": "p99",
+            "refId": "C"
+          }
+        ],
+        "yaxes": [
+          {"format": "s", "label": "Duration"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 10,
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 22},
+        "type": "graph",
+        "title": "Detection Duration (Percentiles)",
+        "targets": [
+          {
+            "expr": "sentinel_detection_duration_seconds{quantile=\"0.5\"}",
+            "legendFormat": "p50",
+            "refId": "A"
+          },
+          {
+            "expr": "sentinel_detection_duration_seconds{quantile=\"0.95\"}",
+            "legendFormat": "p95",
+            "refId": "B"
+          },
+          {
+            "expr": "sentinel_detection_duration_seconds{quantile=\"0.99\"}",
+            "legendFormat": "p99",
+            "refId": "C"
+          }
+        ],
+        "yaxes": [
+          {"format": "s", "label": "Duration"},
+          {"format": "short"}
+        ],
+        "alert": {
+          "conditions": [
+            {
+              "evaluator": {"params": [60], "type": "gt"},
+              "operator": {"type": "and"},
+              "query": {"params": ["B", "5m", "now"]},
+              "reducer": {"params": [], "type": "avg"},
+              "type": "query"
+            }
+          ],
+          "frequency": "60s",
+          "handler": 1,
+          "name": "Detection Duration Alert",
+          "message": "Detection duration exceeded 60 second threshold"
+        }
+      },
+      {
+        "id": 11,
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 30},
+        "type": "graph",
+        "title": "Error Rates",
+        "targets": [
+          {
+            "expr": "rate(sentinel_cdr_ingestion_errors_total[5m])",
+            "legendFormat": "Ingestion Errors",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {"format": "ops", "label": "Errors/sec"},
+          {"format": "short"}
+        ],
+        "alert": {
+          "conditions": [
+            {
+              "evaluator": {"params": [1], "type": "gt"},
+              "operator": {"type": "and"},
+              "query": {"params": ["A", "5m", "now"]},
+              "reducer": {"params": [], "type": "avg"},
+              "type": "query"
+            }
+          ],
+          "frequency": "60s",
+          "handler": 1,
+          "name": "Error Rate Alert",
+          "message": "Ingestion error rate exceeded threshold"
+        }
+      }
+    ]
+  }
+}

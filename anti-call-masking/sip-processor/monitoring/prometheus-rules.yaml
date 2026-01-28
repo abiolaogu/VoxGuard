@@ -1,0 +1,193 @@
+groups:
+  - name: sentinel_alerts
+    interval: 30s
+    rules:
+      # High error rate alert
+      - alert: SentinelHighIngestionErrorRate
+        expr: rate(sentinel_cdr_ingestion_errors_total[5m]) > 1
+        for: 5m
+        labels:
+          severity: warning
+          component: sentinel-engine
+        annotations:
+          summary: "High CDR ingestion error rate"
+          description: "Sentinel is experiencing {{ $value | humanize }} ingestion errors per second (5m average)"
+
+      # Critical error rate alert
+      - alert: SentinelCriticalIngestionErrorRate
+        expr: rate(sentinel_cdr_ingestion_errors_total[5m]) > 10
+        for: 2m
+        labels:
+          severity: critical
+          component: sentinel-engine
+        annotations:
+          summary: "Critical CDR ingestion error rate"
+          description: "Sentinel is experiencing {{ $value | humanize }} ingestion errors per second - immediate action required"
+
+      # Slow API response times
+      - alert: SentinelSlowAPIResponses
+        expr: sentinel_api_request_duration_seconds{quantile="0.95"} > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          component: sentinel-engine
+        annotations:
+          summary: "Slow API response times on {{ $labels.endpoint }}"
+          description: "95th percentile API response time is {{ $value }}s (threshold: 0.5s)"
+
+      # Very slow API responses
+      - alert: SentinelVerySlowAPIResponses
+        expr: sentinel_api_request_duration_seconds{quantile="0.95"} > 2
+        for: 2m
+        labels:
+          severity: critical
+          component: sentinel-engine
+        annotations:
+          summary: "Very slow API response times on {{ $labels.endpoint }}"
+          description: "95th percentile API response time is {{ $value }}s - performance degraded"
+
+      # Detection duration exceeds target
+      - alert: SentinelSlowDetection
+        expr: sentinel_detection_duration_seconds{quantile="0.95"} > 60
+        for: 10m
+        labels:
+          severity: warning
+          component: sentinel-engine
+        annotations:
+          summary: "Detection runs taking too long"
+          description: "95th percentile detection duration is {{ $value }}s (target: <60s)"
+
+      # High unreviewed alerts count
+      - alert: SentinelHighUnreviewedAlerts
+        expr: sentinel_unreviewed_alerts > 100
+        for: 30m
+        labels:
+          severity: warning
+          component: sentinel-engine
+        annotations:
+          summary: "High number of unreviewed alerts"
+          description: "{{ $value }} unreviewed fraud alerts - review queue needs attention"
+
+      # Critical unreviewed alerts count
+      - alert: SentinelCriticalUnreviewedAlerts
+        expr: sentinel_unreviewed_alerts > 500
+        for: 15m
+        labels:
+          severity: critical
+          component: sentinel-engine
+        annotations:
+          summary: "Critical number of unreviewed alerts"
+          description: "{{ $value }} unreviewed fraud alerts - immediate action required"
+
+      # Database pool exhaustion
+      - alert: SentinelDatabasePoolExhaustion
+        expr: sentinel_database_pool_utilization > 90
+        for: 5m
+        labels:
+          severity: critical
+          component: sentinel-engine
+        annotations:
+          summary: "Database connection pool nearly exhausted"
+          description: "Pool utilization at {{ $value }}% - consider scaling or investigating slow queries"
+
+      # Low cache hit rate
+      - alert: SentinelLowCacheHitRate
+        expr: sentinel_cache_hit_rate < 50
+        for: 15m
+        labels:
+          severity: warning
+          component: sentinel-engine
+        annotations:
+          summary: "Low cache hit rate"
+          description: "Cache hit rate is {{ $value }}% - performance may be degraded"
+
+      # No detection runs recently
+      - alert: SentinelNoRecentDetection
+        expr: (time() - sentinel_last_detection_timestamp) > 3600
+        for: 5m
+        labels:
+          severity: warning
+          component: sentinel-engine
+        annotations:
+          summary: "No detection runs in the last hour"
+          description: "Last detection run was {{ $value | humanizeDuration }} ago - check scheduled jobs"
+
+      # High alert generation rate (possible attack)
+      - alert: SentinelHighAlertRate
+        expr: rate(sentinel_alerts_generated_total[5m]) > 10
+        for: 10m
+        labels:
+          severity: warning
+          component: sentinel-engine
+        annotations:
+          summary: "Unusually high alert generation rate"
+          description: "Generating {{ $value | humanize }} alerts per second - possible widespread fraud activity"
+
+      # Critical severity alerts spike
+      - alert: SentinelCriticalAlertSpike
+        expr: rate(sentinel_alerts_by_severity_total{severity="CRITICAL"}[5m]) > 2
+        for: 5m
+        labels:
+          severity: critical
+          component: sentinel-engine
+        annotations:
+          summary: "Spike in CRITICAL severity alerts"
+          description: "{{ $value | humanize }} critical alerts per second - investigate immediately"
+
+      # Service down
+      - alert: SentinelServiceDown
+        expr: up{job="sentinel-engine"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          component: sentinel-engine
+        annotations:
+          summary: "Sentinel service is down"
+          description: "Sentinel engine instance {{ $labels.instance }} is not responding"
+
+      # Multiple instances down
+      - alert: SentinelMultipleInstancesDown
+        expr: count(up{job="sentinel-engine"} == 0) > 1
+        for: 1m
+        labels:
+          severity: critical
+          component: sentinel-engine
+        annotations:
+          summary: "Multiple Sentinel instances are down"
+          description: "{{ $value }} Sentinel instances are not responding - service degraded"
+
+      # High memory usage
+      - alert: SentinelHighMemoryUsage
+        expr: |
+          (container_memory_usage_bytes{pod=~"sentinel-engine-.*"} /
+           container_spec_memory_limit_bytes{pod=~"sentinel-engine-.*"}) > 0.85
+        for: 5m
+        labels:
+          severity: warning
+          component: sentinel-engine
+        annotations:
+          summary: "High memory usage on {{ $labels.pod }}"
+          description: "Memory usage is {{ $value | humanizePercentage }} - consider scaling"
+
+      # High CPU usage
+      - alert: SentinelHighCPUUsage
+        expr: |
+          rate(container_cpu_usage_seconds_total{pod=~"sentinel-engine-.*"}[5m]) > 0.85
+        for: 10m
+        labels:
+          severity: warning
+          component: sentinel-engine
+        annotations:
+          summary: "High CPU usage on {{ $labels.pod }}"
+          description: "CPU usage is {{ $value | humanizePercentage }} - consider scaling"
+
+      # Ingestion rate dropped to zero
+      - alert: SentinelNoIngestion
+        expr: rate(sentinel_cdr_records_ingested_total[10m]) == 0
+        for: 30m
+        labels:
+          severity: warning
+          component: sentinel-engine
+        annotations:
+          summary: "No CDR ingestion activity"
+          description: "No records have been ingested in the last 30 minutes - check data sources"

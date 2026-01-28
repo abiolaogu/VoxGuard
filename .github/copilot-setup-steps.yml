@@ -1,0 +1,40 @@
+# Instructions for GitHub Copilot Workspace Agent
+# These steps run inside the agent's sandbox to verify changes.
+# This configuration is tailored for the Factory Template Python project.
+
+setup:
+  - name: Install Python Dependencies
+    run: pip install -r requirements.txt
+
+  - name: Install Development Dependencies
+    run: pip install pytest flake8 black mypy
+
+test:
+  - name: Run Unit Tests
+    run: pytest tests/ -v
+    # Note: Tests directory is currently empty. Add tests as the project grows.
+
+  - name: Run Type Checking
+    run: mypy scripts/ src/ --ignore-missing-imports --no-strict-optional
+    # Validates type hints in Python code
+
+lint:
+  - name: Check Code Formatting
+    run: black --check scripts/ src/ tests/
+    # Ensures code follows Black formatting standards
+
+  - name: Run Linter
+    run: flake8 scripts/ src/ tests/ --max-line-length=100 --extend-ignore=E203,W503
+    # Checks for code style violations and potential errors
+
+validate:
+  - name: Verify Critical Files Exist
+    run: |
+      test -f requirements.txt || (echo "requirements.txt missing" && exit 1)
+      test -f CLAUDE.md || (echo "CLAUDE.md missing" && exit 1)
+      test -d scripts/ || (echo "scripts/ directory missing" && exit 1)
+    # Ensures essential project structure is intact
+
+  - name: Check Python Syntax
+    run: python -m py_compile scripts/*.py src/**/*.py
+    # Validates Python syntax without running the code

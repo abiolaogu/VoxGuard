@@ -1,0 +1,59 @@
+# Bidirectional Sync Configuration Template
+# This configuration defines how changes should flow between the Factory Template and derived products
+
+sync:
+  # Sync relationship metadata
+  name: "Factory Template <-> Derived Product Sync"
+  description: "Bidirectional synchronization between factory template and product repository"
+
+  # Source repository (Factory Template)
+  source:
+    repository: "billyronks/factory-template"
+    branch: "main"
+
+  # Target repository (Derived Product)
+  target:
+    repository: "billyronks/derived-product-name"
+    branch: "main"
+
+  # Sync strategy
+  strategy:
+    mode: "bidirectional"  # Options: bidirectional, downstream-only, upstream-only
+    conflict_resolution: "manual"  # Options: manual, source-wins, target-wins
+
+  # Paths to sync from Factory Template -> Derived Product
+  downstream:
+    include:
+      - ".github/workflows/derive-product.yml"
+      - "scripts/transform/**"
+      - "templates/config/**"
+      - "CLAUDE.md"
+    exclude:
+      - "*.log"
+      - "*.tmp"
+      - ".env"
+
+  # Paths to sync from Derived Product -> Factory Template
+  upstream:
+    include:
+      - "scripts/transform/**/*.py"  # Bug fixes and improvements to transform scripts
+      - "templates/config/**/*.yaml"  # Config template improvements
+    exclude:
+      - "**/product-specific/**"
+      - "*.log"
+
+  # Automatic sync triggers
+  triggers:
+    downstream:
+      - "on_factory_release"
+      - "on_weekly_schedule"
+    upstream:
+      - "on_improvement_label"
+
+  # Notification settings
+  notifications:
+    on_conflict: true
+    on_sync_success: false
+    channels:
+      - type: "github_issue"
+        repository: "billyronks/factory-template"

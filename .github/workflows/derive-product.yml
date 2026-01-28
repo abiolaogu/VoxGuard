@@ -1,0 +1,66 @@
+name: Universal Product Derivation
+
+on:
+  workflow_dispatch:
+    inputs:
+      config_file:
+        description: 'Path to derivation config (e.g., configs/derive-cms.yaml)'
+        required: true
+        default: 'configs/derive-cms.yaml'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  derive:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Parse Derivation Config
+        id: config
+        run: |
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod a+x /usr/local/bin/yq
+          CONFIG=$(yq -o=json -I=0 '.' ${{ inputs.config_file }})
+          echo "config<<EOF" >> $GITHUB_OUTPUT
+          echo "$CONFIG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create New Repository
+        env:
+          GH_TOKEN: ${{ secrets.FACTORY_ADMIN_TOKEN }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::error::CRITICAL FAILURE: FACTORY_ADMIN_TOKEN is missing! Check Repo Secrets."
+            exit 1
+          fi
+          
+          TARGET_REPO=$(echo '${{ steps.config.outputs.config }}' | jq -r '.derivation.target.repository')
+          echo "Target Repository: $TARGET_REPO"
+          
+          gh repo view $TARGET_REPO > /dev/null 2>&1 || gh repo create $TARGET_REPO --private
+
+      - name: Universal Transformation
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          prompt: |
+            You are the Repository Transformation Engine.
+            Task: Extract a standalone product based on this config.
+            
+            Configuration Data:
+            ${{ steps.config.outputs.config }}
+
+            Instructions:
+            1. Analyze 'extraction.include' in the config.
+            2. Extract those files/folders.
+            3. Apply 'replacements'.
+            4. Remove 'exclude' paths.
+            5. IMPORTANT: Output a bash script to perform these file moves and git commits to the new repository.

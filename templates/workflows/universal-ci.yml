@@ -1,0 +1,278 @@
+name: Universal CI/CD Pipeline
+
+# This workflow implements the tier-based automation system defined in CLAUDE.md
+# It accepts dynamic configuration and works with any tech stack
+
+on:
+  pull_request:
+    branches:
+      - main
+      - master
+      - develop
+  push:
+    branches:
+      - main
+      - master
+      - develop
+
+jobs:
+  detect-tier:
+    name: Detect Change Tier
+    runs-on: ubuntu-latest
+    outputs:
+      tier: ${{ steps.classify.outputs.tier }}
+      changed_files: ${{ steps.files.outputs.files }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get Changed Files
+        id: files
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            FILES=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.sha }} | jq -R -s -c 'split("\n")[:-1]')
+          else
+            FILES=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} | jq -R -s -c 'split("\n")[:-1]')
+          fi
+          echo "files=$FILES" >> $GITHUB_OUTPUT
+          echo "Changed files: $FILES"
+
+      - name: Classify Changes by Tier
+        id: classify
+        run: |
+          FILES='${{ steps.files.outputs.files }}'
+
+          # Tier 2 patterns (highest priority - Auth, Payments, Infra)
+          TIER_2_PATTERNS=(
+            ".github/workflows/"
+            "auth/"
+            "payment/"
+            "infrastructure/"
+            "terraform/"
+            "k8s/"
+            "kubernetes/"
+          )
+
+          # Tier 1 patterns (Features, Logic)
+          TIER_1_PATTERNS=(
+            "src/"
+            "lib/"
+            "scripts/"
+            "app/"
+          )
+
+          # Tier 0 patterns (Docs, Tests, Text)
+          TIER_0_PATTERNS=(
+            "docs/"
+            ".md"
+            "tests/"
+            "test/"
+            ".txt"
+            "README"
+          )
+
+          # Check for Tier 2 (highest priority)
+          for pattern in "${TIER_2_PATTERNS[@]}"; do
+            if echo "$FILES" | grep -q "$pattern"; then
+              echo "tier=2" >> $GITHUB_OUTPUT
+              echo "🔴 Tier 2 detected: Auth/Payments/Infra changes require admin approval"
+              exit 0
+            fi
+          done
+
+          # Check for Tier 1
+          for pattern in "${TIER_1_PATTERNS[@]}"; do
+            if echo "$FILES" | grep -q "$pattern"; then
+              echo "tier=1" >> $GITHUB_OUTPUT
+              echo "🟡 Tier 1 detected: Feature/Logic changes require review"
+              exit 0
+            fi
+          done
+
+          # Default to Tier 0
+          echo "tier=0" >> $GITHUB_OUTPUT
+          echo "🟢 Tier 0 detected: Documentation/Tests can auto-merge"
+
+  tech-stack-detection:
+    name: Detect Tech Stack
+    runs-on: ubuntu-latest
+    outputs:
+      tech_info: ${{ steps.detect.outputs.tech_info }}
+      language: ${{ steps.detect.outputs.language }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Detect Tech Stack
+        id: detect
+        run: |
+          python scripts/universal/detect_tech_stack.py > tech_stack.json
+          TECH_INFO=$(cat tech_stack.json)
+          echo "tech_info<<EOF" >> $GITHUB_OUTPUT
+          echo "$TECH_INFO" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+          LANGUAGE=$(echo "$TECH_INFO" | jq -r '.tech_stack.primary_language')
+          echo "language=$LANGUAGE" >> $GITHUB_OUTPUT
+          echo "Detected language: $LANGUAGE"
+
+      - name: Upload Tech Stack Info
+        uses: actions/upload-artifact@v4
+        with:
+          name: tech-stack-info
+          path: tech_stack.json
+
+  lint:
+    name: Lint Code
+    runs-on: ubuntu-latest
+    needs: tech-stack-detection
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download Tech Stack Info
+        uses: actions/download-artifact@v4
+        with:
+          name: tech-stack-info
+
+      - name: Set up Language Environment
+        uses: ./.github/actions/setup-env
+        if: hashFiles('.github/actions/setup-env/action.yml') != ''
+        with:
+          language: ${{ needs.tech-stack-detection.outputs.language }}
+
+      - name: Set up Python (for universal scripts)
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Run Universal Lint
+        run: |
+          LINT_ENABLED=$(cat tech_stack.json | jq -r '.lint.enabled')
+          if [ "$LINT_ENABLED" = "true" ]; then
+            python scripts/universal/universal_lint.py
+          else
+            echo "Linting not enabled for this repository"
+          fi
+
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    needs: tech-stack-detection
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download Tech Stack Info
+        uses: actions/download-artifact@v4
+        with:
+          name: tech-stack-info
+
+      - name: Set up Language Environment
+        uses: ./.github/actions/setup-env
+        if: hashFiles('.github/actions/setup-env/action.yml') != ''
+        with:
+          language: ${{ needs.tech-stack-detection.outputs.language }}
+
+      - name: Set up Python (for universal scripts)
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Run Universal Tests
+        run: |
+          TEST_ENABLED=$(cat tech_stack.json | jq -r '.test.enabled')
+          if [ "$TEST_ENABLED" = "true" ]; then
+            python scripts/universal/universal_test.py --coverage
+          else
+            echo "Tests not enabled for this repository"
+          fi
+
+  build:
+    name: Build Project
+    runs-on: ubuntu-latest
+    needs: [lint, test, tech-stack-detection]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download Tech Stack Info
+        uses: actions/download-artifact@v4
+        with:
+          name: tech-stack-info
+
+      - name: Set up Language Environment
+        uses: ./.github/actions/setup-env
+        if: hashFiles('.github/actions/setup-env/action.yml') != ''
+        with:
+          language: ${{ needs.tech-stack-detection.outputs.language }}
+
+      - name: Set up Python (for universal scripts)
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Run Universal Build
+        run: |
+          BUILD_ENABLED=$(cat tech_stack.json | jq -r '.build.enabled')
+          if [ "$BUILD_ENABLED" = "true" ]; then
+            python scripts/universal/universal_build.py --production
+          else
+            echo "Build not enabled for this repository"
+          fi
+
+  auto-merge:
+    name: Auto-Merge (Tier 0 Only)
+    runs-on: ubuntu-latest
+    needs: [detect-tier, build]
+    if: |
+      github.event_name == 'pull_request' &&
+      needs.detect-tier.outputs.tier == '0' &&
+      success()
+    steps:
+      - name: Auto-Merge PR
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          echo "🟢 Tier 0 changes detected - Auto-merging PR #$PR_NUMBER"
+          gh pr merge $PR_NUMBER --auto --squash --repo ${{ github.repository }}
+
+  request-review:
+    name: Request Review (Tier 1)
+    runs-on: ubuntu-latest
+    needs: [detect-tier, build]
+    if: |
+      github.event_name == 'pull_request' &&
+      needs.detect-tier.outputs.tier == '1' &&
+      success()
+    steps:
+      - name: Request Review
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          echo "🟡 Tier 1 changes detected - Requesting review for PR #$PR_NUMBER"
+          gh pr comment $PR_NUMBER --body "🟡 **Tier 1 Changes Detected**\n\nThis PR modifies features or business logic and requires human review before merging.\n\nChanged areas: Features, Logic, Source Code" --repo ${{ github.repository }}
+
+  require-admin:
+    name: Require Admin Approval (Tier 2)
+    runs-on: ubuntu-latest
+    needs: [detect-tier, build]
+    if: |
+      github.event_name == 'pull_request' &&
+      needs.detect-tier.outputs.tier == '2' &&
+      success()
+    steps:
+      - name: Flag for Admin
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          echo "🔴 Tier 2 changes detected - Flagging PR #$PR_NUMBER for admin approval"
+          gh pr comment $PR_NUMBER --body "🔴 **Tier 2 Changes Detected - ADMIN APPROVAL REQUIRED**\n\n⚠️ This PR modifies critical infrastructure and requires admin approval before merging.\n\nChanged areas: Authentication, Payments, Infrastructure, Workflows\n\n**Action Required:** An administrator must review and approve this PR." --repo ${{ github.repository }}
+
+          # Add label if not exists
+          gh pr edit $PR_NUMBER --add-label "requires-admin-approval" --repo ${{ github.repository }} || true

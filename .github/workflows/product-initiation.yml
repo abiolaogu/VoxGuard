@@ -1,0 +1,41 @@
+name: Autonomous Product Initiation
+on:
+  issues:
+    types: [labeled]
+
+jobs:
+  initiate-product:
+    if: github.event.label.name == 'approved-for-development'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate Reuse Plan
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          prompt: |
+            TASK: Create a "Reuse Plan" for this new product opportunity.
+            ISSUE: ${{ github.event.issue.body }}
+            INDEX: Read .repo-index/components.yaml
+
+            1. Determine which existing components can be reused.
+            2. Determine what needs to be built from scratch.
+            3. Generate a `reuse_plan.json` artifact.
+
+      - name: Create New Repository
+        env:
+          GH_TOKEN: ${{ secrets.FACTORY_ADMIN_TOKEN }}
+        run: |
+          # Ideally, we parse the name from the issue. Here we use a placeholder timestamp.
+          REPO_NAME="product-$(date +%s)"
+
+          echo "Creating new product repo: $REPO_NAME"
+          gh repo create "billyronks/$REPO_NAME" --private --clone
+
+          # In a full version, we would now COPY the reusable components defined in the plan
+          # from this repo into the new repo.

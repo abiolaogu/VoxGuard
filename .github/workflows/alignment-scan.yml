@@ -1,0 +1,21 @@
+name: Cross-Repository Alignment Scan
+on:
+  schedule:
+    - cron: '0 3 * * 0' # Weekly on Sunday
+  workflow_dispatch:
+
+jobs:
+  scan-alignment:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Detect Duplicates
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          prompt: |
+            TASK: Check for code duplication and version mismatches.
+
+            If you find multiple folders implementing the same logic (e.g., multiple 'auth' folders), suggest consolidating them into a Shared Library.

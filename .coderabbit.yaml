@@ -1,0 +1,29 @@
+# Tiered Autonomy Configuration
+reviews:
+  high_level_summary: true
+  auto_review:
+    enabled: true
+    ignore_title_keywords:
+      - "WIP"
+    path_filters:
+      - "!dist/**"
+      - "!**/*.lock"
+
+# Tier Definitions
+policy:
+  # Tier 0: Low Risk (Docs, Tests) -> Auto-approval allowed
+  - name: "Tier 0: Low Risk"
+    conditions:
+      - "files MATCHING 'docs/**'"
+      - "files MATCHING '**/*.test.ts'"
+    auto_approve: true
+
+  # Tier 2: High Risk (Auth, Payments) -> Strict Human Review
+  - name: "Tier 2: Critical Security"
+    conditions:
+      - "files MATCHING 'src/auth/**'"
+      - "files MATCHING 'src/payments/**'"
+      - "files MATCHING 'infrastructure/**'"
+    require_approval_count: 2
+    required_reviewers:
+      - "billyronks/security-team"
