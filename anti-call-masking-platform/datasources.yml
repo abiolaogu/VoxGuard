@@ -1,0 +1,43 @@
+# Grafana Datasource Provisioning - Anti-Call Masking Platform
+apiVersion: 1
+
+datasources:
+  # Prometheus
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false
+    jsonData:
+      timeInterval: "15s"
+      httpMethod: POST
+
+  # ClickHouse
+  - name: ClickHouse
+    type: grafana-clickhouse-datasource
+    access: proxy
+    url: http://clickhouse:8123
+    editable: false
+    jsonData:
+      defaultDatabase: acm
+      port: 8123
+      protocol: http
+      username: acm
+    secureJsonData:
+      password: ${CLICKHOUSE_PASSWORD}
+
+  # YugabyteDB (PostgreSQL)
+  - name: YugabyteDB
+    type: postgres
+    access: proxy
+    url: yugabyte:5433
+    database: opensips
+    user: opensips
+    editable: false
+    jsonData:
+      sslmode: disable
+      maxOpenConns: 10
+      maxIdleConns: 5
+    secureJsonData:
+      password: ${YUGABYTE_PASSWORD}

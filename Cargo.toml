@@ -1,0 +1,104 @@
+[package]
+name = "acm-detection-engine"
+version = "1.0.0"
+edition = "2021"
+authors = ["BillyRonks Global Limited <tech@billyronks.com>"]
+description = "High-performance Anti-Call Masking Detection Engine for Nigerian ICL"
+license = "MIT"
+repository = "https://github.com/abiolaogu/Anti_Call-Masking"
+
+[lib]
+name = "acm_detection"
+path = "src/lib.rs"
+
+[[bin]]
+name = "acm-engine"
+path = "src/main.rs"
+
+[dependencies]
+# Async runtime
+tokio = { version = "1.35", features = ["full", "tracing"] }
+
+# Web framework
+axum = { version = "0.7", features = ["macros", "tracing"] }
+tower = { version = "0.4", features = ["full"] }
+tower-http = { version = "0.5", features = ["cors", "trace", "compression-gzip", "request-id"] }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Database clients
+deadpool-redis = "0.14"
+redis = { version = "0.24", features = ["tokio-comp", "connection-manager"] }
+tokio-postgres = { version = "0.7", features = ["with-chrono-0_4", "with-uuid-1", "with-serde_json-1"] }
+deadpool-postgres = "0.12"
+clickhouse = { version = "0.11", features = ["inserter", "lz4"] }
+
+# QuestDB (time-series analytics - replaces kdb+)
+sqlx = { version = "0.7", features = ["runtime-tokio", "postgres", "chrono", "uuid"] }
+
+# Lock-free data structures for sliding window
+dashmap = "5.5"
+
+# Configuration
+config = "0.14"
+dotenvy = "0.15"
+
+# Logging & Tracing
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+
+# Metrics
+prometheus = "0.13"
+lazy_static = "1.4"
+
+# Time handling
+chrono = { version = "0.4", features = ["serde"] }
+
+# UUID generation
+uuid = { version = "1.6", features = ["v4", "serde"] }
+
+# Regex for pattern matching
+regex = "1.10"
+once_cell = "1.19"
+
+# HTTP client (for NCC API)
+reqwest = { version = "0.11", features = ["json", "rustls-tls"] }
+
+# Hashing
+xxhash-rust = { version = "0.8", features = ["xxh3"] }
+
+# Error handling
+thiserror = "1.0"
+anyhow = "1.0"
+
+# IP address handling
+ipnetwork = "0.20"
+
+# Async channel for background tasks
+flume = "0.11"
+
+# Graceful shutdown
+tokio-util = "0.7"
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+proptest = "1.4"
+tokio-test = "0.4"
+fake = { version = "2.9", features = ["chrono"] }
+
+[[bench]]
+name = "detection_benchmark"
+harness = false
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = true
+
+[profile.bench]
+inherits = "release"
+debug = true
