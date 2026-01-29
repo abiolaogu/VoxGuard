@@ -1,0 +1,179 @@
+table:
+  name: transactions
+  schema: remittance
+configuration:
+  column_config:
+    id:
+      custom_name: id
+    reference:
+      custom_name: reference
+    sender_id:
+      custom_name: senderId
+    sender_name:
+      custom_name: senderName
+    sender_country:
+      custom_name: senderCountry
+    recipient_id:
+      custom_name: recipientId
+    recipient_name:
+      custom_name: recipientName
+    recipient_phone:
+      custom_name: recipientPhone
+    recipient_state:
+      custom_name: recipientState
+    source_currency:
+      custom_name: sourceCurrency
+    target_currency:
+      custom_name: targetCurrency
+    source_amount:
+      custom_name: sourceAmount
+    target_amount:
+      custom_name: targetAmount
+    exchange_rate:
+      custom_name: exchangeRate
+    fee_amount:
+      custom_name: feeAmount
+    total_charged:
+      custom_name: totalCharged
+    corridor_id:
+      custom_name: corridorId
+    delivery_method:
+      custom_name: deliveryMethod
+    bank_code:
+      custom_name: bankCode
+    account_number:
+      custom_name: accountNumber
+    mobile_wallet_provider:
+      custom_name: mobileWalletProvider
+    mobile_wallet_number:
+      custom_name: mobileWalletNumber
+    status:
+      custom_name: status
+    status_history:
+      custom_name: statusHistory
+    kyc_verified:
+      custom_name: kycVerified
+    aml_cleared:
+      custom_name: amlCleared
+    sanctions_checked:
+      custom_name: sanctionsChecked
+    created_at:
+      custom_name: createdAt
+    updated_at:
+      custom_name: updatedAt
+    completed_at:
+      custom_name: completedAt
+  custom_root_fields:
+    delete: deleteRemittanceTransactions
+    delete_by_pk: deleteRemittanceTransaction
+    insert: insertRemittanceTransactions
+    insert_one: insertRemittanceTransaction
+    select: remittanceTransactions
+    select_aggregate: remittanceTransactionsAggregate
+    select_by_pk: remittanceTransaction
+    update: updateRemittanceTransactions
+    update_by_pk: updateRemittanceTransaction
+object_relationships:
+  - name: sender
+    using:
+      foreign_key_constraint_on: sender_id
+  - name: recipient
+    using:
+      foreign_key_constraint_on: recipient_id
+  - name: corridor
+    using:
+      foreign_key_constraint_on: corridor_id
+  - name: bank
+    using:
+      manual_configuration:
+        column_mapping:
+          bank_code: code
+        remote_table:
+          name: nigerian_banks
+          schema: reference
+select_permissions:
+  - role: user
+    permission:
+      columns:
+        - id
+        - reference
+        - senderId
+        - senderName
+        - recipientId
+        - recipientName
+        - recipientState
+        - sourceCurrency
+        - targetCurrency
+        - sourceAmount
+        - targetAmount
+        - exchangeRate
+        - feeAmount
+        - totalCharged
+        - deliveryMethod
+        - status
+        - createdAt
+        - completedAt
+      filter:
+        senderId:
+          _eq: X-Hasura-User-Id
+  - role: admin
+    permission:
+      columns: "*"
+      filter: {}
+      allow_aggregations: true
+insert_permissions:
+  - role: user
+    permission:
+      columns:
+        - senderId
+        - senderName
+        - senderCountry
+        - recipientId
+        - recipientName
+        - recipientPhone
+        - recipientState
+        - sourceCurrency
+        - targetCurrency
+        - sourceAmount
+        - targetAmount
+        - exchangeRate
+        - feeAmount
+        - totalCharged
+        - corridorId
+        - deliveryMethod
+        - bankCode
+        - accountNumber
+        - mobileWalletProvider
+        - mobileWalletNumber
+        - purpose
+        - notes
+      check:
+        senderId:
+          _eq: X-Hasura-User-Id
+      set:
+        status: pending
+  - role: admin
+    permission:
+      columns: "*"
+      check: {}
+update_permissions:
+  - role: admin
+    permission:
+      columns: "*"
+      filter: {}
+      check: {}
+event_triggers:
+  - name: transaction_status_changed
+    definition:
+      enable_manual: false
+      update:
+        columns:
+          - status
+    retry_conf:
+      interval_sec: 10
+      num_retries: 3
+      timeout_sec: 60
+    webhook: "{{N8N_WEBHOOK_URL}}/remittance/transaction-status"
+    headers:
+      - name: x-webhook-secret
+        value_from_env: N8N_WEBHOOK_SECRET

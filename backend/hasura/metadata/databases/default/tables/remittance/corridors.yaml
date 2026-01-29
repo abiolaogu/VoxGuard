@@ -1,0 +1,119 @@
+table:
+  name: corridors
+  schema: remittance
+configuration:
+  column_config:
+    id:
+      custom_name: id
+    source_country:
+      custom_name: sourceCountry
+    target_country:
+      custom_name: targetCountry
+    source_currency:
+      custom_name: sourceCurrency
+    target_currency:
+      custom_name: targetCurrency
+    base_fee_percentage:
+      custom_name: baseFeePercentage
+    flat_fee:
+      custom_name: flatFee
+    fx_spread_percentage:
+      custom_name: fxSpreadPercentage
+    min_amount:
+      custom_name: minAmount
+    max_amount:
+      custom_name: maxAmount
+    daily_limit:
+      custom_name: dailyLimit
+    monthly_limit:
+      custom_name: monthlyLimit
+    settlement_time_minutes:
+      custom_name: settlementTimeMinutes
+    is_active:
+      custom_name: isActive
+    requires_kyc_level:
+      custom_name: requiresKycLevel
+    display_name:
+      custom_name: displayName
+    created_at:
+      custom_name: createdAt
+    updated_at:
+      custom_name: updatedAt
+  custom_column_names:
+    id: id
+    source_country: sourceCountry
+    target_country: targetCountry
+    source_currency: sourceCurrency
+    target_currency: targetCurrency
+    base_fee_percentage: baseFeePercentage
+    flat_fee: flatFee
+    fx_spread_percentage: fxSpreadPercentage
+    min_amount: minAmount
+    max_amount: maxAmount
+    daily_limit: dailyLimit
+    monthly_limit: monthlyLimit
+    settlement_time_minutes: settlementTimeMinutes
+    is_active: isActive
+    requires_kyc_level: requiresKycLevel
+    display_name: displayName
+    created_at: createdAt
+    updated_at: updatedAt
+  custom_root_fields:
+    delete: deleteCorridors
+    delete_by_pk: deleteCorridor
+    insert: insertCorridors
+    insert_one: insertCorridor
+    select: corridors
+    select_aggregate: corridorsAggregate
+    select_by_pk: corridor
+    update: updateCorridors
+    update_by_pk: updateCorridor
+object_relationships:
+  - name: transactions
+    using:
+      foreign_key_constraint_on:
+        column: corridor_id
+        table:
+          name: transactions
+          schema: remittance
+select_permissions:
+  - role: user
+    permission:
+      columns:
+        - id
+        - sourceCountry
+        - targetCountry
+        - sourceCurrency
+        - targetCurrency
+        - baseFeePercentage
+        - flatFee
+        - fxSpreadPercentage
+        - minAmount
+        - maxAmount
+        - settlementTimeMinutes
+        - isActive
+        - displayName
+        - description
+      filter:
+        isActive:
+          _eq: true
+  - role: admin
+    permission:
+      columns: "*"
+      filter: {}
+      allow_aggregations: true
+insert_permissions:
+  - role: admin
+    permission:
+      columns: "*"
+      check: {}
+update_permissions:
+  - role: admin
+    permission:
+      columns: "*"
+      filter: {}
+      check: {}
+delete_permissions:
+  - role: admin
+    permission:
+      filter: {}
