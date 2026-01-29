@@ -10,11 +10,8 @@ import {
     AlertOutlined,
     PhoneOutlined,
     ApiOutlined,
-    DollarOutlined,
-    SwapOutlined,
-    TeamOutlined,
-    ShopOutlined,
-    ShoppingCartOutlined,
+    FileTextOutlined,
+    SettingOutlined,
     MoonOutlined,
     SunOutlined,
 } from '@ant-design/icons';
@@ -28,16 +25,11 @@ import { PageTransition } from './components/animations';
 import { Header } from './components/layout/Header';
 import { Sider } from './components/layout/Sider';
 
-// Pages
+// Pages - Anti-Masking Only
 import Dashboard from './pages/dashboard';
 import { FraudAlertList, FraudAlertShow } from './pages/anti-masking/fraud-alerts';
 import { CallList, CallShow } from './pages/anti-masking/calls';
 import { GatewayList, GatewayCreate, GatewayEdit } from './pages/anti-masking/gateways';
-import { CorridorList } from './pages/remittance/corridors';
-import { TransactionList, TransactionShow } from './pages/remittance/transactions';
-import { BeneficiaryList, BeneficiaryCreate } from './pages/remittance/beneficiaries';
-import { ListingList, ListingShow } from './pages/marketplace/listings';
-import { OrderList, OrderShow } from './pages/marketplace/orders';
 import { Login } from './pages/auth/login';
 
 import '@refinedev/antd/dist/reset.css';
@@ -164,55 +156,13 @@ const App: React.FC = () => {
                                             parent: 'Anti-Masking',
                                         },
                                     },
-                                    // Remittance Resources
                                     {
-                                        name: 'corridors',
-                                        list: '/remittance/corridors',
+                                        name: 'reports',
+                                        list: '/anti-masking/reports',
                                         meta: {
-                                            label: 'Corridors',
-                                            icon: <SwapOutlined />,
-                                            parent: 'Remittance',
-                                        },
-                                    },
-                                    {
-                                        name: 'transactions',
-                                        list: '/remittance/transactions',
-                                        show: '/remittance/transactions/:id',
-                                        meta: {
-                                            label: 'Transactions',
-                                            icon: <DollarOutlined />,
-                                            parent: 'Remittance',
-                                        },
-                                    },
-                                    {
-                                        name: 'beneficiaries',
-                                        list: '/remittance/beneficiaries',
-                                        create: '/remittance/beneficiaries/create',
-                                        meta: {
-                                            label: 'Beneficiaries',
-                                            icon: <TeamOutlined />,
-                                            parent: 'Remittance',
-                                        },
-                                    },
-                                    // Marketplace Resources
-                                    {
-                                        name: 'listings',
-                                        list: '/marketplace/listings',
-                                        show: '/marketplace/listings/:id',
-                                        meta: {
-                                            label: 'Listings',
-                                            icon: <ShopOutlined />,
-                                            parent: 'Marketplace',
-                                        },
-                                    },
-                                    {
-                                        name: 'orders',
-                                        list: '/marketplace/orders',
-                                        show: '/marketplace/orders/:id',
-                                        meta: {
-                                            label: 'Orders',
-                                            icon: <ShoppingCartOutlined />,
-                                            parent: 'Marketplace',
+                                            label: 'Reports',
+                                            icon: <FileTextOutlined />,
+                                            parent: 'Anti-Masking',
                                         },
                                     },
                                 ]}
@@ -231,19 +181,6 @@ const App: React.FC = () => {
                                         <Route path="/anti-masking/gateways" element={<GatewayList />} />
                                         <Route path="/anti-masking/gateways/create" element={<GatewayCreate />} />
                                         <Route path="/anti-masking/gateways/:id/edit" element={<GatewayEdit />} />
-
-                                        {/* Remittance Routes */}
-                                        <Route path="/remittance/corridors" element={<CorridorList />} />
-                                        <Route path="/remittance/transactions" element={<TransactionList />} />
-                                        <Route path="/remittance/transactions/:id" element={<TransactionShow />} />
-                                        <Route path="/remittance/beneficiaries" element={<BeneficiaryList />} />
-                                        <Route path="/remittance/beneficiaries/create" element={<BeneficiaryCreate />} />
-
-                                        {/* Marketplace Routes */}
-                                        <Route path="/marketplace/listings" element={<ListingList />} />
-                                        <Route path="/marketplace/listings/:id" element={<ListingShow />} />
-                                        <Route path="/marketplace/orders" element={<OrderList />} />
-                                        <Route path="/marketplace/orders/:id" element={<OrderShow />} />
                                     </Route>
                                 </Routes>
                             </Refine>
@@ -256,3 +193,4 @@ const App: React.FC = () => {
 };
 
 export default App;
+
