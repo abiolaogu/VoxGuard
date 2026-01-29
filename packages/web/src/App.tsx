@@ -1,223 +1,258 @@
+import React, { useState } from 'react';
 import { Refine } from '@refinedev/core';
-import { RefineKbar, RefineKbarProvider } from '@refinedev/kbar';
-import { ThemedLayoutV2, useNotificationProvider, ErrorComponent } from '@refinedev/antd';
+import { RefineKbarProvider } from '@refinedev/kbar';
+import { ThemedLayoutV2, notificationProvider, RefineThemes } from '@refinedev/antd';
+import { App as AntApp, ConfigProvider, theme as antTheme, Switch, Space, Typography } from 'antd';
 import { BrowserRouter, Routes, Route, Outlet } from 'react-router-dom';
-import { ConfigProvider, App as AntdApp, theme } from 'antd';
+import { AnimatePresence } from 'framer-motion';
 import {
     DashboardOutlined,
     AlertOutlined,
-    ApiOutlined,
     PhoneOutlined,
+    ApiOutlined,
+    DollarOutlined,
     SwapOutlined,
-    BankOutlined,
     TeamOutlined,
     ShopOutlined,
     ShoppingCartOutlined,
+    MoonOutlined,
+    SunOutlined,
 } from '@ant-design/icons';
 
-import { hasuraDataProvider } from '@/providers/dataProvider';
-import { liveProvider } from '@/providers/liveProvider';
-import { authProvider } from '@/providers/authProvider';
+import { dataProvider } from './providers/dataProvider';
+import { liveProvider } from './providers/liveProvider';
+import { authProvider } from './providers/authProvider';
+import { lovableTheme, lovableDarkTheme } from './theme';
+import { ErrorBoundary } from './components/feedback';
+import { PageTransition } from './components/animations';
+import { Header } from './components/layout/Header';
+import { Sider } from './components/layout/Sider';
 
 // Pages
-import { Dashboard } from '@/pages/dashboard';
-import { FraudAlertList, FraudAlertShow } from '@/pages/anti-masking/fraud-alerts';
-import { GatewayList, GatewayCreate, GatewayEdit } from '@/pages/anti-masking/gateways';
-import { CallList, CallShow } from '@/pages/anti-masking/calls';
-import { CorridorList } from '@/pages/remittance/corridors';
-import { TransactionList, TransactionShow } from '@/pages/remittance/transactions';
-import { BeneficiaryList, BeneficiaryCreate } from '@/pages/remittance/beneficiaries';
-import { ListingList, ListingShow } from '@/pages/marketplace/listings';
-import { OrderList, OrderShow } from '@/pages/marketplace/orders';
-import { Login } from '@/pages/auth/login';
-
-// Components
-import { Header } from '@/components/layout/Header';
-import { Sider } from '@/components/layout/Sider';
+import Dashboard from './pages/dashboard';
+import { FraudAlertList, FraudAlertShow } from './pages/anti-masking/fraud-alerts';
+import { CallList, CallShow } from './pages/anti-masking/calls';
+import { GatewayList, GatewayCreate, GatewayEdit } from './pages/anti-masking/gateways';
+import { CorridorList } from './pages/remittance/corridors';
+import { TransactionList, TransactionShow } from './pages/remittance/transactions';
+import { BeneficiaryList, BeneficiaryCreate } from './pages/remittance/beneficiaries';
+import { ListingList, ListingShow } from './pages/marketplace/listings';
+import { OrderList, OrderShow } from './pages/marketplace/orders';
+import { Login } from './pages/auth/login';
 
 import '@refinedev/antd/dist/reset.css';
 import './styles/index.css';
 
-const { darkAlgorithm, defaultAlgorithm } = theme;
+const { Text } = Typography;
 
-function App() {
-    const isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
+// Dark mode context
+const ThemeContext = React.createContext<{
+    isDarkMode: boolean;
+    toggleDarkMode: () => void;
+}>({
+    isDarkMode: false,
+    toggleDarkMode: () => { },
+});
+
+export const useTheme = () => React.useContext(ThemeContext);
+
+// Theme toggle component for header
+export const ThemeToggle: React.FC = () => {
+    const { isDarkMode, toggleDarkMode } = useTheme();
 
     return (
-        <BrowserRouter>
-            <RefineKbarProvider>
+        <Space>
+            <SunOutlined style={{ color: isDarkMode ? '#666' : '#faad14' }} />
+            <Switch
+                checked={isDarkMode}
+                onChange={toggleDarkMode}
+                size="small"
+                style={{ backgroundColor: isDarkMode ? '#1890ff' : undefined }}
+            />
+            <MoonOutlined style={{ color: isDarkMode ? '#1890ff' : '#666' }} />
+        </Space>
+    );
+};
+
+// Layout wrapper with animations
+const AnimatedLayout: React.FC = () => {
+    return (
+        <ThemedLayoutV2
+            Header={() => <Header />}
+            Sider={() => <Sider />}
+        >
+            <AnimatePresence mode="wait">
+                <PageTransition>
+                    <ErrorBoundary>
+                        <Outlet />
+                    </ErrorBoundary>
+                </PageTransition>
+            </AnimatePresence>
+        </ThemedLayoutV2>
+    );
+};
+
+const App: React.FC = () => {
+    const [isDarkMode, setIsDarkMode] = useState(false);
+
+    const toggleDarkMode = () => {
+        setIsDarkMode((prev) => !prev);
+    };
+
+    const currentTheme = isDarkMode ? lovableDarkTheme : lovableTheme;
+
+    return (
+        <ThemeContext.Provider value={{ isDarkMode, toggleDarkMode }}>
+            <BrowserRouter>
                 <ConfigProvider
                     theme={{
-                        algorithm: isDarkMode ? darkAlgorithm : defaultAlgorithm,
-                        token: {
-                            colorPrimary: '#1890ff',
-                            borderRadius: 6,
-                        },
+                        ...currentTheme,
+                        algorithm: isDarkMode ? antTheme.darkAlgorithm : antTheme.defaultAlgorithm,
                     }}
                 >
-                    <AntdApp>
-                        <Refine
-                            dataProvider={hasuraDataProvider}
-                            liveProvider={liveProvider}
-                            authProvider={authProvider}
-                            notificationProvider={useNotificationProvider}
-                            routerProvider={{
-                                routes: {
-                                    login: '/login',
-                                },
-                            }}
-                            resources={[
-                                {
-                                    name: 'dashboard',
-                                    list: '/dashboard',
-                                    meta: {
-                                        icon: <DashboardOutlined />,
-                                        label: 'Dashboard',
+                    <AntApp>
+                        <RefineKbarProvider>
+                            <Refine
+                                dataProvider={dataProvider}
+                                liveProvider={liveProvider}
+                                authProvider={authProvider}
+                                notificationProvider={notificationProvider}
+                                routerProvider={{} as any}
+                                options={{
+                                    syncWithLocation: true,
+                                    warnWhenUnsavedChanges: true,
+                                    liveMode: 'auto',
+                                }}
+                                resources={[
+                                    {
+                                        name: 'dashboard',
+                                        list: '/dashboard',
+                                        meta: {
+                                            label: 'Dashboard',
+                                            icon: <DashboardOutlined />,
+                                        },
                                     },
-                                },
-                                // Anti-Masking Context
-                                {
-                                    name: 'fraud-alerts',
-                                    list: '/anti-masking/fraud-alerts',
-                                    show: '/anti-masking/fraud-alerts/:id',
-                                    meta: {
-                                        icon: <AlertOutlined />,
-                                        label: 'Fraud Alerts',
-                                        parent: 'anti-masking',
+                                    // Anti-Masking Resources
+                                    {
+                                        name: 'fraud-alerts',
+                                        list: '/anti-masking/fraud-alerts',
+                                        show: '/anti-masking/fraud-alerts/:id',
+                                        meta: {
+                                            label: 'Fraud Alerts',
+                                            icon: <AlertOutlined />,
+                                            parent: 'Anti-Masking',
+                                        },
                                     },
-                                },
-                                {
-                                    name: 'gateways',
-                                    list: '/anti-masking/gateways',
-                                    create: '/anti-masking/gateways/create',
-                                    edit: '/anti-masking/gateways/:id/edit',
-                                    meta: {
-                                        icon: <ApiOutlined />,
-                                        label: 'Gateways',
-                                        parent: 'anti-masking',
+                                    {
+                                        name: 'calls',
+                                        list: '/anti-masking/calls',
+                                        show: '/anti-masking/calls/:id',
+                                        meta: {
+                                            label: 'Call Log',
+                                            icon: <PhoneOutlined />,
+                                            parent: 'Anti-Masking',
+                                        },
                                     },
-                                },
-                                {
-                                    name: 'calls',
-                                    list: '/anti-masking/calls',
-                                    show: '/anti-masking/calls/:id',
-                                    meta: {
-                                        icon: <PhoneOutlined />,
-                                        label: 'Call Log',
-                                        parent: 'anti-masking',
+                                    {
+                                        name: 'gateways',
+                                        list: '/anti-masking/gateways',
+                                        create: '/anti-masking/gateways/create',
+                                        edit: '/anti-masking/gateways/:id/edit',
+                                        meta: {
+                                            label: 'Gateways',
+                                            icon: <ApiOutlined />,
+                                            parent: 'Anti-Masking',
+                                        },
                                     },
-                                },
-                                // Remittance Context
-                                {
-                                    name: 'corridors',
-                                    list: '/remittance/corridors',
-                                    meta: {
-                                        icon: <SwapOutlined />,
-                                        label: 'Corridors',
-                                        parent: 'remittance',
+                                    // Remittance Resources
+                                    {
+                                        name: 'corridors',
+                                        list: '/remittance/corridors',
+                                        meta: {
+                                            label: 'Corridors',
+                                            icon: <SwapOutlined />,
+                                            parent: 'Remittance',
+                                        },
                                     },
-                                },
-                                {
-                                    name: 'transactions',
-                                    list: '/remittance/transactions',
-                                    show: '/remittance/transactions/:id',
-                                    meta: {
-                                        icon: <BankOutlined />,
-                                        label: 'Transactions',
-                                        parent: 'remittance',
+                                    {
+                                        name: 'transactions',
+                                        list: '/remittance/transactions',
+                                        show: '/remittance/transactions/:id',
+                                        meta: {
+                                            label: 'Transactions',
+                                            icon: <DollarOutlined />,
+                                            parent: 'Remittance',
+                                        },
                                     },
-                                },
-                                {
-                                    name: 'beneficiaries',
-                                    list: '/remittance/beneficiaries',
-                                    create: '/remittance/beneficiaries/create',
-                                    meta: {
-                                        icon: <TeamOutlined />,
-                                        label: 'Beneficiaries',
-                                        parent: 'remittance',
+                                    {
+                                        name: 'beneficiaries',
+                                        list: '/remittance/beneficiaries',
+                                        create: '/remittance/beneficiaries/create',
+                                        meta: {
+                                            label: 'Beneficiaries',
+                                            icon: <TeamOutlined />,
+                                            parent: 'Remittance',
+                                        },
                                     },
-                                },
-                                // Marketplace Context
-                                {
-                                    name: 'listings',
-                                    list: '/marketplace/listings',
-                                    show: '/marketplace/listings/:id',
-                                    meta: {
-                                        icon: <ShopOutlined />,
-                                        label: 'Listings',
-                                        parent: 'marketplace',
+                                    // Marketplace Resources
+                                    {
+                                        name: 'listings',
+                                        list: '/marketplace/listings',
+                                        show: '/marketplace/listings/:id',
+                                        meta: {
+                                            label: 'Listings',
+                                            icon: <ShopOutlined />,
+                                            parent: 'Marketplace',
+                                        },
                                     },
-                                },
-                                {
-                                    name: 'orders',
-                                    list: '/marketplace/orders',
-                                    show: '/marketplace/orders/:id',
-                                    meta: {
-                                        icon: <ShoppingCartOutlined />,
-                                        label: 'Orders',
-                                        parent: 'marketplace',
+                                    {
+                                        name: 'orders',
+                                        list: '/marketplace/orders',
+                                        show: '/marketplace/orders/:id',
+                                        meta: {
+                                            label: 'Orders',
+                                            icon: <ShoppingCartOutlined />,
+                                            parent: 'Marketplace',
+                                        },
                                     },
-                                },
-                            ]}
-                            options={{
-                                syncWithLocation: true,
-                                warnWhenUnsavedChanges: true,
-                                liveMode: 'auto',
-                            }}
-                        >
-                            <Routes>
-                                <Route path="/login" element={<Login />} />
-                                <Route
-                                    element={
-                                        <ThemedLayoutV2
-                                            Header={() => <Header />}
-                                            Sider={() => <Sider />}
-                                        >
-                                            <Outlet />
-                                        </ThemedLayoutV2>
-                                    }
-                                >
-                                    <Route index element={<Dashboard />} />
-                                    <Route path="/dashboard" element={<Dashboard />} />
+                                ]}
+                            >
+                                <Routes>
+                                    <Route path="/login" element={<Login />} />
+                                    <Route element={<AnimatedLayout />}>
+                                        <Route index element={<Dashboard />} />
+                                        <Route path="/dashboard" element={<Dashboard />} />
 
-                                    {/* Anti-Masking Routes */}
-                                    <Route path="/anti-masking">
-                                        <Route path="fraud-alerts" element={<FraudAlertList />} />
-                                        <Route path="fraud-alerts/:id" element={<FraudAlertShow />} />
-                                        <Route path="gateways" element={<GatewayList />} />
-                                        <Route path="gateways/create" element={<GatewayCreate />} />
-                                        <Route path="gateways/:id/edit" element={<GatewayEdit />} />
-                                        <Route path="calls" element={<CallList />} />
-                                        <Route path="calls/:id" element={<CallShow />} />
+                                        {/* Anti-Masking Routes */}
+                                        <Route path="/anti-masking/fraud-alerts" element={<FraudAlertList />} />
+                                        <Route path="/anti-masking/fraud-alerts/:id" element={<FraudAlertShow />} />
+                                        <Route path="/anti-masking/calls" element={<CallList />} />
+                                        <Route path="/anti-masking/calls/:id" element={<CallShow />} />
+                                        <Route path="/anti-masking/gateways" element={<GatewayList />} />
+                                        <Route path="/anti-masking/gateways/create" element={<GatewayCreate />} />
+                                        <Route path="/anti-masking/gateways/:id/edit" element={<GatewayEdit />} />
+
+                                        {/* Remittance Routes */}
+                                        <Route path="/remittance/corridors" element={<CorridorList />} />
+                                        <Route path="/remittance/transactions" element={<TransactionList />} />
+                                        <Route path="/remittance/transactions/:id" element={<TransactionShow />} />
+                                        <Route path="/remittance/beneficiaries" element={<BeneficiaryList />} />
+                                        <Route path="/remittance/beneficiaries/create" element={<BeneficiaryCreate />} />
+
+                                        {/* Marketplace Routes */}
+                                        <Route path="/marketplace/listings" element={<ListingList />} />
+                                        <Route path="/marketplace/listings/:id" element={<ListingShow />} />
+                                        <Route path="/marketplace/orders" element={<OrderList />} />
+                                        <Route path="/marketplace/orders/:id" element={<OrderShow />} />
                                     </Route>
-
-                                    {/* Remittance Routes */}
-                                    <Route path="/remittance">
-                                        <Route path="corridors" element={<CorridorList />} />
-                                        <Route path="transactions" element={<TransactionList />} />
-                                        <Route path="transactions/:id" element={<TransactionShow />} />
-                                        <Route path="beneficiaries" element={<BeneficiaryList />} />
-                                        <Route path="beneficiaries/create" element={<BeneficiaryCreate />} />
-                                    </Route>
-
-                                    {/* Marketplace Routes */}
-                                    <Route path="/marketplace">
-                                        <Route path="listings" element={<ListingList />} />
-                                        <Route path="listings/:id" element={<ListingShow />} />
-                                        <Route path="orders" element={<OrderList />} />
-                                        <Route path="orders/:id" element={<OrderShow />} />
-                                    </Route>
-
-                                    <Route path="*" element={<ErrorComponent />} />
-                                </Route>
-                            </Routes>
-                            <RefineKbar />
-                        </Refine>
-                    </AntdApp>
+                                </Routes>
+                            </Refine>
+                        </RefineKbarProvider>
+                    </AntApp>
                 </ConfigProvider>
-            </RefineKbarProvider>
-        </BrowserRouter>
+            </BrowserRouter>
+        </ThemeContext.Provider>
     );
-}
+};
 
 export default App;
