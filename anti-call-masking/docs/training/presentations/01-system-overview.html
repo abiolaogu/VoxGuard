@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anti-Call Masking Platform - System Overview</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@4.6.0/dist/reveal.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@4.6.0/dist/theme/white.css">
+    <link rel="stylesheet" href="assets/css/reveal-theme.css">
+</head>
+<body>
+    <div class="reveal">
+        <div class="slides">
+
+            <!-- Title Slide -->
+            <section class="title-slide">
+                <h1>Anti-Call Masking Platform</h1>
+                <p class="subtitle">System Overview Training</p>
+                <p class="meta">
+                    Duration: ~15 minutes<br>
+                    Audience: All Staff<br>
+                    Version: 2.0 | January 2026
+                </p>
+            </section>
+
+            <!-- Agenda -->
+            <section>
+                <h1>Agenda</h1>
+                <ol>
+                    <li>What is Call Masking Fraud?</li>
+                    <li>How Our System Works</li>
+                    <li>Key Components</li>
+                    <li>Performance & Capabilities</li>
+                    <li>NCC Compliance</li>
+                    <li>Your Role in the System</li>
+                </ol>
+            </section>
+
+            <!-- Section 1: The Problem -->
+            <section>
+                <section>
+                    <h1>What is Call Masking Fraud?</h1>
+                    <p>Understanding the threat we protect against</p>
+                </section>
+
+                <section>
+                    <h2>Call Masking Explained</h2>
+                    <div class="info-box">
+                        <strong>Definition:</strong> Call masking (CLI spoofing) is when fraudsters use multiple fake caller IDs to reach the same victim.
+                    </div>
+                    <h3>How Attackers Operate:</h3>
+                    <ul>
+                        <li>Generate dozens of fake phone numbers</li>
+                        <li>Call the same victim from different "identities"</li>
+                        <li>Evade traditional fraud detection</li>
+                        <li>Execute scams with apparent legitimacy</li>
+                    </ul>
+                </section>
+
+                <section>
+                    <h2>The Attack Pattern</h2>
+                    <div class="diagram">
+                        <pre>
+    Attacker System                              Victim
+    ┌─────────────┐                         ┌─────────────┐
+    │  Generates  │                         │             │
+    │   Fake IDs  │                         │  +234-XXX   │
+    └──────┬──────┘                         └──────▲──────┘
+           │                                       │
+           ├──── +234-801-1111 ────────────────────┤
+           ├──── +234-802-2222 ────────────────────┤
+           ├──── +234-803-3333 ────────────────────┤
+           ├──── +234-804-4444 ────────────────────┤
+           └──── +234-805-5555 ────────────────────┘
+
+        5+ different numbers → Same destination → Within seconds
+                        </pre>
+                    </div>
+                </section>
+
+                <section>
+                    <h2>Impact on Nigeria</h2>
+                    <div class="metrics-grid">
+                        <div class="metric-card">
+                            <div class="value">₦15B+</div>
+                            <div class="label">Annual Fraud Losses</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="value">₦5B+</div>
+                            <div class="label">Customer Churn</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="value">₦2B+</div>
+                            <div class="label">Regulatory Fines</div>
+                        </div>
+                    </div>
+                    <div class="warning-box">
+                        Beyond financial losses, call masking damages consumer trust in telecommunications.
+                    </div>
+                </section>
+            </section>
+
+            <!-- Section 2: How It Works -->
+            <section>
+                <section>
+                    <h1>How Our System Works</h1>
+                    <p>Real-time fraud detection in milliseconds</p>
+                </section>
+
+                <section>
+                    <h2>Detection Logic</h2>
+                    <div class="two-columns">
+                        <div>
+                            <h3>We Monitor:</h3>
+                            <ul>
+                                <li><strong>A-Numbers</strong>: Callers (source)</li>
+                                <li><strong>B-Numbers</strong>: Destinations (target)</li>
+                                <li><strong>Time Windows</strong>: Calls within seconds</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h3>We Detect:</h3>
+                            <ul>
+                                <li>5+ different callers</li>
+                                <li>Same destination</li>
+                                <li>Within 5 seconds</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="success-box">
+                        <strong>Result:</strong> Fraudulent calls are detected and can be automatically disconnected.
+                    </div>
+                </section>
+
+                <section>
+                    <h2>Processing Flow</h2>
+                    <div class="diagram">
+                        <pre>
+    ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
+    │   OpenSIPS   │────▶│  Detection   │────▶│    Alert     │
+    │  SIP Server  │     │   Engine     │     │   Generated  │
+    └──────────────┘     └──────┬───────┘     └──────────────┘
+                                │
+                    ┌───────────┼───────────┐
+                    ▼           ▼           ▼
+             ┌──────────┐ ┌──────────┐ ┌──────────┐
+             │  Cache   │ │ Time DB  │ │ Analytics│
+             │(Dragonfly)│ │(QuestDB) │ │(ClickHouse)│
+             └──────────┘ └──────────┘ └──────────┘
+                        </pre>
+                    </div>
+                </section>
+
+                <section>
+                    <h2>Response Actions</h2>
+                    <table>
+                        <tr>
+                            <th>Detection</th>
+                            <th>Action</th>
+                            <th>Time</th>
+                        </tr>
+                        <tr>
+                            <td>Pattern Identified</td>
+                            <td>Alert Generated</td>
+                            <td>&lt; 1ms</td>
+                        </tr>
+                        <tr>
+                            <td>Alert Created</td>
+                            <td>SOC Notified</td>
+                            <td>Immediate</td>
+                        </tr>
+                        <tr>
+                            <td>Auto-disconnect Enabled</td>
+                            <td>Calls Terminated</td>
+                            <td>&lt; 5ms</td>
+                        </tr>
+                        <tr>
+                            <td>NCC Reporting</td>
+                            <td>Daily Upload</td>
+                            <td>06:00 WAT</td>
+                        </tr>
+                    </table>
+                </section>
+            </section>
+
+            <!-- Section 3: Key Components -->
+            <section>
+                <section>
+                    <h1>Key Components</h1>
+                    <p>The building blocks of our platform</p>
+                </section>
+
+                <section>
+                    <h2>System Architecture</h2>
+                    <div class="diagram">
+                        <pre>
+                        ┌─────────────────────────────────────────┐
+                        │           Load Balancer                 │
+                        └────────────────┬────────────────────────┘
+                                         │
+              ┌──────────────────────────┼──────────────────────────┐
+              │                          │                          │
+       ┌──────▼──────┐           ┌───────▼───────┐          ┌───────▼───────┐
+       │  Detection  │           │   Detection   │          │   Detection   │
+       │  Engine #1  │           │   Engine #2   │          │   Engine #3   │
+       └──────┬──────┘           └───────┬───────┘          └───────┬───────┘
+              │                          │                          │
+              └──────────────────────────┼──────────────────────────┘
+                                         │
+                        ┌────────────────┴────────────────┐
+                        │                                 │
+                 ┌──────▼──────┐                  ┌───────▼───────┐
+                 │ DragonflyDB │                  │    QuestDB    │
+                 │   (Cache)   │                  │ (Time Series) │
+                 └─────────────┘                  └───────────────┘
+                        </pre>
+                    </div>
+                </section>
+
+                <section>
+                    <h2>Component Roles</h2>
+                    <table>
+                        <tr>
+                            <th>Component</th>
+                            <th>Purpose</th>
+                        </tr>
+                        <tr>
+                            <td><strong>Detection Engine</strong></td>
+                            <td>Real-time fraud detection (Rust)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>DragonflyDB</strong></td>
+                            <td>In-memory sliding window cache</td>
+                        </tr>
+                        <tr>
+                            <td><strong>QuestDB</strong></td>
+                            <td>Time-series event storage</td>
+                        </tr>
+                        <tr>
+                            <td><strong>YugabyteDB</strong></td>
+                            <td>Configuration and alert storage</td>
+                        </tr>
+                        <tr>
+                            <td><strong>ClickHouse</strong></td>
+                            <td>Long-term analytics</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Management API</strong></td>
+                            <td>Dashboard and integrations</td>
+                        </tr>
+                    </table>
+                </section>
+
+                <section>
+                    <h2>Dashboard Interface</h2>
+                    <div class="diagram">
+                        <pre>
+    ┌─────────────────────────────────────────────────────────────────┐
+    │  [Logo]  Anti-Call Masking Dashboard       [Alerts] [Profile]  │
+    ├─────────────────────────────────────────────────────────────────┤
+    │                                                                 │
+    │  ┌─────────────────────────────────────────────────────────┐   │
+    │  │  Active: 245  │  Alerts: 12  │  CPS: 45K  │  99.99%    │   │
+    │  └─────────────────────────────────────────────────────────┘   │
+    │                                                                 │
+    │  ┌───────────────────┐  ┌───────────────────────────────────┐  │
+    │  │   Alert Feed      │  │      Traffic Chart                │  │
+    │  │  CRITICAL: 2      │  │  ████████████████░░░░             │  │
+    │  │  HIGH: 5          │  │  45,000 CPS                       │  │
+    │  │  MEDIUM: 5        │  │                                   │  │
+    │  └───────────────────┘  └───────────────────────────────────┘  │
+    └─────────────────────────────────────────────────────────────────┘
+                        </pre>
+                    </div>
+                </section>
+            </section>
+
+            <!-- Section 4: Performance -->
+            <section>
+                <section>
+                    <h1>Performance & Capabilities</h1>
+                    <p>Industry-leading speed and scale</p>
+                </section>
+
+                <section>
+                    <h2>Key Performance Metrics</h2>
+                    <div class="metrics-grid">
+                        <div class="metric-card">
+                            <div class="value">&lt;1ms</div>
+                            <div class="label">Detection Latency</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="value">150K+</div>
+                            <div class="label">Calls Per Second</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="value">99.99%</div>
+                            <div class="label">System Uptime</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="value">99.8%</div>
+                            <div class="label">Detection Accuracy</div>
+                        </div>
+                    </div>
+                </section>
+
+                <section>
+                    <h2>Why We're Fast</h2>
+                    <ul>
+                        <li class="fragment"><strong>Rust Engine:</strong> Memory-safe, zero-cost abstractions</li>
+                        <li class="fragment"><strong>io_uring:</strong> Kernel-bypass I/O for minimal latency</li>
+                        <li class="fragment"><strong>In-Memory Cache:</strong> DragonflyDB for microsecond lookups</li>
+                        <li class="fragment"><strong>Lock-Free Design:</strong> No contention bottlenecks</li>
+                        <li class="fragment"><strong>Horizontal Scaling:</strong> Add nodes as traffic grows</li>
+                    </ul>
+                </section>
+
+                <section>
+                    <h2>Comparison to Alternatives</h2>
+                    <table>
+                        <tr>
+                            <th>Feature</th>
+                            <th>ACM Platform</th>
+                            <th>Industry Standard</th>
+                        </tr>
+                        <tr>
+                            <td>Detection Latency</td>
+                            <td class="severity-low">&lt; 1ms</td>
+                            <td>100ms+</td>
+                        </tr>
+                        <tr>
+                            <td>Throughput</td>
+                            <td class="severity-low">150K+ CPS</td>
+                            <td>10K CPS</td>
+                        </tr>
+                        <tr>
+                            <td>Detection Mode</td>
+                            <td class="severity-low">Real-time</td>
+                            <td>Post-processing</td>
+                        </tr>
+                        <tr>
+                            <td>NCC Integration</td>
+                            <td class="severity-low">Native</td>
+                            <td>Manual</td>
+                        </tr>
+                    </table>
+                </section>
+            </section>
+
+            <!-- Section 5: NCC Compliance -->
+            <section>
+                <section>
+                    <h1>NCC Compliance</h1>
+                    <p>Meeting regulatory requirements</p>
+                </section>
+
+                <section>
+                    <h2>Regulatory Framework</h2>
+                    <div class="info-box">
+                        The <strong>Nigerian Communications Commission (NCC)</strong> requires all telecom operators to implement fraud detection and report incidents.
+                    </div>
+                    <h3>Our Compliance Features:</h3>
+                    <ul>
+                        <li>Automated daily report generation</li>
+                        <li>SFTP upload to NCC by 06:00 WAT</li>
+                        <li>ATRS (Automated Trouble Reporting System) integration</li>
+                        <li>5-year audit log retention</li>
+                        <li>Data residency in Nigeria</li>
+                    </ul>
+                </section>
+
+                <section>
+                    <h2>Daily NCC Report</h2>
+                    <table>
+                        <tr>
+                            <th>Field</th>
+                            <th>Description</th>
+                        </tr>
+                        <tr>
+                            <td>Incident ID</td>
+                            <td>Unique alert identifier</td>
+                        </tr>
+                        <tr>
+                            <td>Detection Time</td>
+                            <td>When attack was detected</td>
+                        </tr>
+                        <tr>
+                            <td>B-Number</td>
+                            <td>Targeted destination</td>
+                        </tr>
+                        <tr>
+                            <td>A-Number Count</td>
+                            <td>Number of spoofed callers</td>
+                        </tr>
+                        <tr>
+                            <td>Action Taken</td>
+                            <td>Response (blocked/alerted)</td>
+                        </tr>
+                        <tr>
+                            <td>Resolution</td>
+                            <td>Final disposition</td>
+                        </tr>
+                    </table>
+                </section>
+
+                <section>
+                    <h2>Compliance Dashboard</h2>
+                    <div class="success-box">
+                        <strong>Current Status:</strong> All NCC requirements met
+                    </div>
+                    <ul>
+                        <li><span class="severity-low">✓</span> Daily reports submitted on time</li>
+                        <li><span class="severity-low">✓</span> ATRS integration active</li>
+                        <li><span class="severity-low">✓</span> Audit logs retained (5 years)</li>
+                        <li><span class="severity-low">✓</span> Data residency compliant</li>
+                        <li><span class="severity-low">✓</span> Monthly summaries generated</li>
+                    </ul>
+                </section>
+            </section>
+
+            <!-- Section 6: Your Role -->
+            <section>
+                <section>
+                    <h1>Your Role in the System</h1>
+                    <p>How different teams interact with ACM</p>
+                </section>
+
+                <section>
+                    <h2>SOC Analysts</h2>
+                    <div class="two-columns">
+                        <div>
+                            <h3>Responsibilities:</h3>
+                            <ul>
+                                <li>Monitor real-time alerts</li>
+                                <li>Investigate suspicious patterns</li>
+                                <li>Take action on confirmed fraud</li>
+                                <li>Document incidents</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h3>Key Tools:</h3>
+                            <ul>
+                                <li>Alert Dashboard</li>
+                                <li>Investigation View</li>
+                                <li>Disconnect Controls</li>
+                                <li>Whitelist Management</li>
+                            </ul>
+                        </div>
+                    </div>
+                </section>
+
+                <section>
+                    <h2>Network Administrators</h2>
+                    <div class="two-columns">
+                        <div>
+                            <h3>Responsibilities:</h3>
+                            <ul>
+                                <li>Monitor system health</li>
+                                <li>Manage capacity</li>
+                                <li>Deploy updates</li>
+                                <li>Troubleshoot issues</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h3>Key Tools:</h3>
+                            <ul>
+                                <li>Grafana Dashboards</li>
+                                <li>Prometheus Alerts</li>
+                                <li>Docker/Kubernetes</li>
+                                <li>Log Analysis</li>
+                            </ul>
+                        </div>
+                    </div>
+                </section>
+
+                <section>
+                    <h2>Compliance Officers</h2>
+                    <div class="two-columns">
+                        <div>
+                            <h3>Responsibilities:</h3>
+                            <ul>
+                                <li>Verify NCC compliance</li>
+                                <li>Review reports</li>
+                                <li>Support audits</li>
+                                <li>Track regulations</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h3>Key Tools:</h3>
+                            <ul>
+                                <li>NCC Reports Section</li>
+                                <li>Audit Log Viewer</li>
+                                <li>Compliance Dashboard</li>
+                                <li>Export Functions</li>
+                            </ul>
+                        </div>
+                    </div>
+                </section>
+
+                <section>
+                    <h2>Executives</h2>
+                    <div class="two-columns">
+                        <div>
+                            <h3>What You See:</h3>
+                            <ul>
+                                <li>Fraud reduction metrics</li>
+                                <li>System ROI</li>
+                                <li>Compliance status</li>
+                                <li>Trend analysis</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h3>Key Dashboards:</h3>
+                            <ul>
+                                <li>Executive Summary</li>
+                                <li>Monthly Reports</li>
+                                <li>KPI Tracking</li>
+                                <li>Benchmark Data</li>
+                            </ul>
+                        </div>
+                    </div>
+                </section>
+            </section>
+
+            <!-- Summary -->
+            <section>
+                <section>
+                    <h1>Summary</h1>
+                    <ul>
+                        <li><strong>Call masking</strong> is a serious fraud threatening Nigerian telecom</li>
+                        <li>Our platform detects attacks in <strong>under 1 millisecond</strong></li>
+                        <li>We process <strong>150,000+ calls per second</strong></li>
+                        <li><strong>NCC compliance</strong> is fully automated</li>
+                        <li>Every team has a role in protecting our network</li>
+                    </ul>
+                </section>
+
+                <section>
+                    <h1>Questions?</h1>
+                    <div class="info-box">
+                        <p><strong>Additional Training Available:</strong></p>
+                        <ul>
+                            <li>Admin Training (30 min)</li>
+                            <li>SOC Analyst Training (45 min)</li>
+                            <li>Developer Training (45 min)</li>
+                        </ul>
+                    </div>
+                    <p class="meta" style="margin-top: 2em;">
+                        Documentation: <code>/docs/</code><br>
+                        Support: support@yourcompany.com
+                    </p>
+                </section>
+            </section>
+
+            <!-- End Slide -->
+            <section class="title-slide">
+                <h1>Thank You</h1>
+                <p class="subtitle">Anti-Call Masking Platform</p>
+                <p class="meta">
+                    Protecting Nigerian Telecommunications<br>
+                    www.yourcompany.com
+                </p>
+            </section>
+
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/reveal.js@4.6.0/dist/reveal.js"></script>
+    <script>
+        Reveal.initialize({
+            hash: true,
+            slideNumber: 'c/t',
+            showSlideNumber: 'all',
+            transition: 'slide',
+            transitionSpeed: 'default',
+            backgroundTransition: 'fade',
+            pdfSeparateFragments: false,
+            pdfMaxPagesPerSlide: 1,
+            // Speaker notes
+            showNotes: false,
+            // Keyboard shortcuts
+            keyboard: {
+                27: function() { }, // Disable ESC
+                78: function() { Reveal.configure({ showNotes: !Reveal.getConfig().showNotes }); }
+            }
+        });
+    </script>
+</body>
+</html>

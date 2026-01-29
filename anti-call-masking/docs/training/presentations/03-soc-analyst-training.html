@@ -1,0 +1,997 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anti-Call Masking Platform - SOC Analyst Training</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@4.6.0/dist/reveal.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@4.6.0/dist/theme/white.css">
+    <link rel="stylesheet" href="assets/css/reveal-theme.css">
+</head>
+<body>
+    <div class="reveal">
+        <div class="slides">
+
+            <!-- Title Slide -->
+            <section class="title-slide">
+                <h1>SOC Analyst Training</h1>
+                <p class="subtitle">Anti-Call Masking Platform</p>
+                <p class="meta">
+                    Duration: ~45 minutes<br>
+                    Audience: Security Operations Center Analysts<br>
+                    Version: 2.0 | January 2026
+                </p>
+            </section>
+
+            <!-- Prerequisites -->
+            <section>
+                <h1>Prerequisites</h1>
+                <ul>
+                    <li>Completed System Overview training</li>
+                    <li>SOC Analyst dashboard credentials</li>
+                    <li>Understanding of telecommunications basics</li>
+                    <li>Familiarity with fraud detection concepts</li>
+                </ul>
+            </section>
+
+            <!-- Agenda -->
+            <section>
+                <h1>Agenda</h1>
+                <ol>
+                    <li>Understanding Call Masking Attacks</li>
+                    <li>Dashboard Navigation</li>
+                    <li>Alert Management</li>
+                    <li>Investigation Techniques</li>
+                    <li>Response Actions</li>
+                    <li>Whitelist Management</li>
+                    <li>Reporting & Documentation</li>
+                    <li>Best Practices</li>
+                </ol>
+            </section>
+
+            <!-- Section 1: Understanding Attacks -->
+            <section>
+                <section>
+                    <h1>Understanding Call Masking Attacks</h1>
+                    <p>Know your enemy</p>
+                </section>
+
+                <section>
+                    <h2>Attack Anatomy</h2>
+                    <div class="diagram">
+                        <pre>
+        Attacker Infrastructure              Target
+        ┌─────────────────────┐         ┌─────────────┐
+        │   SIP Gateway with  │         │             │
+        │   CLI Spoofing      │         │  Victim     │
+        │   Capability        │         │  +234-XXX   │
+        └──────────┬──────────┘         └──────▲──────┘
+                   │                           │
+                   │  ┌────────────────────────┤
+                   │  │                        │
+                   ├──┼── +234-801-1111-1111 ──┤  Call 1
+                   │  │                        │
+                   ├──┼── +234-802-2222-2222 ──┤  Call 2
+                   │  │                        │
+                   ├──┼── +234-803-3333-3333 ──┤  Call 3
+                   │  │                        │
+                   ├──┼── +234-804-4444-4444 ──┤  Call 4
+                   │  │                        │
+                   └──┴── +234-805-5555-5555 ──┘  Call 5
+
+                   5 calls in < 5 seconds = ALERT
+                        </pre>
+                    </div>
+                </section>
+
+                <section>
+                    <h2>Why Attackers Use Masking</h2>
+                    <div class="two-columns">
+                        <div>
+                            <h3>Attacker Goals:</h3>
+                            <ul>
+                                <li>Evade call blocking</li>
+                                <li>Appear legitimate</li>
+                                <li>Overwhelm targets</li>
+                                <li>Hide true identity</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h3>Common Scams:</h3>
+                            <ul>
+                                <li>Bank impersonation</li>
+                                <li>Government fraud</li>
+                                <li>Prize/lottery scams</li>
+                                <li>Tech support fraud</li>
+                            </ul>
+                        </div>
+                    </div>
+                </section>
+
+                <section>
+                    <h2>Detection Criteria</h2>
+                    <div class="info-box">
+                        <strong>Default Threshold:</strong> 5+ distinct A-numbers calling the same B-number within 5 seconds
+                    </div>
+                    <table>
+                        <tr>
+                            <th>Parameter</th>
+                            <th>Value</th>
+                            <th>Configurable</th>
+                        </tr>
+                        <tr>
+                            <td>Minimum A-numbers</td>
+                            <td>5</td>
+                            <td>Yes (3-20)</td>
+                        </tr>
+                        <tr>
+                            <td>Time Window</td>
+                            <td>5 seconds</td>
+                            <td>Yes (1-30s)</td>
+                        </tr>
+                        <tr>
+                            <td>Cooldown Period</td>
+                            <td>60 seconds</td>
+                            <td>Yes</td>
+                        </tr>
+                    </table>
+                </section>
+
+                <section>
+                    <h2>Severity Levels</h2>
+                    <table>
+                        <tr>
+                            <th>Severity</th>
+                            <th>A-Numbers</th>
+                            <th>Response SLA</th>
+                            <th>Auto-Action</th>
+                        </tr>
+                        <tr>
+                            <td><span class="severity-critical">CRITICAL</span></td>
+                            <td>7+</td>
+                            <td>Immediate</td>
+                            <td>Auto-disconnect</td>
+                        </tr>
+                        <tr>
+                            <td><span class="severity-high">HIGH</span></td>
+                            <td>5-6</td>
+                            <td>15 minutes</td>
+                            <td>Alert only</td>
+                        </tr>
+                        <tr>
+                            <td><span class="severity-medium">MEDIUM</span></td>
+                            <td>3-4</td>
+                            <td>30 minutes</td>
+                            <td>Alert only</td>
+                        </tr>
+                        <tr>
+                            <td><span class="severity-low">LOW</span></td>
+                            <td>2</td>
+                            <td>1 hour</td>
+                            <td>Log only</td>
+                        </tr>
+                    </table>
+                </section>
+            </section>
+
+            <!-- Section 2: Dashboard Navigation -->
+            <section>
+                <section>
+                    <h1>Dashboard Navigation</h1>
+                    <p>Your primary workspace</p>
+                </section>
+
+                <section>
+                    <h2>Main Dashboard</h2>
+                    <div class="diagram">
+                        <pre>
+    ┌─────────────────────────────────────────────────────────────────────────┐
+    │  [Logo]  Anti-Call Masking Dashboard    [Notifications] [User Menu]    │
+    ├─────────────────────────────────────────────────────────────────────────┤
+    │                                                                         │
+    │  ┌───────────────────────────────────────────────────────────────────┐  │
+    │  │                      Key Metrics Bar                              │  │
+    │  │  Active: 245  │  Alerts: 12  │  CPS: 45.2K  │  Uptime: 99.99%   │  │
+    │  └───────────────────────────────────────────────────────────────────┘  │
+    │                                                                         │
+    │  ┌─────────────────────────┐  ┌─────────────────────────────────────┐  │
+    │  │    Real-Time Feed       │  │       Geographic Map                │  │
+    │  │                         │  │                                     │  │
+    │  │  10:23 🔴 CRITICAL      │  │   [Heat map showing attack          │  │
+    │  │  10:21 🟠 HIGH          │  │    origins and targets]             │  │
+    │  │  10:15 🟡 MEDIUM        │  │                                     │  │
+    │  │  10:12 🟢 Resolved      │  │                                     │  │
+    │  │                         │  │                                     │  │
+    │  └─────────────────────────┘  └─────────────────────────────────────┘  │
+    │                                                                         │
+    └─────────────────────────────────────────────────────────────────────────┘
+                        </pre>
+                    </div>
+                </section>
+
+                <section>
+                    <h2>Navigation Menu</h2>
+                    <table>
+                        <tr>
+                            <th>Section</th>
+                            <th>Purpose</th>
+                            <th>Shortcut</th>
+                        </tr>
+                        <tr>
+                            <td><strong>Dashboard</strong></td>
+                            <td>Main monitoring view</td>
+                            <td><span class="keyboard-hint">G</span> + <span class="keyboard-hint">D</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Alerts</strong></td>
+                            <td>Alert queue and history</td>
+                            <td><span class="keyboard-hint">G</span> + <span class="keyboard-hint">A</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Analytics</strong></td>
+                            <td>Charts and statistics</td>
+                            <td><span class="keyboard-hint">G</span> + <span class="keyboard-hint">N</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Reports</strong></td>
+                            <td>Generate reports</td>
+                            <td><span class="keyboard-hint">G</span> + <span class="keyboard-hint">R</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Whitelist</strong></td>
+                            <td>Manage exemptions</td>
+                            <td><span class="keyboard-hint">G</span> + <span class="keyboard-hint">W</span></td>
+                        </tr>
+                    </table>
+                </section>
+
+                <section>
+                    <h2>Real-Time Feed</h2>
+                    <ul>
+                        <li><strong>Auto-updates</strong> every second via WebSocket</li>
+                        <li><strong>Color-coded</strong> by severity</li>
+                        <li><strong>Click any alert</strong> to view details</li>
+                        <li><strong>Filter</strong> by severity, status, or time</li>
+                        <li><strong>Sound alerts</strong> for CRITICAL events</li>
+                    </ul>
+                    <div class="info-box">
+                        <strong>Tip:</strong> Keep the feed visible at all times during your shift. Use <span class="keyboard-hint">Space</span> to pause/resume updates.
+                    </div>
+                </section>
+
+                <section>
+                    <h2>Key Metrics Explained</h2>
+                    <div class="metrics-grid">
+                        <div class="metric-card">
+                            <div class="value">245</div>
+                            <div class="label">Active Calls</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="value">12</div>
+                            <div class="label">Open Alerts</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="value">45.2K</div>
+                            <div class="label">Calls/Second</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="value">99.99%</div>
+                            <div class="label">Uptime</div>
+                        </div>
+                    </div>
+                </section>
+            </section>
+
+            <!-- Section 3: Alert Management -->
+            <section>
+                <section>
+                    <h1>Alert Management</h1>
+                    <p>Handling fraud alerts effectively</p>
+                </section>
+
+                <section>
+                    <h2>Alert Queue View</h2>
+                    <div class="diagram">
+                        <pre>
+    ┌─────────────────────────────────────────────────────────────────────────┐
+    │  Alerts                                         [Filter] [Export]       │
+    ├─────────────────────────────────────────────────────────────────────────┤
+    │                                                                         │
+    │  ┌─────────────────────────────────────────────────────────────────┐   │
+    │  │ 🔴 CRITICAL │ ACM-2026-001234 │ +2348012345678 │ 7 A-numbers   │   │
+    │  │    10:23:45 │ Status: NEW     │ Window: 4.2s   │ [View] [Ack]  │   │
+    │  └─────────────────────────────────────────────────────────────────┘   │
+    │                                                                         │
+    │  ┌─────────────────────────────────────────────────────────────────┐   │
+    │  │ 🟠 HIGH     │ ACM-2026-001233 │ +2348023456789 │ 5 A-numbers   │   │
+    │  │    10:21:12 │ Status: ACK     │ Window: 3.8s   │ [View]        │   │
+    │  └─────────────────────────────────────────────────────────────────┘   │
+    │                                                                         │
+    │  ┌─────────────────────────────────────────────────────────────────┐   │
+    │  │ 🟡 MEDIUM   │ ACM-2026-001232 │ +2348034567890 │ 4 A-numbers   │   │
+    │  │    10:15:30 │ Status: NEW     │ Window: 4.9s   │ [View] [Ack]  │   │
+    │  └─────────────────────────────────────────────────────────────────┘   │
+    │                                                                         │
+    └─────────────────────────────────────────────────────────────────────────┘
+                        </pre>
+                    </div>
+                </section>
+
+                <section>
+                    <h2>Alert Lifecycle</h2>
+                    <div class="diagram">
+                        <pre>
+        ┌─────────┐     ┌──────────────┐     ┌───────────────┐     ┌──────────┐
+        │   NEW   │────▶│ ACKNOWLEDGED │────▶│ INVESTIGATING │────▶│ RESOLVED │
+        └─────────┘     └──────────────┘     └───────────────┘     └──────────┘
+             │                                       │
+             │                                       ▼
+             │                              ┌────────────────┐
+             └─────────────────────────────▶│ FALSE POSITIVE │
+                                            └────────────────┘
+                        </pre>
+                    </div>
+                    <table>
+                        <tr>
+                            <th>Status</th>
+                            <th>Meaning</th>
+                        </tr>
+                        <tr>
+                            <td><strong>NEW</strong></td>
+                            <td>Just detected, needs attention</td>
+                        </tr>
+                        <tr>
+                            <td><strong>ACKNOWLEDGED</strong></td>
+                            <td>Analyst has seen it</td>
+                        </tr>
+                        <tr>
+                            <td><strong>INVESTIGATING</strong></td>
+                            <td>Active investigation</td>
+                        </tr>
+                        <tr>
+                            <td><strong>RESOLVED</strong></td>
+                            <td>Action taken, closed</td>
+                        </tr>
+                    </table>
+                </section>
+
+                <section>
+                    <h2>Alert Detail View</h2>
+                    <div class="diagram">
+                        <pre>
+    ┌─────────────────────────────────────────────────────────────────────────┐
+    │  Alert: ACM-2026-001234                              [Actions ▼]        │
+    ├─────────────────────────────────────────────────────────────────────────┤
+    │                                                                         │
+    │  Severity: 🔴 CRITICAL     Status: NEW     Detected: 2026-01-15 10:23  │
+    │                                                                         │
+    │  ┌─────────────────────────────────────────────────────────────────┐   │
+    │  │  TARGET (B-Number)                                              │   │
+    │  │  +234-801-234-5678                                              │   │
+    │  │  Previous alerts: 3 (last 30 days)                              │   │
+    │  └─────────────────────────────────────────────────────────────────┘   │
+    │                                                                         │
+    │  ┌─────────────────────────────────────────────────────────────────┐   │
+    │  │  ATTACKING A-NUMBERS (7)                           Detection    │   │
+    │  │  ┌──────────────────────┬───────────┬──────────────────────┐   │   │
+    │  │  │ +234-802-111-1111    │ 10:23:41  │ SIP/trunk-001        │   │   │
+    │  │  │ +234-803-222-2222    │ 10:23:42  │ SIP/trunk-001        │   │   │
+    │  │  │ +234-804-333-3333    │ 10:23:42  │ SIP/trunk-001        │   │   │
+    │  │  │ +234-805-444-4444    │ 10:23:43  │ SIP/trunk-002        │   │   │
+    │  │  │ +234-806-555-5555    │ 10:23:43  │ SIP/trunk-002        │   │   │
+    │  │  │ +234-807-666-6666    │ 10:23:44  │ SIP/trunk-002        │   │   │
+    │  │  │ +234-808-777-7777    │ 10:23:45  │ SIP/trunk-001        │   │   │
+    │  │  └──────────────────────┴───────────┴──────────────────────┘   │   │
+    │  └─────────────────────────────────────────────────────────────────┘   │
+    │                                                                         │
+    └─────────────────────────────────────────────────────────────────────────┘
+                        </pre>
+                    </div>
+                </section>
+
+                <section>
+                    <h2>Available Actions</h2>
+                    <table>
+                        <tr>
+                            <th>Action</th>
+                            <th>Shortcut</th>
+                            <th>Description</th>
+                        </tr>
+                        <tr>
+                            <td><strong>Acknowledge</strong></td>
+                            <td><span class="keyboard-hint">A</span></td>
+                            <td>Take ownership of alert</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Investigate</strong></td>
+                            <td><span class="keyboard-hint">I</span></td>
+                            <td>Start formal investigation</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Disconnect</strong></td>
+                            <td><span class="keyboard-hint">D</span></td>
+                            <td>Terminate active calls</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Block Pattern</strong></td>
+                            <td><span class="keyboard-hint">B</span></td>
+                            <td>Block A-number pattern</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Add Note</strong></td>
+                            <td><span class="keyboard-hint">N</span></td>
+                            <td>Add investigation note</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Escalate</strong></td>
+                            <td><span class="keyboard-hint">E</span></td>
+                            <td>Send to supervisor</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Resolve</strong></td>
+                            <td><span class="keyboard-hint">R</span></td>
+                            <td>Mark as handled</td>
+                        </tr>
+                    </table>
+                </section>
+
+                <section>
+                    <h2>Bulk Operations</h2>
+                    <ol>
+                        <li>Select multiple alerts using checkboxes</li>
+                        <li>Or use <span class="keyboard-hint">Shift</span> + click for range</li>
+                        <li>Click "Bulk Actions" dropdown</li>
+                        <li>Choose operation:
+                            <ul>
+                                <li>Acknowledge All</li>
+                                <li>Assign To...</li>
+                                <li>Export Selected</li>
+                                <li>Mark False Positive</li>
+                            </ul>
+                        </li>
+                    </ol>
+                    <div class="info-box">
+                        <strong>Use Case:</strong> After a known false-positive source is identified, bulk-mark similar alerts.
+                    </div>
+                </section>
+            </section>
+
+            <!-- Section 4: Investigation -->
+            <section>
+                <section>
+                    <h1>Investigation Techniques</h1>
+                    <p>Finding the truth behind alerts</p>
+                </section>
+
+                <section>
+                    <h2>Investigation Workflow</h2>
+                    <div class="timeline">
+                        <div class="timeline-item">
+                            <strong>Step 1:</strong> Acknowledge the alert
+                        </div>
+                        <div class="timeline-item">
+                            <strong>Step 2:</strong> Review A-numbers for patterns
+                        </div>
+                        <div class="timeline-item">
+                            <strong>Step 3:</strong> Check B-number history
+                        </div>
+                        <div class="timeline-item">
+                            <strong>Step 4:</strong> Analyze source trunks/IPs
+                        </div>
+                        <div class="timeline-item">
+                            <strong>Step 5:</strong> Determine if legitimate or fraud
+                        </div>
+                        <div class="timeline-item">
+                            <strong>Step 6:</strong> Take action and document
+                        </div>
+                    </div>
+                </section>
+
+                <section>
+                    <h2>Pattern Analysis</h2>
+                    <h3>Red Flags (Likely Fraud):</h3>
+                    <ul>
+                        <li class="fragment">Sequential A-numbers (e.g., +234-801-1111, +234-801-1112...)</li>
+                        <li class="fragment">All calls from same SIP trunk</li>
+                        <li class="fragment">B-number is a personal mobile</li>
+                        <li class="fragment">Calls outside business hours</li>
+                        <li class="fragment">International trunk with local CLIs</li>
+                    </ul>
+                </section>
+
+                <section>
+                    <h2>Pattern Analysis</h2>
+                    <h3>Green Flags (Likely Legitimate):</h3>
+                    <ul>
+                        <li class="fragment">B-number is known call center</li>
+                        <li class="fragment">B-number is IVR/conference bridge</li>
+                        <li class="fragment">Previous whitelist requests</li>
+                        <li class="fragment">A-numbers are known business lines</li>
+                        <li class="fragment">Pattern matches business operations</li>
+                    </ul>
+                </section>
+
+                <section>
+                    <h2>B-Number History</h2>
+                    <div class="diagram">
+                        <pre>
+    ┌─────────────────────────────────────────────────────────────────────────┐
+    │  B-Number History: +234-801-234-5678                                   │
+    ├─────────────────────────────────────────────────────────────────────────┤
+    │                                                                         │
+    │  Total Alerts (30 days): 3                                              │
+    │  False Positives: 0                                                     │
+    │  Whitelist Status: Not whitelisted                                      │
+    │                                                                         │
+    │  ┌───────────────────────────────────────────────────────────────────┐  │
+    │  │  Previous Alerts                                                  │  │
+    │  │  ┌────────────────┬──────────┬───────────┬────────────────────┐  │  │
+    │  │  │ Date           │ Severity │ A-Numbers │ Resolution         │  │  │
+    │  │  │ 2026-01-10     │ HIGH     │ 5         │ Resolved - Fraud   │  │  │
+    │  │  │ 2026-01-05     │ MEDIUM   │ 4         │ Resolved - Fraud   │  │  │
+    │  │  │ 2025-12-28     │ HIGH     │ 6         │ Resolved - Fraud   │  │  │
+    │  │  └────────────────┴──────────┴───────────┴────────────────────┘  │  │
+    │  └───────────────────────────────────────────────────────────────────┘  │
+    │                                                                         │
+    │  Analysis: This number is a repeat target. Likely vulnerable consumer. │
+    │                                                                         │
+    └─────────────────────────────────────────────────────────────────────────┘
+                        </pre>
+                    </div>
+                </section>
+
+                <section>
+                    <h2>Source Analysis</h2>
+                    <table>
+                        <tr>
+                            <th>Source Type</th>
+                            <th>Risk Level</th>
+                            <th>Typical Action</th>
+                        </tr>
+                        <tr>
+                            <td>Unknown International Gateway</td>
+                            <td><span class="severity-critical">High</span></td>
+                            <td>Block + Escalate</td>
+                        </tr>
+                        <tr>
+                            <td>Known Partner Trunk</td>
+                            <td><span class="severity-medium">Medium</span></td>
+                            <td>Investigate + Notify</td>
+                        </tr>
+                        <tr>
+                            <td>Internal Network</td>
+                            <td><span class="severity-low">Low</span></td>
+                            <td>Verify + Whitelist</td>
+                        </tr>
+                    </table>
+                </section>
+
+                <section>
+                    <h2>Decision Matrix</h2>
+                    <table>
+                        <tr>
+                            <th>Scenario</th>
+                            <th>Action</th>
+                        </tr>
+                        <tr>
+                            <td>Confirmed fraud, calls active</td>
+                            <td><span class="severity-critical">Disconnect immediately</span></td>
+                        </tr>
+                        <tr>
+                            <td>Confirmed fraud, calls ended</td>
+                            <td>Document + Block pattern</td>
+                        </tr>
+                        <tr>
+                            <td>Likely legitimate business</td>
+                            <td>Verify + Add to whitelist</td>
+                        </tr>
+                        <tr>
+                            <td>Uncertain, need more info</td>
+                            <td>Escalate to supervisor</td>
+                        </tr>
+                        <tr>
+                            <td>Known false positive source</td>
+                            <td>Mark FP + Update whitelist</td>
+                        </tr>
+                    </table>
+                </section>
+            </section>
+
+            <!-- Section 5: Response Actions -->
+            <section>
+                <section>
+                    <h1>Response Actions</h1>
+                    <p>Taking action against fraud</p>
+                </section>
+
+                <section>
+                    <h2>Disconnecting Calls</h2>
+                    <div class="danger-box">
+                        <strong>Warning:</strong> Disconnecting calls affects live traffic. Use only when fraud is confirmed.
+                    </div>
+                    <h3>Steps:</h3>
+                    <ol>
+                        <li>Confirm alert is genuine fraud</li>
+                        <li>Click "Disconnect" or press <span class="keyboard-hint">D</span></li>
+                        <li>Select calls to disconnect (or "All")</li>
+                        <li>Confirm action</li>
+                        <li>Add note explaining decision</li>
+                    </ol>
+                </section>
+
+                <section>
+                    <h2>Blocking Patterns</h2>
+                    <h3>Block Types:</h3>
+                    <table>
+                        <tr>
+                            <th>Type</th>
+                            <th>Example</th>
+                            <th>Use When</th>
+                        </tr>
+                        <tr>
+                            <td>Exact Number</td>
+                            <td>+234-801-111-1111</td>
+                            <td>Single bad actor</td>
+                        </tr>
+                        <tr>
+                            <td>Prefix Block</td>
+                            <td>+234-801-111-*</td>
+                            <td>Sequential range attack</td>
+                        </tr>
+                        <tr>
+                            <td>Trunk Block</td>
+                            <td>SIP/trunk-suspect</td>
+                            <td>Compromised gateway</td>
+                        </tr>
+                    </table>
+                    <div class="warning-box">
+                        Prefix blocks can affect legitimate traffic. Use sparingly and review regularly.
+                    </div>
+                </section>
+
+                <section>
+                    <h2>Escalation Criteria</h2>
+                    <h3>Escalate to Supervisor when:</h3>
+                    <ul>
+                        <li>Attack involves 10+ A-numbers</li>
+                        <li>Multiple B-numbers targeted simultaneously</li>
+                        <li>Source is a known partner trunk</li>
+                        <li>Uncertain about appropriate action</li>
+                        <li>VIP/high-profile target involved</li>
+                        <li>Potential NCC reporting required</li>
+                    </ul>
+                </section>
+
+                <section>
+                    <h2>Documentation Requirements</h2>
+                    <h3>Every resolved alert must have:</h3>
+                    <ul>
+                        <li><strong>Classification:</strong> Fraud / False Positive / Unknown</li>
+                        <li><strong>Actions Taken:</strong> What you did</li>
+                        <li><strong>Justification:</strong> Why you did it</li>
+                        <li><strong>Follow-up:</strong> Any pending items</li>
+                    </ul>
+                    <div class="info-box">
+                        Good documentation protects you and helps others learn from your investigations.
+                    </div>
+                </section>
+            </section>
+
+            <!-- Section 6: Whitelist Management -->
+            <section>
+                <section>
+                    <h1>Whitelist Management</h1>
+                    <p>Managing legitimate exceptions</p>
+                </section>
+
+                <section>
+                    <h2>When to Whitelist</h2>
+                    <div class="two-columns">
+                        <div class="success-box">
+                            <h3>Good Candidates:</h3>
+                            <ul>
+                                <li>Call centers</li>
+                                <li>Conference bridges</li>
+                                <li>IVR systems</li>
+                                <li>Emergency services</li>
+                                <li>Verified business lines</li>
+                            </ul>
+                        </div>
+                        <div class="danger-box">
+                            <h3>Do NOT Whitelist:</h3>
+                            <ul>
+                                <li>Personal mobile numbers</li>
+                                <li>Unverified requests</li>
+                                <li>Numbers with fraud history</li>
+                                <li>Temporary workarounds</li>
+                            </ul>
+                        </div>
+                    </div>
+                </section>
+
+                <section>
+                    <h2>Adding to Whitelist</h2>
+                    <ol>
+                        <li>Navigate to <strong>Configuration > Whitelist</strong></li>
+                        <li>Click "Add Entry"</li>
+                        <li>Enter B-number (with country code)</li>
+                        <li>Provide business justification</li>
+                        <li>Set expiration date (recommended)</li>
+                        <li>Attach supporting documentation</li>
+                        <li>Submit for approval</li>
+                    </ol>
+                </section>
+
+                <section>
+                    <h2>Whitelist Entry Form</h2>
+                    <div class="diagram">
+                        <pre>
+    ┌─────────────────────────────────────────────────────────────────────────┐
+    │  Add Whitelist Entry                                                   │
+    ├─────────────────────────────────────────────────────────────────────────┤
+    │                                                                         │
+    │  B-Number:  [+234-801-234-5678________________]                         │
+    │                                                                         │
+    │  Business Name:  [ABC Call Center_______________]                       │
+    │                                                                         │
+    │  Justification:                                                         │
+    │  [Verified call center with 50+ agents calling customers.              │
+    │   Business license verified. Contact: John Doe, IT Manager.            │
+    │   Email: john@abccallcenter.com                                    _]  │
+    │                                                                         │
+    │  Expiration:  [2026-07-15]  □ No expiration                            │
+    │                                                                         │
+    │  Attachments:  [business_license.pdf]  [+Add more]                     │
+    │                                                                         │
+    │                              [Cancel]  [Submit for Approval]            │
+    │                                                                         │
+    └─────────────────────────────────────────────────────────────────────────┘
+                        </pre>
+                    </div>
+                </section>
+
+                <section>
+                    <h2>Whitelist Review</h2>
+                    <table>
+                        <tr>
+                            <th>Review Frequency</th>
+                            <th>Action</th>
+                        </tr>
+                        <tr>
+                            <td>Weekly</td>
+                            <td>Review entries expiring soon</td>
+                        </tr>
+                        <tr>
+                            <td>Monthly</td>
+                            <td>Audit high-activity entries</td>
+                        </tr>
+                        <tr>
+                            <td>Quarterly</td>
+                            <td>Full whitelist review</td>
+                        </tr>
+                    </table>
+                    <div class="warning-box">
+                        Outdated whitelist entries are a security risk. Remove entries for closed businesses.
+                    </div>
+                </section>
+            </section>
+
+            <!-- Section 7: Reporting -->
+            <section>
+                <section>
+                    <h1>Reporting & Documentation</h1>
+                    <p>Tracking and compliance</p>
+                </section>
+
+                <section>
+                    <h2>Shift Handover</h2>
+                    <h3>End-of-Shift Report:</h3>
+                    <ul>
+                        <li>Total alerts handled</li>
+                        <li>Open alerts (with status)</li>
+                        <li>Escalations pending</li>
+                        <li>Notable incidents</li>
+                        <li>System issues encountered</li>
+                        <li>Whitelist changes</li>
+                    </ul>
+                    <div class="info-box">
+                        Use the "Generate Shift Report" button before handover.
+                    </div>
+                </section>
+
+                <section>
+                    <h2>Incident Reports</h2>
+                    <h3>Major incidents require formal report:</h3>
+                    <ul>
+                        <li>10+ A-numbers in single attack</li>
+                        <li>Multiple B-numbers targeted</li>
+                        <li>VIP/sensitive target</li>
+                        <li>Media attention potential</li>
+                        <li>NCC notification required</li>
+                    </ul>
+                    <p>Template available at: <code>Reports > Templates > Major Incident</code></p>
+                </section>
+
+                <section>
+                    <h2>NCC Compliance</h2>
+                    <div class="info-box">
+                        Daily NCC reports are generated automatically at 06:00 WAT
+                    </div>
+                    <h3>Your responsibilities:</h3>
+                    <ul>
+                        <li>Ensure alerts are properly classified</li>
+                        <li>Document actions taken</li>
+                        <li>Flag major incidents for inclusion</li>
+                        <li>Review weekly compliance summary</li>
+                    </ul>
+                </section>
+
+                <section>
+                    <h2>Exporting Data</h2>
+                    <h3>Available Exports:</h3>
+                    <table>
+                        <tr>
+                            <th>Export Type</th>
+                            <th>Format</th>
+                            <th>Use Case</th>
+                        </tr>
+                        <tr>
+                            <td>Alert List</td>
+                            <td>CSV, PDF</td>
+                            <td>Management reports</td>
+                        </tr>
+                        <tr>
+                            <td>Investigation</td>
+                            <td>PDF</td>
+                            <td>Law enforcement</td>
+                        </tr>
+                        <tr>
+                            <td>Statistics</td>
+                            <td>CSV, Excel</td>
+                            <td>Analysis</td>
+                        </tr>
+                        <tr>
+                            <td>Audit Trail</td>
+                            <td>PDF</td>
+                            <td>Compliance</td>
+                        </tr>
+                    </table>
+                </section>
+            </section>
+
+            <!-- Section 8: Best Practices -->
+            <section>
+                <section>
+                    <h1>Best Practices</h1>
+                    <p>Tips from experienced analysts</p>
+                </section>
+
+                <section>
+                    <h2>Efficiency Tips</h2>
+                    <ul>
+                        <li class="fragment"><strong>Use keyboard shortcuts</strong> - Much faster than clicking</li>
+                        <li class="fragment"><strong>Set up filters</strong> - Focus on your assigned severity levels</li>
+                        <li class="fragment"><strong>Use multiple monitors</strong> - Dashboard + Alert detail</li>
+                        <li class="fragment"><strong>Create saved searches</strong> - Common investigation queries</li>
+                        <li class="fragment"><strong>Take regular breaks</strong> - Alert fatigue is real</li>
+                    </ul>
+                </section>
+
+                <section>
+                    <h2>Common Mistakes to Avoid</h2>
+                    <ul>
+                        <li class="fragment"><span class="severity-critical">Don't</span> disconnect without verification</li>
+                        <li class="fragment"><span class="severity-critical">Don't</span> whitelist without documentation</li>
+                        <li class="fragment"><span class="severity-critical">Don't</span> ignore LOW severity alerts</li>
+                        <li class="fragment"><span class="severity-critical">Don't</span> skip documentation</li>
+                        <li class="fragment"><span class="severity-critical">Don't</span> handle outside your authority</li>
+                    </ul>
+                </section>
+
+                <section>
+                    <h2>Response Time Guidelines</h2>
+                    <table>
+                        <tr>
+                            <th>Severity</th>
+                            <th>Acknowledge</th>
+                            <th>Action</th>
+                            <th>Resolve</th>
+                        </tr>
+                        <tr>
+                            <td><span class="severity-critical">CRITICAL</span></td>
+                            <td>1 min</td>
+                            <td>5 min</td>
+                            <td>15 min</td>
+                        </tr>
+                        <tr>
+                            <td><span class="severity-high">HIGH</span></td>
+                            <td>5 min</td>
+                            <td>15 min</td>
+                            <td>30 min</td>
+                        </tr>
+                        <tr>
+                            <td><span class="severity-medium">MEDIUM</span></td>
+                            <td>15 min</td>
+                            <td>30 min</td>
+                            <td>2 hours</td>
+                        </tr>
+                        <tr>
+                            <td><span class="severity-low">LOW</span></td>
+                            <td>30 min</td>
+                            <td>2 hours</td>
+                            <td>Shift end</td>
+                        </tr>
+                    </table>
+                </section>
+
+                <section>
+                    <h2>When in Doubt...</h2>
+                    <div class="info-box" style="font-size: 1.2em; text-align: center;">
+                        <strong>Ask your supervisor!</strong><br><br>
+                        It's always better to ask than to make a mistake that affects live traffic.
+                    </div>
+                </section>
+            </section>
+
+            <!-- Summary -->
+            <section>
+                <h1>Key Takeaways</h1>
+                <ul>
+                    <li><strong>Understand the threat</strong> - Know how masking attacks work</li>
+                    <li><strong>Use the tools</strong> - Dashboard, shortcuts, filters</li>
+                    <li><strong>Investigate thoroughly</strong> - Check patterns, history, sources</li>
+                    <li><strong>Act appropriately</strong> - Match response to threat</li>
+                    <li><strong>Document everything</strong> - Protect yourself and help others</li>
+                    <li><strong>Know when to escalate</strong> - Don't handle alone when uncertain</li>
+                </ul>
+            </section>
+
+            <!-- Resources -->
+            <section>
+                <h1>Resources</h1>
+                <div class="two-columns">
+                    <div>
+                        <h3>Documentation:</h3>
+                        <ul>
+                            <li><code>SOC_ANALYST_MANUAL.md</code></li>
+                            <li><code>USER_MANUAL.md</code></li>
+                            <li><code>runbook.md</code></li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h3>Support:</h3>
+                        <ul>
+                            <li>Supervisor on shift</li>
+                            <li>Slack: #soc-support</li>
+                            <li>Escalation: PagerDuty</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <!-- End Slide -->
+            <section class="title-slide">
+                <h1>Questions?</h1>
+                <p class="subtitle">SOC Analyst Training Complete</p>
+                <p class="meta">
+                    Next Steps:<br>
+                    1. Practice in sandbox environment<br>
+                    2. Shadow experienced analyst<br>
+                    3. Certification quiz
+                </p>
+            </section>
+
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/reveal.js@4.6.0/dist/reveal.js"></script>
+    <script>
+        Reveal.initialize({
+            hash: true,
+            slideNumber: 'c/t',
+            showSlideNumber: 'all',
+            transition: 'slide'
+        });
+    </script>
+</body>
+</html>

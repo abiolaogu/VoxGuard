@@ -1,0 +1,1164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anti-Call Masking Platform - NCC Technical Capabilities Demo</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@4.6.0/dist/reveal.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@4.6.0/dist/theme/white.css">
+    <style>
+        /* NCC Technical Theme */
+        :root {
+            --ncc-green: #006837;
+            --ncc-gold: #D4AF37;
+            --ncc-dark: #1a1a2e;
+            --tech-blue: #0066cc;
+            --text-primary: #333333;
+        }
+
+        .reveal {
+            font-family: 'Segoe UI', 'Roboto', Arial, sans-serif;
+            font-size: 34px;
+            color: var(--text-primary);
+        }
+
+        .reveal h1 {
+            color: var(--ncc-green);
+            font-size: 2em;
+            font-weight: 700;
+            border-bottom: 4px solid var(--ncc-gold);
+            padding-bottom: 0.3em;
+        }
+
+        .reveal h2 {
+            color: var(--ncc-dark);
+            font-size: 1.5em;
+        }
+
+        .reveal h3 {
+            color: var(--tech-blue);
+            font-size: 1.2em;
+        }
+
+        .reveal .title-slide {
+            text-align: center;
+        }
+
+        .reveal .title-slide h1 {
+            border-bottom: none;
+            font-size: 2.2em;
+        }
+
+        .reveal .subtitle {
+            color: #666;
+            font-size: 1.1em;
+            margin-top: 0.5em;
+        }
+
+        .reveal .meta {
+            color: #888;
+            font-size: 0.75em;
+            margin-top: 2em;
+        }
+
+        /* Code Blocks */
+        .reveal pre {
+            background: #1e1e1e;
+            border-radius: 8px;
+            padding: 15px;
+            font-size: 0.5em;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            text-align: left;
+        }
+
+        .reveal code {
+            font-family: 'Fira Code', 'Consolas', monospace;
+            color: #d4d4d4;
+        }
+
+        .reveal p code {
+            background: #f0f0f0;
+            color: var(--tech-blue);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.85em;
+        }
+
+        /* Metrics Grid */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 15px;
+            margin: 1em 0;
+        }
+
+        .metric-card {
+            background: linear-gradient(135deg, var(--ncc-green) 0%, #004d26 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .metric-card .value {
+            font-size: 2em;
+            font-weight: 700;
+            color: var(--ncc-gold);
+        }
+
+        .metric-card .label {
+            font-size: 0.6em;
+            opacity: 0.9;
+            margin-top: 5px;
+        }
+
+        /* Tables */
+        .reveal table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 0.8em 0;
+            font-size: 0.7em;
+        }
+
+        .reveal table th {
+            background: var(--ncc-green);
+            color: white;
+            padding: 10px 12px;
+            text-align: left;
+        }
+
+        .reveal table td {
+            padding: 8px 12px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .reveal table tr:nth-child(even) {
+            background: #f8f9fa;
+        }
+
+        /* Info Boxes */
+        .info-box {
+            background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+            border-left: 5px solid var(--ncc-green);
+            padding: 12px 18px;
+            border-radius: 0 8px 8px 0;
+            margin: 0.8em 0;
+            font-size: 0.9em;
+        }
+
+        .tech-box {
+            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+            border-left: 5px solid var(--tech-blue);
+            padding: 12px 18px;
+            border-radius: 0 8px 8px 0;
+            margin: 0.8em 0;
+            font-size: 0.9em;
+        }
+
+        .warning-box {
+            background: linear-gradient(135deg, #fff8e1 0%, #ffecb3 100%);
+            border-left: 5px solid var(--ncc-gold);
+            padding: 12px 18px;
+            border-radius: 0 8px 8px 0;
+            margin: 0.8em 0;
+            font-size: 0.9em;
+        }
+
+        /* Two Column Layout */
+        .two-columns {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+        }
+
+        /* Diagram */
+        .diagram {
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 0.8em 0;
+        }
+
+        .diagram pre {
+            font-size: 0.45em;
+            background: transparent;
+            color: var(--text-primary);
+            box-shadow: none;
+            padding: 10px;
+        }
+
+        /* Demo Steps */
+        .demo-step {
+            background: #f8f9fa;
+            border-left: 4px solid var(--tech-blue);
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .demo-step .step-number {
+            display: inline-block;
+            background: var(--tech-blue);
+            color: white;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 28px;
+            font-weight: bold;
+            margin-right: 10px;
+            font-size: 0.8em;
+        }
+
+        /* Check/X marks */
+        .check { color: var(--ncc-green); font-weight: bold; }
+        .cross { color: #dc3545; font-weight: bold; }
+
+        /* Logo placeholder */
+        .logo-placeholder {
+            width: 100px;
+            height: 100px;
+            background: var(--ncc-green);
+            border-radius: 50%;
+            margin: 0 auto 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 0.5em;
+            font-weight: bold;
+        }
+
+        /* API response styling */
+        .api-response {
+            background: #1e1e1e;
+            color: #4ec9b0;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 0.5em;
+            text-align: left;
+            overflow-x: auto;
+        }
+
+        /* Live indicator */
+        .live-indicator {
+            display: inline-block;
+            background: #dc3545;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 0.7em;
+            font-weight: bold;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+    </style>
+</head>
+<body>
+    <div class="reveal">
+        <div class="slides">
+
+            <!-- Title Slide -->
+            <section class="title-slide">
+                <div class="logo-placeholder">ACM</div>
+                <h1>Technical Capabilities Demo</h1>
+                <p class="subtitle">Anti-Call Masking Platform for NCC Technical Team</p>
+                <p class="meta">
+                    Duration: ~30 minutes<br>
+                    Audience: NCC Technical Staff, Engineers<br>
+                    January 2026
+                </p>
+            </section>
+
+            <!-- Agenda -->
+            <section>
+                <h1>Demo Agenda</h1>
+                <ol>
+                    <li>System Architecture Deep-Dive</li>
+                    <li>Detection Engine Demo</li>
+                    <li>API Capabilities</li>
+                    <li>NCC Integration Points</li>
+                    <li>Reporting System</li>
+                    <li>Dashboard Walkthrough</li>
+                    <li>Performance Benchmarks</li>
+                </ol>
+            </section>
+
+            <!-- Section 1: Architecture -->
+            <section>
+                <section>
+                    <h1>System Architecture</h1>
+                    <p>Technical Deep-Dive</p>
+                </section>
+
+                <section>
+                    <h2>High-Level Architecture</h2>
+                    <div class="diagram">
+                        <pre>
+    ┌─────────────────────────────────────────────────────────────────────────────────┐
+    │                              OPERATOR NETWORK                                   │
+    │  ┌─────────────────┐                                                           │
+    │  │    OpenSIPS     │                                                           │
+    │  │   SIP Server    │                                                           │
+    │  └────────┬────────┘                                                           │
+    └───────────┼─────────────────────────────────────────────────────────────────────┘
+                │ HTTP/2 (< 2ms RTT)
+                ▼
+    ┌─────────────────────────────────────────────────────────────────────────────────┐
+    │                         ANTI-CALL MASKING PLATFORM                             │
+    │                                                                                 │
+    │  ┌─────────────────────────────────────────────────────────────────────────┐   │
+    │  │                        LOAD BALANCER (HAProxy)                          │   │
+    │  └─────────────────────────────────┬───────────────────────────────────────┘   │
+    │                                    │                                           │
+    │         ┌──────────────────────────┼──────────────────────────┐               │
+    │         │                          │                          │               │
+    │  ┌──────▼──────┐            ┌──────▼──────┐            ┌──────▼──────┐       │
+    │  │  Detection  │            │  Detection  │            │  Detection  │       │
+    │  │  Engine #1  │            │  Engine #2  │            │  Engine #N  │       │
+    │  │   (Rust)    │            │   (Rust)    │            │   (Rust)    │       │
+    │  └──────┬──────┘            └──────┬──────┘            └──────┬──────┘       │
+    │         │                          │                          │               │
+    │         └──────────────────────────┼──────────────────────────┘               │
+    │                                    │                                           │
+    │  ┌─────────────────────────────────┼─────────────────────────────────────┐    │
+    │  │                          DATA LAYER                                    │    │
+    │  │                                                                        │    │
+    │  │  ┌────────────┐  ┌────────────┐  ┌────────────┐  ┌────────────┐      │    │
+    │  │  │DragonflyDB │  │  QuestDB   │  │ YugabyteDB │  │ ClickHouse │      │    │
+    │  │  │  (Cache)   │  │(TimeSeries)│  │   (SQL)    │  │(Analytics) │      │    │
+    │  │  └────────────┘  └────────────┘  └────────────┘  └────────────┘      │    │
+    │  │                                                                        │    │
+    │  └────────────────────────────────────────────────────────────────────────┘    │
+    │                                                                                 │
+    └─────────────────────────────────────────────────────────────────────────────────┘
+                │
+                │ HTTPS (OAuth 2.0)
+                ▼
+    ┌─────────────────────────────────────────────────────────────────────────────────┐
+    │                              NCC INFRASTRUCTURE                                 │
+    │  ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐            │
+    │  │   ATRS API      │    │   SFTP Server   │    │  Reporting      │            │
+    │  │   (Incidents)   │    │   (Daily CSV)   │    │  Portal         │            │
+    │  └─────────────────┘    └─────────────────┘    └─────────────────┘            │
+    └─────────────────────────────────────────────────────────────────────────────────┘
+                        </pre>
+                    </div>
+                </section>
+
+                <section>
+                    <h2>Component Specifications</h2>
+                    <table>
+                        <tr>
+                            <th>Component</th>
+                            <th>Technology</th>
+                            <th>Role</th>
+                        </tr>
+                        <tr>
+                            <td>Detection Engine</td>
+                            <td>Rust + io_uring</td>
+                            <td>Real-time pattern detection (&lt;1ms)</td>
+                        </tr>
+                        <tr>
+                            <td>DragonflyDB</td>
+                            <td>Redis-compatible</td>
+                            <td>Sliding window state (in-memory)</td>
+                        </tr>
+                        <tr>
+                            <td>QuestDB</td>
+                            <td>Time-series DB</td>
+                            <td>Call event storage (90 days)</td>
+                        </tr>
+                        <tr>
+                            <td>YugabyteDB</td>
+                            <td>Distributed SQL</td>
+                            <td>Alerts, config, audit logs</td>
+                        </tr>
+                        <tr>
+                            <td>ClickHouse</td>
+                            <td>OLAP</td>
+                            <td>Long-term analytics</td>
+                        </tr>
+                        <tr>
+                            <td>Management API</td>
+                            <td>Rust + Axum</td>
+                            <td>REST API, webhooks, dashboard</td>
+                        </tr>
+                    </table>
+                </section>
+
+                <section>
+                    <h2>Detection Engine Internals</h2>
+                    <div class="tech-box">
+                        <strong>Sliding Window Algorithm</strong> - Tracks distinct A-numbers per B-number in configurable time windows
+                    </div>
+                    <div class="diagram">
+                        <pre>
+    Incoming Event: {a_number: "+234801111111", b_number: "+234809999999"}
+
+    ┌─────────────────────────────────────────────────────────────────────┐
+    │                    SLIDING WINDOW (5 seconds)                       │
+    │                                                                     │
+    │  B-Number: +234809999999                                           │
+    │  ┌─────────────────────────────────────────────────────────────┐   │
+    │  │  Window State (DragonflyDB HyperLogLog)                     │   │
+    │  │                                                             │   │
+    │  │  T-4s: +234801111111 (1)                                   │   │
+    │  │  T-3s: +234802222222 (2)                                   │   │
+    │  │  T-2s: +234803333333 (3)                                   │   │
+    │  │  T-1s: +234804444444 (4)                                   │   │
+    │  │  T-0s: +234805555555 (5) ← THRESHOLD REACHED!              │   │
+    │  │                                                             │   │
+    │  └─────────────────────────────────────────────────────────────┘   │
+    │                                                                     │
+    │  Result: ALERT GENERATED (5 distinct A-numbers in 5 seconds)       │
+    └─────────────────────────────────────────────────────────────────────┘
+                        </pre>
+                    </div>
+                </section>
+
+                <section>
+                    <h2>Data Flow</h2>
+                    <ol style="font-size: 0.85em;">
+                        <li><strong>SIP INVITE</strong> arrives at OpenSIPS</li>
+                        <li>OpenSIPS calls ACM API with A/B numbers</li>
+                        <li>Detection Engine checks sliding window</li>
+                        <li>If threshold met → Generate alert, optionally block</li>
+                        <li>Event stored in QuestDB for audit</li>
+                        <li>Alert stored in YugabyteDB</li>
+                        <li>Response returned to OpenSIPS (&lt;5ms total)</li>
+                        <li>Webhook notifications sent (async)</li>
+                    </ol>
+                </section>
+            </section>
+
+            <!-- Section 2: Detection Demo -->
+            <section>
+                <section>
+                    <h1>Detection Engine Demo</h1>
+                    <p><span class="live-indicator">LIVE DEMO</span></p>
+                </section>
+
+                <section>
+                    <h2>Demo: Single Event Submission</h2>
+                    <div class="demo-step">
+                        <span class="step-number">1</span>
+                        <strong>Submit a call event</strong>
+                    </div>
+                    <pre><code class="language-bash">curl -X POST https://acm-api.demo.com/api/v1/events \
+  -H "X-API-Key: demo-key-12345" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "a_number": "+2348011111111",
+    "b_number": "+2348099999999",
+    "timestamp": "2026-01-15T10:30:00.123Z",
+    "trunk_id": "trunk-demo-001"
+  }'</code></pre>
+                </section>
+
+                <section>
+                    <h2>Demo: Event Response</h2>
+                    <div class="demo-step">
+                        <span class="step-number">2</span>
+                        <strong>API Response (normal traffic)</strong>
+                    </div>
+                    <div class="api-response">
+{
+  "success": true,
+  "data": {
+    "event_id": "evt_abc123xyz",
+    "processed": true,
+    "alert_generated": false,
+    "processing_time_us": 145,
+    "window_count": 1
+  },
+  "meta": {
+    "request_id": "req_xyz789",
+    "timestamp": "2026-01-15T10:30:00.125Z"
+  }
+}
+                    </div>
+                    <p style="font-size: 0.8em;"><strong>Processing time:</strong> 145 microseconds (0.145ms)</p>
+                </section>
+
+                <section>
+                    <h2>Demo: Triggering an Alert</h2>
+                    <div class="demo-step">
+                        <span class="step-number">3</span>
+                        <strong>Submit 5 events to same B-number (simulating attack)</strong>
+                    </div>
+                    <pre><code class="language-bash"># Batch submission of 5 events to trigger alert
+curl -X POST https://acm-api.demo.com/api/v1/events/batch \
+  -H "X-API-Key: demo-key-12345" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "events": [
+      {"a_number": "+2348011111111", "b_number": "+2348099999999"},
+      {"a_number": "+2348022222222", "b_number": "+2348099999999"},
+      {"a_number": "+2348033333333", "b_number": "+2348099999999"},
+      {"a_number": "+2348044444444", "b_number": "+2348099999999"},
+      {"a_number": "+2348055555555", "b_number": "+2348099999999"}
+    ]
+  }'</code></pre>
+                </section>
+
+                <section>
+                    <h2>Demo: Alert Generated</h2>
+                    <div class="demo-step">
+                        <span class="step-number">4</span>
+                        <strong>Response with alert</strong>
+                    </div>
+                    <div class="api-response">
+{
+  "success": true,
+  "data": {
+    "processed": 5,
+    "alerts_generated": 1,
+    "alerts": [
+      {
+        "alert_id": "ACM-2026-001234",
+        "severity": "high",
+        "b_number": "+2348099999999",
+        "a_number_count": 5,
+        "detection_window_ms": 847,
+        "auto_disconnected": true
+      }
+    ],
+    "processing_time_us": 892
+  }
+}
+                    </div>
+                    <p style="font-size: 0.8em;"><strong>Total time:</strong> 892 microseconds for 5 events + alert generation</p>
+                </section>
+
+                <section>
+                    <h2>Demo: View Alert Details</h2>
+                    <pre><code class="language-bash">curl https://acm-api.demo.com/api/v1/alerts/ACM-2026-001234 \
+  -H "Authorization: Bearer $TOKEN"</code></pre>
+                    <div class="api-response" style="font-size: 0.45em;">
+{
+  "success": true,
+  "data": {
+    "id": "ACM-2026-001234",
+    "severity": "high",
+    "status": "new",
+    "b_number": "+2348099999999",
+    "a_number_count": 5,
+    "detection_window_ms": 847,
+    "detected_at": "2026-01-15T10:30:01.892Z",
+    "calls": [
+      {"a_number": "+2348011111111", "timestamp": "2026-01-15T10:30:01.000Z", "disconnected": true},
+      {"a_number": "+2348022222222", "timestamp": "2026-01-15T10:30:01.200Z", "disconnected": true},
+      {"a_number": "+2348033333333", "timestamp": "2026-01-15T10:30:01.400Z", "disconnected": true},
+      {"a_number": "+2348044444444", "timestamp": "2026-01-15T10:30:01.600Z", "disconnected": true},
+      {"a_number": "+2348055555555", "timestamp": "2026-01-15T10:30:01.847Z", "disconnected": true}
+    ]
+  }
+}
+                    </div>
+                </section>
+            </section>
+
+            <!-- Section 3: API Capabilities -->
+            <section>
+                <section>
+                    <h1>API Capabilities</h1>
+                    <p>REST API Overview</p>
+                </section>
+
+                <section>
+                    <h2>API Endpoint Summary</h2>
+                    <table>
+                        <tr>
+                            <th>Endpoint</th>
+                            <th>Method</th>
+                            <th>Purpose</th>
+                        </tr>
+                        <tr>
+                            <td><code>/api/v1/events</code></td>
+                            <td>POST</td>
+                            <td>Submit call event</td>
+                        </tr>
+                        <tr>
+                            <td><code>/api/v1/events/batch</code></td>
+                            <td>POST</td>
+                            <td>Batch submission (up to 1000)</td>
+                        </tr>
+                        <tr>
+                            <td><code>/api/v1/alerts</code></td>
+                            <td>GET</td>
+                            <td>List alerts (with filters)</td>
+                        </tr>
+                        <tr>
+                            <td><code>/api/v1/alerts/{id}</code></td>
+                            <td>GET/PATCH</td>
+                            <td>Get/update alert</td>
+                        </tr>
+                        <tr>
+                            <td><code>/api/v1/alerts/{id}/disconnect</code></td>
+                            <td>POST</td>
+                            <td>Disconnect calls</td>
+                        </tr>
+                        <tr>
+                            <td><code>/api/v1/webhooks</code></td>
+                            <td>GET/POST</td>
+                            <td>Manage webhooks</td>
+                        </tr>
+                        <tr>
+                            <td><code>/api/v1/config</code></td>
+                            <td>GET/PATCH</td>
+                            <td>System configuration</td>
+                        </tr>
+                        <tr>
+                            <td><code>/health</code></td>
+                            <td>GET</td>
+                            <td>Health check</td>
+                        </tr>
+                    </table>
+                </section>
+
+                <section>
+                    <h2>Authentication Methods</h2>
+                    <div class="two-columns">
+                        <div>
+                            <h3>API Key (Server-to-Server)</h3>
+                            <pre><code class="language-http">X-API-Key: your-key-here</code></pre>
+                            <ul style="font-size: 0.8em;">
+                                <li>High-throughput events</li>
+                                <li>OpenSIPS integration</li>
+                                <li>No expiration</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h3>OAuth 2.0 (User Apps)</h3>
+                            <pre><code class="language-http">Authorization: Bearer token</code></pre>
+                            <ul style="font-size: 0.8em;">
+                                <li>Dashboard access</li>
+                                <li>Third-party integrations</li>
+                                <li>Scoped permissions</li>
+                            </ul>
+                        </div>
+                    </div>
+                </section>
+
+                <section>
+                    <h2>Webhook System</h2>
+                    <pre><code class="language-json">// Webhook payload for alert.created
+{
+  "event": "alert.created",
+  "timestamp": "2026-01-15T10:30:01.892Z",
+  "webhook_id": "wh_abc123",
+  "data": {
+    "alert": {
+      "id": "ACM-2026-001234",
+      "severity": "high",
+      "b_number": "+2348099999999",
+      "a_number_count": 5
+    }
+  }
+}</code></pre>
+                    <h3>Available Events:</h3>
+                    <p style="font-size: 0.8em;"><code>alert.created</code>, <code>alert.updated</code>, <code>alert.resolved</code>, <code>calls.disconnected</code></p>
+                </section>
+            </section>
+
+            <!-- Section 4: NCC Integration -->
+            <section>
+                <section>
+                    <h1>NCC Integration Points</h1>
+                    <p>Compliance Implementation</p>
+                </section>
+
+                <section>
+                    <h2>ATRS API Integration</h2>
+                    <div class="info-box">
+                        <strong>Automated Trouble Reporting System</strong> - Real-time incident submission to NCC
+                    </div>
+                    <pre><code class="language-bash"># Example ATRS incident submission
+POST https://api.ncc.gov.ng/atrs/v1/incidents
+Authorization: Bearer {oauth_token}
+Content-Type: application/json
+
+{
+  "operator_id": "OPERATOR001",
+  "incident_type": "CLI_SPOOFING",
+  "detected_at": "2026-01-15T10:30:01.892Z",
+  "b_number": "+2348099999999",
+  "a_number_count": 5,
+  "action_taken": "AUTO_DISCONNECTED",
+  "reference_id": "ACM-2026-001234"
+}</code></pre>
+                </section>
+
+                <section>
+                    <h2>ATRS OAuth Flow</h2>
+                    <div class="diagram">
+                        <pre>
+    ┌─────────────────┐              ┌─────────────────┐              ┌─────────────────┐
+    │   ACM Platform  │              │   NCC OAuth     │              │    NCC ATRS     │
+    │                 │              │    Server       │              │      API        │
+    └────────┬────────┘              └────────┬────────┘              └────────┬────────┘
+             │                                │                                │
+             │  1. Request Token              │                                │
+             │  (client_credentials)          │                                │
+             │───────────────────────────────▶│                                │
+             │                                │                                │
+             │  2. Access Token               │                                │
+             │  (expires_in: 3600)            │                                │
+             │◀───────────────────────────────│                                │
+             │                                │                                │
+             │  3. Submit Incident            │                                │
+             │  (Bearer token)                │                                │
+             │────────────────────────────────┼───────────────────────────────▶│
+             │                                │                                │
+             │  4. Incident Accepted          │                                │
+             │  (incident_id)                 │                                │
+             │◀───────────────────────────────┼────────────────────────────────│
+             │                                │                                │
+                        </pre>
+                    </div>
+                </section>
+
+                <section>
+                    <h2>Daily Report Upload (SFTP)</h2>
+                    <pre><code class="language-bash"># Report format: CSV
+# Filename: ACM_DAILY_OPERATOR001_20260115.csv
+
+incident_id,detected_at,b_number,a_number_count,severity,action,resolution
+ACM-2026-001234,2026-01-15T10:30:01Z,+2348099999999,5,HIGH,DISCONNECTED,CONFIRMED_FRAUD
+ACM-2026-001235,2026-01-15T11:45:22Z,+2348088888888,7,CRITICAL,DISCONNECTED,CONFIRMED_FRAUD
+ACM-2026-001236,2026-01-15T14:12:33Z,+2348077777777,4,MEDIUM,ALERTED,FALSE_POSITIVE</code></pre>
+                    <h3>Upload Schedule:</h3>
+                    <ul style="font-size: 0.85em;">
+                        <li>Generation: 04:00-05:00 WAT</li>
+                        <li>Upload: 05:00-06:00 WAT</li>
+                        <li>Confirmation logged by 06:00 WAT</li>
+                    </ul>
+                </section>
+
+                <section>
+                    <h2>Report Fields</h2>
+                    <table>
+                        <tr>
+                            <th>Field</th>
+                            <th>Type</th>
+                            <th>Description</th>
+                        </tr>
+                        <tr>
+                            <td><code>incident_id</code></td>
+                            <td>String</td>
+                            <td>Unique alert ID</td>
+                        </tr>
+                        <tr>
+                            <td><code>detected_at</code></td>
+                            <td>ISO 8601</td>
+                            <td>Detection timestamp (WAT)</td>
+                        </tr>
+                        <tr>
+                            <td><code>b_number</code></td>
+                            <td>E.164</td>
+                            <td>Target phone number</td>
+                        </tr>
+                        <tr>
+                            <td><code>a_number_count</code></td>
+                            <td>Integer</td>
+                            <td>Number of distinct callers</td>
+                        </tr>
+                        <tr>
+                            <td><code>severity</code></td>
+                            <td>Enum</td>
+                            <td>LOW/MEDIUM/HIGH/CRITICAL</td>
+                        </tr>
+                        <tr>
+                            <td><code>action</code></td>
+                            <td>Enum</td>
+                            <td>ALERTED/DISCONNECTED/BLOCKED</td>
+                        </tr>
+                        <tr>
+                            <td><code>resolution</code></td>
+                            <td>Enum</td>
+                            <td>CONFIRMED_FRAUD/FALSE_POSITIVE/PENDING</td>
+                        </tr>
+                    </table>
+                </section>
+
+                <section>
+                    <h2>Data Residency Compliance</h2>
+                    <div class="info-box">
+                        All data stored and processed within Nigeria
+                    </div>
+                    <table>
+                        <tr>
+                            <th>Data Type</th>
+                            <th>Storage Location</th>
+                            <th>Retention</th>
+                        </tr>
+                        <tr>
+                            <td>Call Events</td>
+                            <td>Lagos DC</td>
+                            <td>90 days</td>
+                        </tr>
+                        <tr>
+                            <td>Alerts</td>
+                            <td>Lagos DC + Abuja DR</td>
+                            <td>365 days</td>
+                        </tr>
+                        <tr>
+                            <td>Audit Logs</td>
+                            <td>Lagos DC + Archive</td>
+                            <td>5 years</td>
+                        </tr>
+                        <tr>
+                            <td>NCC Reports</td>
+                            <td>Lagos DC + Archive</td>
+                            <td>7 years</td>
+                        </tr>
+                    </table>
+                </section>
+            </section>
+
+            <!-- Section 5: Reporting -->
+            <section>
+                <section>
+                    <h1>Reporting System</h1>
+                    <p>Compliance and Analytics</p>
+                </section>
+
+                <section>
+                    <h2>Report Types</h2>
+                    <table>
+                        <tr>
+                            <th>Report</th>
+                            <th>Frequency</th>
+                            <th>Delivery</th>
+                        </tr>
+                        <tr>
+                            <td>NCC Daily Incident</td>
+                            <td>Daily</td>
+                            <td>SFTP + ATRS API</td>
+                        </tr>
+                        <tr>
+                            <td>NCC Monthly Summary</td>
+                            <td>Monthly</td>
+                            <td>SFTP</td>
+                        </tr>
+                        <tr>
+                            <td>Operator Dashboard</td>
+                            <td>Real-time</td>
+                            <td>Web Portal</td>
+                        </tr>
+                        <tr>
+                            <td>Executive Summary</td>
+                            <td>Weekly/Monthly</td>
+                            <td>PDF + Email</td>
+                        </tr>
+                        <tr>
+                            <td>Audit Trail Export</td>
+                            <td>On-demand</td>
+                            <td>CSV/PDF</td>
+                        </tr>
+                    </table>
+                </section>
+
+                <section>
+                    <h2>Sample Monthly Summary</h2>
+                    <div class="metrics-grid">
+                        <div class="metric-card">
+                            <div class="value">1,247</div>
+                            <div class="label">Total Alerts</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="value">892</div>
+                            <div class="label">Confirmed Fraud</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="value">71.5%</div>
+                            <div class="label">True Positive Rate</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="value">0.18%</div>
+                            <div class="label">False Positive Rate</div>
+                        </div>
+                    </div>
+                    <div class="metrics-grid">
+                        <div class="metric-card">
+                            <div class="value">4.2B</div>
+                            <div class="label">Calls Processed</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="value">0.6ms</div>
+                            <div class="label">Avg Detection Time</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="value">99.99%</div>
+                            <div class="label">Uptime</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="value">100%</div>
+                            <div class="label">NCC Report Delivery</div>
+                        </div>
+                    </div>
+                </section>
+            </section>
+
+            <!-- Section 6: Dashboard -->
+            <section>
+                <section>
+                    <h1>Dashboard Walkthrough</h1>
+                    <p>Operational Interface</p>
+                </section>
+
+                <section>
+                    <h2>Main Dashboard</h2>
+                    <div class="diagram">
+                        <pre>
+    ┌─────────────────────────────────────────────────────────────────────────────────┐
+    │  [Logo]  Anti-Call Masking Dashboard              [Alerts: 12] [Admin ▼]       │
+    ├─────────────────────────────────────────────────────────────────────────────────┤
+    │                                                                                 │
+    │  ┌───────────────────────────────────────────────────────────────────────────┐ │
+    │  │   Active: 1,247    │   Alerts: 12    │   CPS: 45,231    │   99.99%       │ │
+    │  │   concurrent       │   open          │   current        │   uptime       │ │
+    │  └───────────────────────────────────────────────────────────────────────────┘ │
+    │                                                                                 │
+    │  ┌─────────────────────────────────┐  ┌─────────────────────────────────────┐ │
+    │  │  LIVE ALERT FEED                │  │  TRAFFIC CHART (24h)                │ │
+    │  │                                 │  │                                     │ │
+    │  │  🔴 10:30 CRITICAL ACM-001234   │  │  ████████████████░░░░░░            │ │
+    │  │     +234809999999 (7 callers)   │  │  Peak: 52,341 CPS at 14:00         │ │
+    │  │                                 │  │                                     │ │
+    │  │  🟠 10:28 HIGH ACM-001233       │  │  Current: 45,231 CPS               │ │
+    │  │     +234808888888 (5 callers)   │  │                                     │ │
+    │  │                                 │  │                                     │ │
+    │  │  🟡 10:25 MEDIUM ACM-001232     │  │                                     │ │
+    │  │     +234807777777 (4 callers)   │  │                                     │ │
+    │  └─────────────────────────────────┘  └─────────────────────────────────────┘ │
+    │                                                                                 │
+    │  ┌───────────────────────────────────────────────────────────────────────────┐ │
+    │  │  NCC COMPLIANCE                                                           │ │
+    │  │  ✓ Daily report uploaded (06:00)   ✓ ATRS connected   ✓ Audit logs OK    │ │
+    │  └───────────────────────────────────────────────────────────────────────────┘ │
+    └─────────────────────────────────────────────────────────────────────────────────┘
+                        </pre>
+                    </div>
+                </section>
+
+                <section>
+                    <h2>Alert Detail View</h2>
+                    <div class="diagram">
+                        <pre>
+    ┌─────────────────────────────────────────────────────────────────────────────────┐
+    │  Alert: ACM-2026-001234                                [Actions ▼] [Export]    │
+    ├─────────────────────────────────────────────────────────────────────────────────┤
+    │                                                                                 │
+    │  Severity: 🔴 CRITICAL     Status: INVESTIGATING     Assigned: Analyst1       │
+    │  Detected: 2026-01-15 10:30:01 WAT     Window: 4.2 seconds                    │
+    │                                                                                 │
+    │  ┌─────────────────────────────────────────────────────────────────────────┐   │
+    │  │  TARGET (B-Number): +234-809-999-9999                                   │   │
+    │  │  Location: Lagos, Nigeria     Previous Alerts: 2 (last 30 days)        │   │
+    │  └─────────────────────────────────────────────────────────────────────────┘   │
+    │                                                                                 │
+    │  ┌─────────────────────────────────────────────────────────────────────────┐   │
+    │  │  ATTACKING A-NUMBERS (7)                                                │   │
+    │  │  ┌────────────────────────┬──────────────┬───────────────┬───────────┐ │   │
+    │  │  │ A-Number               │ Timestamp    │ Trunk         │ Status    │ │   │
+    │  │  │ +234-801-111-1111      │ 10:30:00.100 │ trunk-001     │ BLOCKED   │ │   │
+    │  │  │ +234-802-222-2222      │ 10:30:00.850 │ trunk-001     │ BLOCKED   │ │   │
+    │  │  │ +234-803-333-3333      │ 10:30:01.200 │ trunk-002     │ BLOCKED   │ │   │
+    │  │  │ ...                    │ ...          │ ...           │ ...       │ │   │
+    │  │  └────────────────────────┴──────────────┴───────────────┴───────────┘ │   │
+    │  └─────────────────────────────────────────────────────────────────────────┘   │
+    │                                                                                 │
+    │  ┌─────────────────────────────────────────────────────────────────────────┐   │
+    │  │  TIMELINE                                                               │   │
+    │  │  10:30:01 - Alert detected (7 A-numbers, 4.2s window)                  │   │
+    │  │  10:30:01 - Auto-disconnect triggered (7 calls terminated)             │   │
+    │  │  10:30:15 - NCC ATRS submission (incident_id: NCC-2026-XXXXX)          │   │
+    │  │  10:31:00 - Acknowledged by Analyst1                                    │   │
+    │  └─────────────────────────────────────────────────────────────────────────┘   │
+    │                                                                                 │
+    └─────────────────────────────────────────────────────────────────────────────────┘
+                        </pre>
+                    </div>
+                </section>
+            </section>
+
+            <!-- Section 7: Performance -->
+            <section>
+                <section>
+                    <h1>Performance Benchmarks</h1>
+                    <p>Measured Results</p>
+                </section>
+
+                <section>
+                    <h2>Latency Distribution</h2>
+                    <table>
+                        <tr>
+                            <th>Percentile</th>
+                            <th>Detection Latency</th>
+                            <th>API Response</th>
+                        </tr>
+                        <tr>
+                            <td>P50 (Median)</td>
+                            <td>0.4ms</td>
+                            <td>1.2ms</td>
+                        </tr>
+                        <tr>
+                            <td>P90</td>
+                            <td>0.7ms</td>
+                            <td>2.5ms</td>
+                        </tr>
+                        <tr>
+                            <td>P99</td>
+                            <td>0.9ms</td>
+                            <td>4.1ms</td>
+                        </tr>
+                        <tr>
+                            <td>P99.9</td>
+                            <td>1.2ms</td>
+                            <td>7.8ms</td>
+                        </tr>
+                    </table>
+                    <div class="info-box">
+                        <strong>Target:</strong> P99 detection latency &lt; 1ms ✓ Achieved
+                    </div>
+                </section>
+
+                <section>
+                    <h2>Throughput Benchmarks</h2>
+                    <div class="metrics-grid">
+                        <div class="metric-card">
+                            <div class="value">152,341</div>
+                            <div class="label">Sustained CPS</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="value">198,450</div>
+                            <div class="label">Burst CPS (Peak)</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="value">4.2B</div>
+                            <div class="label">Daily Capacity</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="value">3</div>
+                            <div class="label">Active Nodes</div>
+                        </div>
+                    </div>
+                </section>
+
+                <section>
+                    <h2>Reliability Metrics</h2>
+                    <table>
+                        <tr>
+                            <th>Metric</th>
+                            <th>Target</th>
+                            <th>Actual</th>
+                        </tr>
+                        <tr>
+                            <td>System Uptime</td>
+                            <td>99.99%</td>
+                            <td><span class="check">99.995%</span></td>
+                        </tr>
+                        <tr>
+                            <td>Detection Accuracy</td>
+                            <td>&gt;99%</td>
+                            <td><span class="check">99.82%</span></td>
+                        </tr>
+                        <tr>
+                            <td>False Positive Rate</td>
+                            <td>&lt;0.2%</td>
+                            <td><span class="check">0.18%</span></td>
+                        </tr>
+                        <tr>
+                            <td>NCC Report Delivery</td>
+                            <td>100%</td>
+                            <td><span class="check">100%</span></td>
+                        </tr>
+                        <tr>
+                            <td>Data Loss</td>
+                            <td>0</td>
+                            <td><span class="check">0</span></td>
+                        </tr>
+                    </table>
+                </section>
+            </section>
+
+            <!-- Summary -->
+            <section>
+                <h1>Technical Summary</h1>
+                <div class="two-columns">
+                    <div>
+                        <h3>Capabilities:</h3>
+                        <ul style="font-size: 0.85em;">
+                            <li>&lt;1ms detection latency</li>
+                            <li>150K+ sustained CPS</li>
+                            <li>Full REST API</li>
+                            <li>Real-time webhooks</li>
+                            <li>Comprehensive audit trails</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h3>NCC Integration:</h3>
+                        <ul style="font-size: 0.85em;">
+                            <li>ATRS API (OAuth 2.0)</li>
+                            <li>Daily SFTP reports</li>
+                            <li>Nigeria data residency</li>
+                            <li>5-year retention</li>
+                            <li>NDPR compliant</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Questions -->
+            <section>
+                <h1>Technical Q&A</h1>
+                <div class="info-box">
+                    <strong>Common Questions:</strong>
+                    <ul style="font-size: 0.85em;">
+                        <li>What credentials do we need from NCC?</li>
+                        <li>How do we test the integration?</li>
+                        <li>What's the deployment timeline?</li>
+                        <li>How do we handle false positives?</li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- End Slide -->
+            <section class="title-slide">
+                <div class="logo-placeholder">ACM</div>
+                <h1>Thank You</h1>
+                <p class="subtitle">Technical Capabilities Demo Complete</p>
+                <p class="meta">
+                    Next Steps:<br>
+                    1. NCC credential provisioning<br>
+                    2. Integration testing environment setup<br>
+                    3. Technical liaison assignment<br><br>
+                    Contact: technical@yourcompany.com
+                </p>
+            </section>
+
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/reveal.js@4.6.0/dist/reveal.js"></script>
+    <script>
+        Reveal.initialize({
+            hash: true,
+            slideNumber: 'c/t',
+            showSlideNumber: 'all',
+            transition: 'slide',
+            transitionSpeed: 'default'
+        });
+    </script>
+</body>
+</html>

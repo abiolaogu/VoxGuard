@@ -1,0 +1,1136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anti-Call Masking Platform - Developer Training</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@4.6.0/dist/reveal.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@4.6.0/dist/theme/white.css">
+    <link rel="stylesheet" href="assets/css/reveal-theme.css">
+</head>
+<body>
+    <div class="reveal">
+        <div class="slides">
+
+            <!-- Title Slide -->
+            <section class="title-slide">
+                <h1>Developer Training</h1>
+                <p class="subtitle">Anti-Call Masking Platform - API Integration</p>
+                <p class="meta">
+                    Duration: ~45 minutes<br>
+                    Audience: Integration Developers, API Consumers<br>
+                    Version: 2.0 | January 2026
+                </p>
+            </section>
+
+            <!-- Prerequisites -->
+            <section>
+                <h1>Prerequisites</h1>
+                <ul>
+                    <li>Completed System Overview training</li>
+                    <li>API credentials (sandbox environment)</li>
+                    <li>Familiarity with REST APIs</li>
+                    <li>Understanding of JSON and HTTP</li>
+                    <li>Development environment setup</li>
+                </ul>
+            </section>
+
+            <!-- Agenda -->
+            <section>
+                <h1>Agenda</h1>
+                <ol>
+                    <li>API Architecture Overview</li>
+                    <li>Authentication & Authorization</li>
+                    <li>Core API Endpoints</li>
+                    <li>Event Submission</li>
+                    <li>Alert Integration</li>
+                    <li>Webhooks</li>
+                    <li>Error Handling</li>
+                    <li>Best Practices</li>
+                </ol>
+            </section>
+
+            <!-- Section 1: Architecture -->
+            <section>
+                <section>
+                    <h1>API Architecture Overview</h1>
+                    <p>Understanding the integration landscape</p>
+                </section>
+
+                <section>
+                    <h2>Integration Architecture</h2>
+                    <div class="diagram">
+                        <pre>
+    ┌──────────────────────────────────────────────────────────────────────────┐
+    │                          Your Systems                                    │
+    └───────────────────────────────┬──────────────────────────────────────────┘
+                                    │
+                                    │ REST API (HTTPS)
+                                    ▼
+    ┌──────────────────────────────────────────────────────────────────────────┐
+    │                       ACM Platform API                                   │
+    │  ┌────────────────┐  ┌────────────────┐  ┌────────────────┐             │
+    │  │  Detection API │  │  Management    │  │   Webhook      │             │
+    │  │  (Events)      │  │  API (Alerts)  │  │   Service      │             │
+    │  │  Port: 8080    │  │  Port: 8081    │  │   (Outbound)   │             │
+    │  └────────┬───────┘  └────────┬───────┘  └────────┬───────┘             │
+    │           │                   │                   │                      │
+    │           └───────────────────┼───────────────────┘                      │
+    │                               │                                          │
+    │                     ┌─────────▼─────────┐                                │
+    │                     │  Core Detection   │                                │
+    │                     │     Engine        │                                │
+    │                     └───────────────────┘                                │
+    └──────────────────────────────────────────────────────────────────────────┘
+                        </pre>
+                    </div>
+                </section>
+
+                <section>
+                    <h2>API Endpoints Summary</h2>
+                    <table>
+                        <tr>
+                            <th>API</th>
+                            <th>Base URL</th>
+                            <th>Purpose</th>
+                        </tr>
+                        <tr>
+                            <td>Detection</td>
+                            <td><code>/api/v1/events</code></td>
+                            <td>Submit call events</td>
+                        </tr>
+                        <tr>
+                            <td>Alerts</td>
+                            <td><code>/api/v1/alerts</code></td>
+                            <td>Query/manage alerts</td>
+                        </tr>
+                        <tr>
+                            <td>Config</td>
+                            <td><code>/api/v1/config</code></td>
+                            <td>System configuration</td>
+                        </tr>
+                        <tr>
+                            <td>Webhooks</td>
+                            <td><code>/api/v1/webhooks</code></td>
+                            <td>Manage subscriptions</td>
+                        </tr>
+                        <tr>
+                            <td>Health</td>
+                            <td><code>/health</code></td>
+                            <td>System status</td>
+                        </tr>
+                    </table>
+                </section>
+
+                <section>
+                    <h2>API Versioning</h2>
+                    <div class="info-box">
+                        Current version: <strong>v1</strong><br>
+                        Version is included in the URL path
+                    </div>
+                    <pre><code class="language-http">GET /api/v1/alerts HTTP/1.1
+Host: acm-api.yourcompany.com</code></pre>
+                    <h3>Versioning Policy:</h3>
+                    <ul>
+                        <li>Breaking changes = new major version</li>
+                        <li>Additive changes = same version</li>
+                        <li>Deprecated endpoints: 6 months notice</li>
+                    </ul>
+                </section>
+
+                <section>
+                    <h2>Rate Limits</h2>
+                    <table>
+                        <tr>
+                            <th>Endpoint</th>
+                            <th>Rate Limit</th>
+                            <th>Burst</th>
+                        </tr>
+                        <tr>
+                            <td>Event submission</td>
+                            <td>150,000/sec</td>
+                            <td>200,000/sec</td>
+                        </tr>
+                        <tr>
+                            <td>Alert queries</td>
+                            <td>1,000/min</td>
+                            <td>2,000/min</td>
+                        </tr>
+                        <tr>
+                            <td>Config updates</td>
+                            <td>100/min</td>
+                            <td>200/min</td>
+                        </tr>
+                        <tr>
+                            <td>Batch operations</td>
+                            <td>100/min</td>
+                            <td>150/min</td>
+                        </tr>
+                    </table>
+                    <p>Headers: <code>X-RateLimit-Remaining</code>, <code>X-RateLimit-Reset</code></p>
+                </section>
+            </section>
+
+            <!-- Section 2: Authentication -->
+            <section>
+                <section>
+                    <h1>Authentication & Authorization</h1>
+                    <p>Securing your integration</p>
+                </section>
+
+                <section>
+                    <h2>Authentication Methods</h2>
+                    <table>
+                        <tr>
+                            <th>Method</th>
+                            <th>Use Case</th>
+                            <th>Format</th>
+                        </tr>
+                        <tr>
+                            <td><strong>API Key</strong></td>
+                            <td>Server-to-server</td>
+                            <td><code>X-API-Key: key</code></td>
+                        </tr>
+                        <tr>
+                            <td><strong>OAuth 2.0</strong></td>
+                            <td>User-facing apps</td>
+                            <td><code>Authorization: Bearer token</code></td>
+                        </tr>
+                        <tr>
+                            <td><strong>mTLS</strong></td>
+                            <td>High-security</td>
+                            <td>Client certificate</td>
+                        </tr>
+                    </table>
+                </section>
+
+                <section>
+                    <h2>API Key Authentication</h2>
+                    <pre><code class="language-bash"># Using API Key header
+curl -X POST https://acm-api.yourcompany.com/api/v1/events \
+  -H "X-API-Key: your-api-key-here" \
+  -H "Content-Type: application/json" \
+  -d '{"a_number": "+234801111111", "b_number": "+234802222222"}'</code></pre>
+                    <div class="warning-box">
+                        <strong>Security:</strong> Never expose API keys in client-side code or version control!
+                    </div>
+                </section>
+
+                <section>
+                    <h2>OAuth 2.0 Flow</h2>
+                    <pre><code class="language-bash"># Step 1: Get access token
+curl -X POST https://acm-api.yourcompany.com/oauth/token \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "grant_type=client_credentials" \
+  -d "client_id=your-client-id" \
+  -d "client_secret=your-client-secret" \
+  -d "scope=events:write alerts:read"
+
+# Response:
+{
+  "access_token": "eyJhbGciOiJSUzI1NiIs...",
+  "token_type": "Bearer",
+  "expires_in": 3600,
+  "scope": "events:write alerts:read"
+}</code></pre>
+                </section>
+
+                <section>
+                    <h2>Using Bearer Token</h2>
+                    <pre><code class="language-bash"># Step 2: Use access token
+curl -X GET https://acm-api.yourcompany.com/api/v1/alerts \
+  -H "Authorization: Bearer eyJhbGciOiJSUzI1NiIs..."</code></pre>
+                    <h3>Token Refresh:</h3>
+                    <ul>
+                        <li>Tokens expire in 1 hour</li>
+                        <li>Request new token before expiry</li>
+                        <li>Implement automatic refresh in your client</li>
+                    </ul>
+                </section>
+
+                <section>
+                    <h2>Permission Scopes</h2>
+                    <table>
+                        <tr>
+                            <th>Scope</th>
+                            <th>Permissions</th>
+                        </tr>
+                        <tr>
+                            <td><code>events:write</code></td>
+                            <td>Submit call events</td>
+                        </tr>
+                        <tr>
+                            <td><code>alerts:read</code></td>
+                            <td>Query alerts</td>
+                        </tr>
+                        <tr>
+                            <td><code>alerts:write</code></td>
+                            <td>Update alert status</td>
+                        </tr>
+                        <tr>
+                            <td><code>config:read</code></td>
+                            <td>Read configuration</td>
+                        </tr>
+                        <tr>
+                            <td><code>config:write</code></td>
+                            <td>Modify configuration</td>
+                        </tr>
+                        <tr>
+                            <td><code>webhooks:manage</code></td>
+                            <td>Manage webhook subscriptions</td>
+                        </tr>
+                    </table>
+                </section>
+            </section>
+
+            <!-- Section 3: Core Endpoints -->
+            <section>
+                <section>
+                    <h1>Core API Endpoints</h1>
+                    <p>Essential operations</p>
+                </section>
+
+                <section>
+                    <h2>Health Check</h2>
+                    <pre><code class="language-http">GET /health HTTP/1.1
+Host: acm-api.yourcompany.com</code></pre>
+                    <pre><code class="language-json">// Response 200 OK
+{
+  "status": "healthy",
+  "version": "2.0.0",
+  "timestamp": "2026-01-15T10:30:00Z",
+  "components": {
+    "detection": "healthy",
+    "cache": "healthy",
+    "database": "healthy"
+  }
+}</code></pre>
+                    <p>Use this endpoint for monitoring and readiness probes.</p>
+                </section>
+
+                <section>
+                    <h2>API Discovery</h2>
+                    <pre><code class="language-http">GET /api/v1 HTTP/1.1
+Host: acm-api.yourcompany.com</code></pre>
+                    <pre><code class="language-json">// Response 200 OK
+{
+  "version": "v1",
+  "endpoints": {
+    "events": "/api/v1/events",
+    "alerts": "/api/v1/alerts",
+    "config": "/api/v1/config",
+    "webhooks": "/api/v1/webhooks"
+  },
+  "documentation": "https://docs.acm.yourcompany.com"
+}</code></pre>
+                </section>
+
+                <section>
+                    <h2>Common Response Format</h2>
+                    <pre><code class="language-json">// Successful response
+{
+  "success": true,
+  "data": { ... },
+  "meta": {
+    "request_id": "req_abc123",
+    "timestamp": "2026-01-15T10:30:00Z"
+  }
+}
+
+// Error response
+{
+  "success": false,
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Invalid phone number format",
+    "details": {
+      "field": "a_number",
+      "value": "invalid"
+    }
+  },
+  "meta": {
+    "request_id": "req_abc124"
+  }
+}</code></pre>
+                </section>
+            </section>
+
+            <!-- Section 4: Event Submission -->
+            <section>
+                <section>
+                    <h1>Event Submission</h1>
+                    <p>Sending call events for detection</p>
+                </section>
+
+                <section>
+                    <h2>Single Event Submission</h2>
+                    <pre><code class="language-http">POST /api/v1/events HTTP/1.1
+Host: acm-api.yourcompany.com
+X-API-Key: your-api-key
+Content-Type: application/json
+
+{
+  "a_number": "+2348011111111",
+  "b_number": "+2348022222222",
+  "timestamp": "2026-01-15T10:30:00.123Z",
+  "call_id": "call-uuid-12345",
+  "trunk_id": "trunk-001",
+  "metadata": {
+    "source_ip": "10.0.0.1",
+    "codec": "G.711"
+  }
+}</code></pre>
+                </section>
+
+                <section>
+                    <h2>Event Fields</h2>
+                    <table>
+                        <tr>
+                            <th>Field</th>
+                            <th>Type</th>
+                            <th>Required</th>
+                            <th>Description</th>
+                        </tr>
+                        <tr>
+                            <td><code>a_number</code></td>
+                            <td>string</td>
+                            <td>Yes</td>
+                            <td>Caller ID (E.164 format)</td>
+                        </tr>
+                        <tr>
+                            <td><code>b_number</code></td>
+                            <td>string</td>
+                            <td>Yes</td>
+                            <td>Destination (E.164 format)</td>
+                        </tr>
+                        <tr>
+                            <td><code>timestamp</code></td>
+                            <td>ISO 8601</td>
+                            <td>No*</td>
+                            <td>Event time (default: now)</td>
+                        </tr>
+                        <tr>
+                            <td><code>call_id</code></td>
+                            <td>string</td>
+                            <td>No</td>
+                            <td>Unique call identifier</td>
+                        </tr>
+                        <tr>
+                            <td><code>trunk_id</code></td>
+                            <td>string</td>
+                            <td>No</td>
+                            <td>Source trunk identifier</td>
+                        </tr>
+                        <tr>
+                            <td><code>metadata</code></td>
+                            <td>object</td>
+                            <td>No</td>
+                            <td>Additional context</td>
+                        </tr>
+                    </table>
+                </section>
+
+                <section>
+                    <h2>Event Response</h2>
+                    <pre><code class="language-json">// Response 202 Accepted
+{
+  "success": true,
+  "data": {
+    "event_id": "evt_789xyz",
+    "processed": true,
+    "alert_generated": false
+  }
+}
+
+// If alert was generated
+{
+  "success": true,
+  "data": {
+    "event_id": "evt_789xyz",
+    "processed": true,
+    "alert_generated": true,
+    "alert_id": "ACM-2026-001234",
+    "severity": "HIGH"
+  }
+}</code></pre>
+                </section>
+
+                <section>
+                    <h2>Batch Event Submission</h2>
+                    <pre><code class="language-http">POST /api/v1/events/batch HTTP/1.1
+Host: acm-api.yourcompany.com
+X-API-Key: your-api-key
+Content-Type: application/json
+
+{
+  "events": [
+    {
+      "a_number": "+2348011111111",
+      "b_number": "+2348022222222",
+      "timestamp": "2026-01-15T10:30:00.123Z"
+    },
+    {
+      "a_number": "+2348033333333",
+      "b_number": "+2348022222222",
+      "timestamp": "2026-01-15T10:30:00.456Z"
+    }
+  ]
+}</code></pre>
+                    <div class="info-box">
+                        Batch limit: <strong>1000 events</strong> per request
+                    </div>
+                </section>
+
+                <section>
+                    <h2>Latency Considerations</h2>
+                    <div class="metrics-grid">
+                        <div class="metric-card">
+                            <div class="value">&lt;1ms</div>
+                            <div class="label">Detection Time</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="value">&lt;5ms</div>
+                            <div class="label">API Response</div>
+                        </div>
+                    </div>
+                    <h3>Tips for Low Latency:</h3>
+                    <ul>
+                        <li>Use persistent HTTP connections</li>
+                        <li>Deploy close to ACM servers</li>
+                        <li>Use batch submission for high volume</li>
+                        <li>Implement async submission if possible</li>
+                    </ul>
+                </section>
+            </section>
+
+            <!-- Section 5: Alert Integration -->
+            <section>
+                <section>
+                    <h1>Alert Integration</h1>
+                    <p>Querying and managing alerts</p>
+                </section>
+
+                <section>
+                    <h2>List Alerts</h2>
+                    <pre><code class="language-http">GET /api/v1/alerts?status=new&severity=critical&limit=50 HTTP/1.1
+Host: acm-api.yourcompany.com
+Authorization: Bearer your-token</code></pre>
+                    <h3>Query Parameters:</h3>
+                    <table>
+                        <tr>
+                            <th>Parameter</th>
+                            <th>Type</th>
+                            <th>Description</th>
+                        </tr>
+                        <tr>
+                            <td><code>status</code></td>
+                            <td>string</td>
+                            <td>new, acknowledged, resolved</td>
+                        </tr>
+                        <tr>
+                            <td><code>severity</code></td>
+                            <td>string</td>
+                            <td>critical, high, medium, low</td>
+                        </tr>
+                        <tr>
+                            <td><code>since</code></td>
+                            <td>ISO 8601</td>
+                            <td>Alerts after this time</td>
+                        </tr>
+                        <tr>
+                            <td><code>limit</code></td>
+                            <td>integer</td>
+                            <td>Max results (default: 100)</td>
+                        </tr>
+                        <tr>
+                            <td><code>offset</code></td>
+                            <td>integer</td>
+                            <td>Pagination offset</td>
+                        </tr>
+                    </table>
+                </section>
+
+                <section>
+                    <h2>Alert Response</h2>
+                    <pre><code class="language-json">{
+  "success": true,
+  "data": {
+    "alerts": [
+      {
+        "id": "ACM-2026-001234",
+        "severity": "critical",
+        "status": "new",
+        "b_number": "+2348022222222",
+        "a_number_count": 7,
+        "detection_window_ms": 4200,
+        "detected_at": "2026-01-15T10:30:00Z",
+        "a_numbers": [
+          "+2348011111111",
+          "+2348033333333",
+          // ... more
+        ],
+        "auto_disconnected": true
+      }
+    ],
+    "pagination": {
+      "total": 150,
+      "limit": 50,
+      "offset": 0
+    }
+  }
+}</code></pre>
+                </section>
+
+                <section>
+                    <h2>Get Single Alert</h2>
+                    <pre><code class="language-http">GET /api/v1/alerts/ACM-2026-001234 HTTP/1.1
+Host: acm-api.yourcompany.com
+Authorization: Bearer your-token</code></pre>
+                    <pre><code class="language-json">{
+  "success": true,
+  "data": {
+    "id": "ACM-2026-001234",
+    "severity": "critical",
+    "status": "investigating",
+    "b_number": "+2348022222222",
+    "a_number_count": 7,
+    "calls": [
+      {
+        "a_number": "+2348011111111",
+        "timestamp": "2026-01-15T10:30:00.100Z",
+        "call_id": "call-001",
+        "trunk_id": "trunk-001",
+        "disconnected": true
+      }
+      // ... more calls
+    ],
+    "timeline": [
+      {"action": "detected", "timestamp": "2026-01-15T10:30:00Z"},
+      {"action": "auto_disconnected", "timestamp": "2026-01-15T10:30:00.005Z"},
+      {"action": "acknowledged", "user": "analyst1", "timestamp": "2026-01-15T10:31:00Z"}
+    ]
+  }
+}</code></pre>
+                </section>
+
+                <section>
+                    <h2>Update Alert Status</h2>
+                    <pre><code class="language-http">PATCH /api/v1/alerts/ACM-2026-001234 HTTP/1.1
+Host: acm-api.yourcompany.com
+Authorization: Bearer your-token
+Content-Type: application/json
+
+{
+  "status": "resolved",
+  "resolution": "confirmed_fraud",
+  "notes": "Confirmed masking attack from compromised gateway. Pattern blocked."
+}</code></pre>
+                    <h3>Resolution Types:</h3>
+                    <ul>
+                        <li><code>confirmed_fraud</code> - Verified fraud</li>
+                        <li><code>false_positive</code> - Legitimate traffic</li>
+                        <li><code>inconclusive</code> - Unable to determine</li>
+                    </ul>
+                </section>
+
+                <section>
+                    <h2>Disconnect Calls</h2>
+                    <pre><code class="language-http">POST /api/v1/alerts/ACM-2026-001234/disconnect HTTP/1.1
+Host: acm-api.yourcompany.com
+Authorization: Bearer your-token
+Content-Type: application/json
+
+{
+  "call_ids": ["call-001", "call-002"],  // Optional: specific calls
+  "all": false,                           // Or disconnect all
+  "reason": "Confirmed fraud attack"
+}</code></pre>
+                    <pre><code class="language-json">// Response 200 OK
+{
+  "success": true,
+  "data": {
+    "disconnected": 2,
+    "failed": 0,
+    "already_ended": 5
+  }
+}</code></pre>
+                </section>
+            </section>
+
+            <!-- Section 6: Webhooks -->
+            <section>
+                <section>
+                    <h1>Webhooks</h1>
+                    <p>Real-time event notifications</p>
+                </section>
+
+                <section>
+                    <h2>Webhook Architecture</h2>
+                    <div class="diagram">
+                        <pre>
+    ┌─────────────────┐         ┌─────────────────┐         ┌─────────────────┐
+    │   ACM Platform  │────────▶│    Webhook      │────────▶│  Your System    │
+    │                 │  Event  │    Service      │  HTTP   │                 │
+    │  Alert Created  │────────▶│                 │  POST   │  /webhook/acm   │
+    └─────────────────┘         └─────────────────┘         └─────────────────┘
+
+    Features:
+    • Retry with exponential backoff
+    • Signature verification
+    • Event filtering
+    • Delivery tracking
+                        </pre>
+                    </div>
+                </section>
+
+                <section>
+                    <h2>Register Webhook</h2>
+                    <pre><code class="language-http">POST /api/v1/webhooks HTTP/1.1
+Host: acm-api.yourcompany.com
+Authorization: Bearer your-token
+Content-Type: application/json
+
+{
+  "url": "https://your-system.com/webhook/acm",
+  "events": ["alert.created", "alert.updated"],
+  "secret": "your-webhook-secret",
+  "filters": {
+    "min_severity": "high"
+  }
+}</code></pre>
+                    <pre><code class="language-json">// Response 201 Created
+{
+  "success": true,
+  "data": {
+    "id": "wh_abc123",
+    "url": "https://your-system.com/webhook/acm",
+    "events": ["alert.created", "alert.updated"],
+    "active": true,
+    "created_at": "2026-01-15T10:30:00Z"
+  }
+}</code></pre>
+                </section>
+
+                <section>
+                    <h2>Available Events</h2>
+                    <table>
+                        <tr>
+                            <th>Event</th>
+                            <th>Triggered When</th>
+                        </tr>
+                        <tr>
+                            <td><code>alert.created</code></td>
+                            <td>New alert detected</td>
+                        </tr>
+                        <tr>
+                            <td><code>alert.updated</code></td>
+                            <td>Alert status changed</td>
+                        </tr>
+                        <tr>
+                            <td><code>alert.resolved</code></td>
+                            <td>Alert marked resolved</td>
+                        </tr>
+                        <tr>
+                            <td><code>calls.disconnected</code></td>
+                            <td>Calls terminated</td>
+                        </tr>
+                        <tr>
+                            <td><code>whitelist.updated</code></td>
+                            <td>Whitelist changed</td>
+                        </tr>
+                        <tr>
+                            <td><code>system.health</code></td>
+                            <td>Health status change</td>
+                        </tr>
+                    </table>
+                </section>
+
+                <section>
+                    <h2>Webhook Payload</h2>
+                    <pre><code class="language-json">{
+  "event": "alert.created",
+  "timestamp": "2026-01-15T10:30:00.123Z",
+  "webhook_id": "wh_abc123",
+  "delivery_id": "del_xyz789",
+  "data": {
+    "alert": {
+      "id": "ACM-2026-001234",
+      "severity": "critical",
+      "b_number": "+2348022222222",
+      "a_number_count": 7,
+      "detected_at": "2026-01-15T10:30:00Z"
+    }
+  }
+}</code></pre>
+                </section>
+
+                <section>
+                    <h2>Signature Verification</h2>
+                    <pre><code class="language-javascript">// Node.js example
+const crypto = require('crypto');
+
+function verifyWebhook(payload, signature, secret) {
+  const expectedSignature = crypto
+    .createHmac('sha256', secret)
+    .update(payload, 'utf8')
+    .digest('hex');
+
+  return crypto.timingSafeEqual(
+    Buffer.from(signature),
+    Buffer.from('sha256=' + expectedSignature)
+  );
+}
+
+// Express handler
+app.post('/webhook/acm', (req, res) => {
+  const signature = req.headers['x-acm-signature'];
+  const payload = JSON.stringify(req.body);
+
+  if (!verifyWebhook(payload, signature, WEBHOOK_SECRET)) {
+    return res.status(401).send('Invalid signature');
+  }
+
+  // Process event
+  console.log('Received:', req.body.event);
+  res.status(200).send('OK');
+});</code></pre>
+                </section>
+
+                <section>
+                    <h2>Webhook Best Practices</h2>
+                    <ul>
+                        <li class="fragment"><strong>Respond quickly</strong> - Return 200 within 5 seconds</li>
+                        <li class="fragment"><strong>Process async</strong> - Queue events for processing</li>
+                        <li class="fragment"><strong>Handle duplicates</strong> - Events may be retried</li>
+                        <li class="fragment"><strong>Verify signatures</strong> - Always validate authenticity</li>
+                        <li class="fragment"><strong>Log everything</strong> - Keep webhook logs for debugging</li>
+                    </ul>
+                </section>
+            </section>
+
+            <!-- Section 7: Error Handling -->
+            <section>
+                <section>
+                    <h1>Error Handling</h1>
+                    <p>Dealing with failures gracefully</p>
+                </section>
+
+                <section>
+                    <h2>HTTP Status Codes</h2>
+                    <table>
+                        <tr>
+                            <th>Code</th>
+                            <th>Meaning</th>
+                            <th>Action</th>
+                        </tr>
+                        <tr>
+                            <td>200</td>
+                            <td>Success</td>
+                            <td>Process response</td>
+                        </tr>
+                        <tr>
+                            <td>202</td>
+                            <td>Accepted</td>
+                            <td>Event queued</td>
+                        </tr>
+                        <tr>
+                            <td>400</td>
+                            <td>Bad Request</td>
+                            <td>Fix request data</td>
+                        </tr>
+                        <tr>
+                            <td>401</td>
+                            <td>Unauthorized</td>
+                            <td>Check credentials</td>
+                        </tr>
+                        <tr>
+                            <td>403</td>
+                            <td>Forbidden</td>
+                            <td>Check permissions</td>
+                        </tr>
+                        <tr>
+                            <td>429</td>
+                            <td>Rate Limited</td>
+                            <td>Backoff and retry</td>
+                        </tr>
+                        <tr>
+                            <td>500</td>
+                            <td>Server Error</td>
+                            <td>Retry with backoff</td>
+                        </tr>
+                        <tr>
+                            <td>503</td>
+                            <td>Unavailable</td>
+                            <td>Retry later</td>
+                        </tr>
+                    </table>
+                </section>
+
+                <section>
+                    <h2>Error Response Format</h2>
+                    <pre><code class="language-json">{
+  "success": false,
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Invalid phone number format",
+    "details": {
+      "field": "a_number",
+      "value": "invalid",
+      "expected": "E.164 format (+234XXXXXXXXXX)"
+    }
+  },
+  "meta": {
+    "request_id": "req_abc124",
+    "timestamp": "2026-01-15T10:30:00Z"
+  }
+}</code></pre>
+                    <p>Always include <code>request_id</code> in support tickets!</p>
+                </section>
+
+                <section>
+                    <h2>Error Codes</h2>
+                    <table>
+                        <tr>
+                            <th>Code</th>
+                            <th>Description</th>
+                        </tr>
+                        <tr>
+                            <td><code>VALIDATION_ERROR</code></td>
+                            <td>Invalid input data</td>
+                        </tr>
+                        <tr>
+                            <td><code>AUTH_FAILED</code></td>
+                            <td>Authentication failed</td>
+                        </tr>
+                        <tr>
+                            <td><code>PERMISSION_DENIED</code></td>
+                            <td>Insufficient permissions</td>
+                        </tr>
+                        <tr>
+                            <td><code>RESOURCE_NOT_FOUND</code></td>
+                            <td>Alert/resource doesn't exist</td>
+                        </tr>
+                        <tr>
+                            <td><code>RATE_LIMITED</code></td>
+                            <td>Too many requests</td>
+                        </tr>
+                        <tr>
+                            <td><code>INTERNAL_ERROR</code></td>
+                            <td>Server-side error</td>
+                        </tr>
+                    </table>
+                </section>
+
+                <section>
+                    <h2>Retry Strategy</h2>
+                    <pre><code class="language-javascript">async function submitWithRetry(event, maxRetries = 3) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await fetch(API_URL + '/events', {
+        method: 'POST',
+        headers: {
+          'X-API-Key': API_KEY,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(event)
+      });
+
+      if (response.ok) {
+        return await response.json();
+      }
+
+      if (response.status === 429 || response.status >= 500) {
+        // Exponential backoff
+        const delay = Math.pow(2, attempt) * 100;
+        await sleep(delay);
+        continue;
+      }
+
+      // Non-retryable error
+      throw new Error(`API error: ${response.status}`);
+
+    } catch (error) {
+      if (attempt === maxRetries) throw error;
+    }
+  }
+}</code></pre>
+                </section>
+
+                <section>
+                    <h2>Circuit Breaker Pattern</h2>
+                    <div class="info-box">
+                        Implement circuit breaker to avoid overwhelming a failing system
+                    </div>
+                    <div class="diagram">
+                        <pre>
+           ┌─────────┐  Success   ┌──────────┐
+           │ CLOSED  │ ─────────▶ │  CLOSED  │
+           │(Normal) │            │ (Normal) │
+           └────┬────┘            └──────────┘
+                │
+         N failures
+                │
+                ▼
+           ┌─────────┐  Timeout   ┌───────────┐
+           │  OPEN   │ ─────────▶ │HALF-OPEN  │
+           │ (Fail)  │            │  (Test)   │
+           └─────────┘            └─────┬─────┘
+                ▲                       │
+                │      Failure          │ Success
+                └───────────────────────┘
+                        </pre>
+                    </div>
+                </section>
+            </section>
+
+            <!-- Section 8: Best Practices -->
+            <section>
+                <section>
+                    <h1>Best Practices</h1>
+                    <p>Building robust integrations</p>
+                </section>
+
+                <section>
+                    <h2>Integration Checklist</h2>
+                    <ul>
+                        <li>[ ] Use HTTPS for all API calls</li>
+                        <li>[ ] Store credentials securely (env vars/secrets manager)</li>
+                        <li>[ ] Implement proper error handling</li>
+                        <li>[ ] Add retry logic with exponential backoff</li>
+                        <li>[ ] Validate webhook signatures</li>
+                        <li>[ ] Log all API interactions</li>
+                        <li>[ ] Monitor for rate limiting</li>
+                        <li>[ ] Test in sandbox before production</li>
+                    </ul>
+                </section>
+
+                <section>
+                    <h2>Performance Tips</h2>
+                    <ul>
+                        <li class="fragment"><strong>Connection pooling</strong> - Reuse HTTP connections</li>
+                        <li class="fragment"><strong>Batch requests</strong> - Group events when possible</li>
+                        <li class="fragment"><strong>Async processing</strong> - Don't block on API calls</li>
+                        <li class="fragment"><strong>Local caching</strong> - Cache config/whitelist data</li>
+                        <li class="fragment"><strong>Compression</strong> - Use gzip for large payloads</li>
+                    </ul>
+                </section>
+
+                <section>
+                    <h2>Security Checklist</h2>
+                    <ul>
+                        <li>[ ] Never log sensitive data (API keys, tokens)</li>
+                        <li>[ ] Rotate API keys regularly</li>
+                        <li>[ ] Use minimal required scopes</li>
+                        <li>[ ] Validate all webhook payloads</li>
+                        <li>[ ] Use separate keys for prod/staging</li>
+                        <li>[ ] Implement request signing for high-security</li>
+                    </ul>
+                </section>
+
+                <section>
+                    <h2>Testing Strategy</h2>
+                    <table>
+                        <tr>
+                            <th>Environment</th>
+                            <th>Purpose</th>
+                            <th>Data</th>
+                        </tr>
+                        <tr>
+                            <td><strong>Sandbox</strong></td>
+                            <td>Development & testing</td>
+                            <td>Synthetic</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Staging</strong></td>
+                            <td>Integration testing</td>
+                            <td>Anonymized</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Production</strong></td>
+                            <td>Live traffic</td>
+                            <td>Real</td>
+                        </tr>
+                    </table>
+                    <div class="warning-box">
+                        Always test thoroughly in sandbox before deploying to production!
+                    </div>
+                </section>
+
+                <section>
+                    <h2>Monitoring Your Integration</h2>
+                    <h3>Key Metrics:</h3>
+                    <ul>
+                        <li>API response times</li>
+                        <li>Error rates by type</li>
+                        <li>Rate limit headroom</li>
+                        <li>Webhook delivery success</li>
+                        <li>Event processing latency</li>
+                    </ul>
+                    <p>Set up alerts for anomalies!</p>
+                </section>
+            </section>
+
+            <!-- Summary -->
+            <section>
+                <h1>Key Takeaways</h1>
+                <ul>
+                    <li><strong>Authentication</strong> - API Keys or OAuth 2.0</li>
+                    <li><strong>Events</strong> - Single or batch submission</li>
+                    <li><strong>Alerts</strong> - Query, update, disconnect</li>
+                    <li><strong>Webhooks</strong> - Real-time notifications</li>
+                    <li><strong>Errors</strong> - Retry with backoff</li>
+                    <li><strong>Security</strong> - Validate, encrypt, audit</li>
+                </ul>
+            </section>
+
+            <!-- Resources -->
+            <section>
+                <h1>Resources</h1>
+                <div class="two-columns">
+                    <div>
+                        <h3>Documentation:</h3>
+                        <ul>
+                            <li><code>API_DEVELOPER_MANUAL.md</code></li>
+                            <li><code>DEVELOPER_MANUAL.md</code></li>
+                            <li>OpenAPI spec: <code>/api/v1/openapi.json</code></li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h3>Support:</h3>
+                        <ul>
+                            <li>Slack: #api-support</li>
+                            <li>Email: api@yourcompany.com</li>
+                            <li>GitHub: Issues</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <!-- End Slide -->
+            <section class="title-slide">
+                <h1>Questions?</h1>
+                <p class="subtitle">Developer Training Complete</p>
+                <p class="meta">
+                    Next Steps:<br>
+                    1. Get sandbox credentials<br>
+                    2. Run sample integrations<br>
+                    3. Build your first webhook
+                </p>
+            </section>
+
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/reveal.js@4.6.0/dist/reveal.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/reveal.js@4.6.0/plugin/highlight/highlight.js"></script>
+    <script>
+        Reveal.initialize({
+            hash: true,
+            slideNumber: 'c/t',
+            showSlideNumber: 'all',
+            transition: 'slide',
+            plugins: [ RevealHighlight ]
+        });
+    </script>
+</body>
+</html>

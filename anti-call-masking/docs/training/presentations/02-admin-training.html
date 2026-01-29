@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anti-Call Masking Platform - Administrator Training</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@4.6.0/dist/reveal.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@4.6.0/dist/theme/white.css">
+    <link rel="stylesheet" href="assets/css/reveal-theme.css">
+</head>
+<body>
+    <div class="reveal">
+        <div class="slides">
+
+            <!-- Title Slide -->
+            <section class="title-slide">
+                <h1>Administrator Training</h1>
+                <p class="subtitle">Anti-Call Masking Platform</p>
+                <p class="meta">
+                    Duration: ~30 minutes<br>
+                    Audience: System Administrators, DevOps<br>
+                    Version: 2.0 | January 2026
+                </p>
+            </section>
+
+            <!-- Prerequisites -->
+            <section>
+                <h1>Prerequisites</h1>
+                <div class="warning-box">
+                    Before this training, ensure you have:
+                </div>
+                <ul>
+                    <li>Completed the System Overview training</li>
+                    <li>Admin credentials for the platform</li>
+                    <li>Access to the infrastructure (SSH/VPN)</li>
+                    <li>Familiarity with Docker and Linux</li>
+                </ul>
+            </section>
+
+            <!-- Agenda -->
+            <section>
+                <h1>Agenda</h1>
+                <ol>
+                    <li>Infrastructure Overview</li>
+                    <li>Deployment & Configuration</li>
+                    <li>Monitoring & Health Checks</li>
+                    <li>Database Administration</li>
+                    <li>Security Management</li>
+                    <li>Maintenance Procedures</li>
+                    <li>Troubleshooting Guide</li>
+                </ol>
+            </section>
+
+            <!-- Section 1: Infrastructure -->
+            <section>
+                <section>
+                    <h1>Infrastructure Overview</h1>
+                    <p>Understanding the deployment architecture</p>
+                </section>
+
+                <section>
+                    <h2>Production Architecture</h2>
+                    <div class="diagram">
+                        <pre>
+                    ┌─────────────────────────────────────────────────┐
+                    │              Load Balancer (HA)                 │
+                    │              HAProxy / F5 BIG-IP                │
+                    └────────────────────┬────────────────────────────┘
+                                         │
+           ┌─────────────────────────────┼─────────────────────────────┐
+           │                             │                             │
+    ┌──────▼──────┐               ┌──────▼──────┐               ┌──────▼──────┐
+    │  Detection  │               │  Detection  │               │  Detection  │
+    │  Engine #1  │               │  Engine #2  │               │  Engine #3  │
+    │  (Active)   │               │  (Active)   │               │  (Standby)  │
+    └──────┬──────┘               └──────┬──────┘               └──────┬──────┘
+           │                             │                             │
+           └─────────────────────────────┼─────────────────────────────┘
+                                         │
+              ┌──────────────────────────┼──────────────────────────┐
+              │                          │                          │
+       ┌──────▼──────┐            ┌──────▼──────┐            ┌──────▼──────┐
+       │ DragonflyDB │            │   QuestDB   │            │ YugabyteDB  │
+       │   Cluster   │            │   Cluster   │            │   Cluster   │
+       └─────────────┘            └─────────────┘            └─────────────┘
+                        </pre>
+                    </div>
+                </section>
+
+                <section>
+                    <h2>Service Inventory</h2>
+                    <table>
+                        <tr>
+                            <th>Service</th>
+                            <th>Port</th>
+                            <th>Instances</th>
+                            <th>Memory</th>
+                        </tr>
+                        <tr>
+                            <td>detection-engine</td>
+                            <td>8080</td>
+                            <td>3-6</td>
+                            <td>64GB each</td>
+                        </tr>
+                        <tr>
+                            <td>management-api</td>
+                            <td>8081</td>
+                            <td>2-3</td>
+                            <td>32GB each</td>
+                        </tr>
+                        <tr>
+                            <td>dragonfly</td>
+                            <td>6379</td>
+                            <td>3</td>
+                            <td>128GB each</td>
+                        </tr>
+                        <tr>
+                            <td>questdb</td>
+                            <td>9000/9009</td>
+                            <td>2-3</td>
+                            <td>64GB each</td>
+                        </tr>
+                        <tr>
+                            <td>yugabytedb</td>
+                            <td>5433</td>
+                            <td>3-5</td>
+                            <td>64GB each</td>
+                        </tr>
+                        <tr>
+                            <td>clickhouse</td>
+                            <td>8123/9000</td>
+                            <td>2-6</td>
+                            <td>128GB each</td>
+                        </tr>
+                    </table>
+                </section>
+
+                <section>
+                    <h2>Network Requirements</h2>
+                    <div class="two-columns">
+                        <div>
+                            <h3>Internal Network:</h3>
+                            <ul>
+                                <li>25-100 Gbps between nodes</li>
+                                <li>&lt;1ms latency requirement</li>
+                                <li>Dedicated VLAN</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h3>External Access:</h3>
+                            <ul>
+                                <li>SIP Switch: TCP 8080</li>
+                                <li>Dashboard: TCP 443</li>
+                                <li>NCC SFTP: TCP 22 outbound</li>
+                            </ul>
+                        </div>
+                    </div>
+                </section>
+            </section>
+
+            <!-- Section 2: Deployment -->
+            <section>
+                <section>
+                    <h1>Deployment & Configuration</h1>
+                    <p>Managing platform deployments</p>
+                </section>
+
+                <section>
+                    <h2>Docker Compose Deployment</h2>
+                    <pre><code class="language-bash"># Navigate to deployment directory
+cd /opt/acm
+
+# Pull latest images
+docker compose pull
+
+# Start all services
+docker compose up -d
+
+# Verify all services are running
+docker compose ps
+
+# View logs
+docker compose logs -f detection-engine</code></pre>
+                </section>
+
+                <section>
+                    <h2>Configuration Files</h2>
+                    <table>
+                        <tr>
+                            <th>File</th>
+                            <th>Purpose</th>
+                        </tr>
+                        <tr>
+                            <td><code>docker-compose.yml</code></td>
+                            <td>Service definitions</td>
+                        </tr>
+                        <tr>
+                            <td><code>config/detection.toml</code></td>
+                            <td>Detection engine config</td>
+                        </tr>
+                        <tr>
+                            <td><code>config/prometheus.yml</code></td>
+                            <td>Metrics scraping</td>
+                        </tr>
+                        <tr>
+                            <td><code>.env</code></td>
+                            <td>Environment variables</td>
+                        </tr>
+                        <tr>
+                            <td><code>config/ncc/</code></td>
+                            <td>NCC integration settings</td>
+                        </tr>
+                    </table>
+                </section>
+
+                <section>
+                    <h2>Key Configuration Parameters</h2>
+                    <pre><code class="language-toml"># config/detection.toml
+
+[detection]
+# Number of distinct A-numbers to trigger alert
+threshold = 5
+
+# Time window in seconds
+window_seconds = 5
+
+# Enable automatic call disconnection
+auto_disconnect = true
+
+# Cooldown between alerts for same B-number
+cooldown_seconds = 60
+
+[performance]
+# Worker threads (0 = auto based on CPU)
+worker_threads = 0
+
+# Maximum concurrent connections
+max_connections = 15000</code></pre>
+                </section>
+
+                <section>
+                    <h2>Environment Variables</h2>
+                    <pre><code class="language-bash"># .env file
+
+# Database connections
+DRAGONFLY_URL=redis://dragonfly:6379
+QUESTDB_URL=http://questdb:9000
+YUGABYTE_URL=postgres://yugabyte:5433/acm
+
+# NCC Integration
+NCC_API_URL=https://api.ncc.gov.ng
+NCC_SFTP_HOST=sftp.ncc.gov.ng
+NCC_OPERATOR_ID=OPERATOR001
+
+# Security
+API_KEY_SALT=your-secure-salt
+JWT_SECRET=your-jwt-secret
+
+# Monitoring
+PROMETHEUS_ENABLED=true
+LOG_LEVEL=info</code></pre>
+                    <div class="danger-box">
+                        <strong>Security:</strong> Never commit .env files to version control!
+                    </div>
+                </section>
+
+                <section>
+                    <h2>Rolling Updates</h2>
+                    <pre><code class="language-bash"># Update detection engine with zero downtime
+
+# 1. Pull new image
+docker compose pull detection-engine
+
+# 2. Scale up (add new instance)
+docker compose up -d --scale detection-engine=4
+
+# 3. Wait for health check
+sleep 30
+
+# 4. Remove old containers
+docker compose up -d --scale detection-engine=3
+
+# 5. Verify
+docker compose ps</code></pre>
+                </section>
+            </section>
+
+            <!-- Section 3: Monitoring -->
+            <section>
+                <section>
+                    <h1>Monitoring & Health Checks</h1>
+                    <p>Keeping the system healthy</p>
+                </section>
+
+                <section>
+                    <h2>Grafana Dashboards</h2>
+                    <div class="info-box">
+                        Access Grafana at: <code>http://grafana:3000</code>
+                    </div>
+                    <h3>Key Dashboards:</h3>
+                    <ul>
+                        <li><strong>ACM Overview</strong> - System-wide metrics</li>
+                        <li><strong>Detection Engine</strong> - CPS, latency, alerts</li>
+                        <li><strong>Database Health</strong> - All database metrics</li>
+                        <li><strong>NCC Compliance</strong> - Report status</li>
+                    </ul>
+                </section>
+
+                <section>
+                    <h2>Critical Metrics to Monitor</h2>
+                    <table>
+                        <tr>
+                            <th>Metric</th>
+                            <th>Warning</th>
+                            <th>Critical</th>
+                        </tr>
+                        <tr>
+                            <td>Detection Latency P99</td>
+                            <td>&gt; 0.8ms</td>
+                            <td>&gt; 1ms</td>
+                        </tr>
+                        <tr>
+                            <td>CPU Usage</td>
+                            <td>&gt; 70%</td>
+                            <td>&gt; 85%</td>
+                        </tr>
+                        <tr>
+                            <td>Memory Usage</td>
+                            <td>&gt; 80%</td>
+                            <td>&gt; 90%</td>
+                        </tr>
+                        <tr>
+                            <td>DragonflyDB Memory</td>
+                            <td>&gt; 75%</td>
+                            <td>&gt; 90%</td>
+                        </tr>
+                        <tr>
+                            <td>Disk Usage</td>
+                            <td>&gt; 70%</td>
+                            <td>&gt; 85%</td>
+                        </tr>
+                        <tr>
+                            <td>Error Rate</td>
+                            <td>&gt; 0.1%</td>
+                            <td>&gt; 1%</td>
+                        </tr>
+                    </table>
+                </section>
+
+                <section>
+                    <h2>Health Check Endpoints</h2>
+                    <pre><code class="language-bash"># Detection Engine health
+curl http://detection-engine:8080/health
+# Response: {"status":"healthy","version":"2.0.0"}
+
+# Management API health
+curl http://management-api:8081/health
+# Response: {"status":"healthy","db":"connected"}
+
+# Full system check
+curl http://management-api:8081/health/full
+# Response: {"detection":"healthy","cache":"healthy",
+#            "timeseries":"healthy","sql":"healthy"}</code></pre>
+                </section>
+
+                <section>
+                    <h2>Prometheus Alerts</h2>
+                    <pre><code class="language-yaml"># alertmanager rules
+
+groups:
+  - name: acm-critical
+    rules:
+      - alert: HighDetectionLatency
+        expr: acm_detection_latency_p99 > 0.001
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Detection latency exceeds 1ms"
+
+      - alert: ServiceDown
+        expr: up{job="detection-engine"} == 0
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Detection engine instance down"</code></pre>
+                </section>
+
+                <section>
+                    <h2>Log Management</h2>
+                    <pre><code class="language-bash"># View detection engine logs
+docker compose logs -f detection-engine | grep ERROR
+
+# View last 100 lines
+docker compose logs --tail=100 detection-engine
+
+# Export logs for analysis
+docker compose logs detection-engine > /tmp/logs.txt
+
+# Using Loki queries (Grafana)
+{job="detection-engine"} |= "ERROR"
+{job="detection-engine"} | json | level="error"</code></pre>
+                </section>
+            </section>
+
+            <!-- Section 4: Database Admin -->
+            <section>
+                <section>
+                    <h1>Database Administration</h1>
+                    <p>Managing the data layer</p>
+                </section>
+
+                <section>
+                    <h2>DragonflyDB Management</h2>
+                    <pre><code class="language-bash"># Connect to DragonflyDB
+docker compose exec dragonfly redis-cli
+
+# Check memory usage
+INFO memory
+
+# Check connected clients
+CLIENT LIST
+
+# View sliding window keys
+KEYS "window:*" | head -10
+
+# Monitor real-time commands
+MONITOR</code></pre>
+                    <div class="warning-box">
+                        DragonflyDB is in-memory only. Data loss on restart is expected and handled by design.
+                    </div>
+                </section>
+
+                <section>
+                    <h2>QuestDB Management</h2>
+                    <pre><code class="language-sql">-- Access via HTTP console: http://questdb:9000
+
+-- Check table sizes
+SELECT table_name,
+       sum(numRows) as rows,
+       sum(diskSize) / 1024 / 1024 as size_mb
+FROM tables()
+GROUP BY table_name;
+
+-- Check partition info
+SELECT * FROM table_partitions('call_events');
+
+-- Drop old partitions (retention)
+ALTER TABLE call_events
+DROP PARTITION WHERE timestamp < dateadd('d', -90, now());</code></pre>
+                </section>
+
+                <section>
+                    <h2>YugabyteDB Management</h2>
+                    <pre><code class="language-bash"># Connect to YugabyteDB
+docker compose exec yugabytedb ysqlsh -h localhost
+
+# Check cluster health
+SELECT * FROM yb_servers();
+
+# Check replication status
+SELECT * FROM yb_table_replication_info();
+
+# Vacuum tables
+VACUUM ANALYZE alerts;
+VACUUM ANALYZE whitelist;</code></pre>
+                </section>
+
+                <section>
+                    <h2>ClickHouse Management</h2>
+                    <pre><code class="language-sql">-- Connect: clickhouse-client
+
+-- Check table sizes
+SELECT table,
+       formatReadableSize(sum(bytes)) as size,
+       sum(rows) as rows
+FROM system.parts
+WHERE active
+GROUP BY table;
+
+-- Check merges in progress
+SELECT * FROM system.merges;
+
+-- Optimize table (force merge)
+OPTIMIZE TABLE analytics_events FINAL;</code></pre>
+                </section>
+
+                <section>
+                    <h2>Backup Procedures</h2>
+                    <pre><code class="language-bash"># YugabyteDB backup
+docker compose exec yugabytedb ysql_dump -h localhost acm > backup.sql
+
+# ClickHouse backup
+docker compose exec clickhouse \
+  clickhouse-client --query="BACKUP TABLE analytics_events TO Disk('backups', 'daily')"
+
+# QuestDB backup (copy data directory)
+docker compose stop questdb
+cp -r ./data/questdb ./backups/questdb-$(date +%Y%m%d)
+docker compose start questdb</code></pre>
+                </section>
+            </section>
+
+            <!-- Section 5: Security -->
+            <section>
+                <section>
+                    <h1>Security Management</h1>
+                    <p>Protecting the platform</p>
+                </section>
+
+                <section>
+                    <h2>API Key Management</h2>
+                    <pre><code class="language-bash"># Generate new API key
+curl -X POST http://management-api:8081/admin/api-keys \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "opensips-integration",
+    "scopes": ["events:write", "alerts:read"],
+    "expires_in_days": 365
+  }'
+
+# Revoke API key
+curl -X DELETE http://management-api:8081/admin/api-keys/KEY_ID \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+
+# List all API keys
+curl http://management-api:8081/admin/api-keys \
+  -H "Authorization: Bearer $ADMIN_TOKEN"</code></pre>
+                </section>
+
+                <section>
+                    <h2>User Management</h2>
+                    <pre><code class="language-bash"># Create user
+curl -X POST http://management-api:8081/admin/users \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -d '{
+    "username": "analyst1",
+    "email": "analyst1@company.com",
+    "role": "analyst",
+    "mfa_required": true
+  }'
+
+# Reset password
+curl -X POST http://management-api:8081/admin/users/USER_ID/reset-password \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+
+# Disable user
+curl -X PATCH http://management-api:8081/admin/users/USER_ID \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -d '{"enabled": false}'</code></pre>
+                </section>
+
+                <section>
+                    <h2>TLS Certificate Management</h2>
+                    <pre><code class="language-bash"># Check certificate expiration
+openssl x509 -in /etc/ssl/acm/server.crt -noout -enddate
+
+# Generate new certificate (Let's Encrypt)
+certbot certonly --standalone -d acm.yourcompany.com
+
+# Renew certificates
+certbot renew
+
+# Verify certificate chain
+openssl verify -CAfile ca.crt server.crt</code></pre>
+                    <div class="warning-box">
+                        Set calendar reminders to renew certificates 30 days before expiration!
+                    </div>
+                </section>
+
+                <section>
+                    <h2>Audit Log Review</h2>
+                    <pre><code class="language-sql">-- YugabyteDB audit queries
+
+-- Recent admin actions
+SELECT timestamp, user_id, action, details
+FROM audit_log
+WHERE action LIKE 'admin.%'
+ORDER BY timestamp DESC
+LIMIT 100;
+
+-- Failed login attempts
+SELECT timestamp, user_id, ip_address
+FROM audit_log
+WHERE action = 'auth.login_failed'
+  AND timestamp > now() - interval '24 hours'
+ORDER BY timestamp DESC;
+
+-- Configuration changes
+SELECT timestamp, user_id, details
+FROM audit_log
+WHERE action = 'config.update'
+ORDER BY timestamp DESC;</code></pre>
+                </section>
+            </section>
+
+            <!-- Section 6: Maintenance -->
+            <section>
+                <section>
+                    <h1>Maintenance Procedures</h1>
+                    <p>Keeping the system running smoothly</p>
+                </section>
+
+                <section>
+                    <h2>Daily Checks</h2>
+                    <div class="timeline">
+                        <div class="timeline-item">
+                            <strong>08:00</strong> - Verify NCC report upload success
+                        </div>
+                        <div class="timeline-item">
+                            <strong>09:00</strong> - Review overnight alerts
+                        </div>
+                        <div class="timeline-item">
+                            <strong>12:00</strong> - Check system metrics
+                        </div>
+                        <div class="timeline-item">
+                            <strong>17:00</strong> - Review daily statistics
+                        </div>
+                    </div>
+                </section>
+
+                <section>
+                    <h2>Weekly Maintenance</h2>
+                    <ul>
+                        <li>Review and rotate logs</li>
+                        <li>Check disk space trends</li>
+                        <li>Verify backup integrity</li>
+                        <li>Review security alerts</li>
+                        <li>Update documentation if needed</li>
+                        <li>Test DR failover (monthly)</li>
+                    </ul>
+                </section>
+
+                <section>
+                    <h2>Data Retention</h2>
+                    <table>
+                        <tr>
+                            <th>Data Type</th>
+                            <th>Retention</th>
+                            <th>Action</th>
+                        </tr>
+                        <tr>
+                            <td>Call Events</td>
+                            <td>90 days</td>
+                            <td>Auto-purge</td>
+                        </tr>
+                        <tr>
+                            <td>Alerts</td>
+                            <td>365 days</td>
+                            <td>Archive then purge</td>
+                        </tr>
+                        <tr>
+                            <td>Audit Logs</td>
+                            <td>5 years</td>
+                            <td>Archive to cold storage</td>
+                        </tr>
+                        <tr>
+                            <td>Analytics</td>
+                            <td>365 days</td>
+                            <td>Aggregate then purge</td>
+                        </tr>
+                        <tr>
+                            <td>Metrics</td>
+                            <td>30 days</td>
+                            <td>Auto-purge</td>
+                        </tr>
+                    </table>
+                </section>
+
+                <section>
+                    <h2>Scaling Procedures</h2>
+                    <pre><code class="language-bash"># Scale up detection engines
+docker compose up -d --scale detection-engine=5
+
+# Verify load balancer configuration
+curl http://load-balancer/stats
+
+# Scale down (during low traffic)
+docker compose up -d --scale detection-engine=3
+
+# Add new database node (YugabyteDB)
+docker compose exec yugabytedb yb-admin \
+  add_node new-node.internal:7100</code></pre>
+                </section>
+            </section>
+
+            <!-- Section 7: Troubleshooting -->
+            <section>
+                <section>
+                    <h1>Troubleshooting Guide</h1>
+                    <p>Common issues and solutions</p>
+                </section>
+
+                <section>
+                    <h2>High Latency</h2>
+                    <div class="danger-box">
+                        <strong>Symptom:</strong> Detection latency > 1ms
+                    </div>
+                    <h3>Diagnostic Steps:</h3>
+                    <ol>
+                        <li>Check DragonflyDB memory: <code>redis-cli INFO memory</code></li>
+                        <li>Check CPU usage: <code>docker stats</code></li>
+                        <li>Check network latency: <code>ping -c 10 dragonfly</code></li>
+                        <li>Review recent config changes</li>
+                    </ol>
+                    <h3>Solutions:</h3>
+                    <ul>
+                        <li>Scale up detection engines</li>
+                        <li>Increase DragonflyDB memory</li>
+                        <li>Check for network issues</li>
+                    </ul>
+                </section>
+
+                <section>
+                    <h2>Service Not Starting</h2>
+                    <pre><code class="language-bash"># Check service logs
+docker compose logs detection-engine | tail -50
+
+# Check for port conflicts
+netstat -tlnp | grep 8080
+
+# Check resource limits
+docker inspect detection-engine | grep -A 10 Resources
+
+# Restart with verbose logging
+LOG_LEVEL=debug docker compose up detection-engine</code></pre>
+                </section>
+
+                <section>
+                    <h2>Database Connection Issues</h2>
+                    <pre><code class="language-bash"># Test DragonflyDB connection
+docker compose exec detection-engine \
+  redis-cli -h dragonfly PING
+
+# Test QuestDB connection
+curl http://questdb:9000/exec?query=SELECT%201
+
+# Test YugabyteDB connection
+docker compose exec management-api \
+  psql -h yugabytedb -p 5433 -U yugabyte -c "SELECT 1"
+
+# Check DNS resolution
+docker compose exec detection-engine \
+  nslookup dragonfly</code></pre>
+                </section>
+
+                <section>
+                    <h2>NCC Report Failures</h2>
+                    <div class="warning-box">
+                        NCC reports must be uploaded by 06:00 WAT daily
+                    </div>
+                    <pre><code class="language-bash"># Check report generation
+docker compose logs ncc-reporter | grep -i error
+
+# Verify SFTP connectivity
+sftp -i /etc/ncc/key ncc@sftp.ncc.gov.ng
+
+# Manual report upload
+docker compose exec ncc-reporter \
+  ./upload-report.sh /reports/daily-$(date +%Y%m%d).csv
+
+# Verify credentials
+cat /etc/ncc/credentials.json | jq .</code></pre>
+                </section>
+
+                <section>
+                    <h2>Emergency Procedures</h2>
+                    <div class="danger-box">
+                        <strong>Complete System Failure:</strong>
+                    </div>
+                    <ol>
+                        <li>Notify SOC team immediately</li>
+                        <li>Enable bypass mode on SIP switch (if available)</li>
+                        <li>Check infrastructure (power, network, storage)</li>
+                        <li>Restart services: <code>docker compose restart</code></li>
+                        <li>If persistent, initiate DR failover</li>
+                        <li>Document incident for post-mortem</li>
+                    </ol>
+                </section>
+
+                <section>
+                    <h2>Escalation Matrix</h2>
+                    <table>
+                        <tr>
+                            <th>Severity</th>
+                            <th>Response Time</th>
+                            <th>Escalate To</th>
+                        </tr>
+                        <tr>
+                            <td class="severity-critical">Critical</td>
+                            <td>Immediate</td>
+                            <td>On-call + Manager</td>
+                        </tr>
+                        <tr>
+                            <td class="severity-high">High</td>
+                            <td>15 minutes</td>
+                            <td>On-call Engineer</td>
+                        </tr>
+                        <tr>
+                            <td class="severity-medium">Medium</td>
+                            <td>1 hour</td>
+                            <td>Platform Team</td>
+                        </tr>
+                        <tr>
+                            <td class="severity-low">Low</td>
+                            <td>Next business day</td>
+                            <td>Support Queue</td>
+                        </tr>
+                    </table>
+                </section>
+            </section>
+
+            <!-- Summary -->
+            <section>
+                <h1>Summary</h1>
+                <ul>
+                    <li><strong>Infrastructure:</strong> Multi-node, highly available deployment</li>
+                    <li><strong>Deployment:</strong> Docker Compose with rolling updates</li>
+                    <li><strong>Monitoring:</strong> Grafana, Prometheus, Loki stack</li>
+                    <li><strong>Databases:</strong> DragonflyDB, QuestDB, YugabyteDB, ClickHouse</li>
+                    <li><strong>Security:</strong> API keys, TLS, audit logging</li>
+                    <li><strong>Maintenance:</strong> Daily checks, weekly tasks, retention policies</li>
+                </ul>
+            </section>
+
+            <!-- Resources -->
+            <section>
+                <h1>Resources</h1>
+                <div class="two-columns">
+                    <div>
+                        <h3>Documentation:</h3>
+                        <ul>
+                            <li><code>docs/manuals/ADMIN_MANUAL.md</code></li>
+                            <li><code>docs/runbook.md</code></li>
+                            <li><code>docs/technical/SYSTEM_REQUIREMENTS.md</code></li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h3>Support:</h3>
+                        <ul>
+                            <li>Slack: #acm-platform</li>
+                            <li>Email: platform@company.com</li>
+                            <li>On-call: PagerDuty</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <!-- End Slide -->
+            <section class="title-slide">
+                <h1>Questions?</h1>
+                <p class="subtitle">Administrator Training Complete</p>
+                <p class="meta">
+                    Next: Practice in staging environment<br>
+                    Schedule: Hands-on lab session
+                </p>
+            </section>
+
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/reveal.js@4.6.0/dist/reveal.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/reveal.js@4.6.0/plugin/highlight/highlight.js"></script>
+    <script>
+        Reveal.initialize({
+            hash: true,
+            slideNumber: 'c/t',
+            showSlideNumber: 'all',
+            transition: 'slide',
+            plugins: [ RevealHighlight ]
+        });
+    </script>
+</body>
+</html>
