@@ -67,6 +67,9 @@ dependencies:
   # Animations
   flutter_animate: ^4.4.0
   lottie: ^3.0.0
+  
+  # Typography
+  google_fonts: ^6.1.0
 
   # Notifications
   firebase_core: ^2.24.2
