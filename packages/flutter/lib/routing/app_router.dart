@@ -5,37 +5,20 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../features/anti_masking/presentation/pages/call_verification_page.dart';
 import '../features/anti_masking/presentation/pages/masking_report_page.dart';
-import '../features/remittance/presentation/pages/send_money_page.dart';
-import '../features/remittance/presentation/pages/recipient_selection_page.dart';
-import '../features/remittance/presentation/pages/transaction_status_page.dart';
-import '../features/marketplace/presentation/pages/marketplace_home_page.dart';
-import '../features/marketplace/presentation/pages/listing_detail_page.dart';
 import '../features/auth/presentation/pages/login_page.dart';
 import '../features/auth/presentation/pages/dashboard_page.dart';
 
 part 'app_router.g.dart';
 
-/// App router provider
+/// App router provider - Anti-Call Masking Only
 @riverpod
 GoRouter appRouter(AppRouterRef ref) {
-  // Watch auth state for redirects
-  // final authState = ref.watch(authStateProvider);
-
   return GoRouter(
     initialLocation: '/',
     debugLogDiagnostics: true,
     
     // Global redirect for authentication
     redirect: (context, state) {
-      // final isLoggedIn = authState.valueOrNull?.isLoggedIn ?? false;
-      // final isLoggingIn = state.matchedLocation == '/login';
-      
-      // if (!isLoggedIn && !isLoggingIn) {
-      //   return '/login';
-      // }
-      // if (isLoggedIn && isLoggingIn) {
-      //   return '/';
-      // }
       return null;
     },
     
@@ -61,7 +44,7 @@ GoRouter appRouter(AppRouterRef ref) {
             builder: (context, state) => const DashboardPage(),
           ),
           
-          // Anti-Masking routes
+          // Anti-Masking routes (core feature)
           GoRoute(
             path: '/anti-masking',
             name: 'anti-masking',
@@ -81,55 +64,6 @@ GoRouter appRouter(AppRouterRef ref) {
                 path: 'history',
                 name: 'verification-history',
                 builder: (context, state) => const VerificationHistoryPage(),
-              ),
-            ],
-          ),
-          
-          // Remittance routes
-          GoRoute(
-            path: '/remittance',
-            name: 'remittance',
-            builder: (context, state) => const RemittancePage(),
-            routes: [
-              GoRoute(
-                path: 'send',
-                name: 'send-money',
-                builder: (context, state) => const SendMoneyPage(),
-              ),
-              GoRoute(
-                path: 'recipients',
-                name: 'recipients',
-                builder: (context, state) => const RecipientSelectionPage(),
-              ),
-              GoRoute(
-                path: 'transaction/:id',
-                name: 'transaction-status',
-                builder: (context, state) {
-                  final id = state.pathParameters['id']!;
-                  return TransactionStatusPage(transactionId: id);
-                },
-              ),
-            ],
-          ),
-          
-          // Marketplace routes
-          GoRoute(
-            path: '/marketplace',
-            name: 'marketplace',
-            builder: (context, state) => const MarketplaceHomePage(),
-            routes: [
-              GoRoute(
-                path: 'listing/:id',
-                name: 'listing-detail',
-                builder: (context, state) {
-                  final id = state.pathParameters['id']!;
-                  return ListingDetailPage(listingId: id);
-                },
-              ),
-              GoRoute(
-                path: 'create',
-                name: 'create-listing',
-                builder: (context, state) => const CreateListingPage(),
               ),
             ],
           ),
@@ -161,7 +95,7 @@ class MainShell extends StatelessWidget {
   }
 }
 
-/// Bottom navigation bar
+/// Bottom navigation bar - Anti-Masking focused
 class MainBottomNavigation extends ConsumerWidget {
   const MainBottomNavigation({super.key});
 
@@ -172,10 +106,8 @@ class MainBottomNavigation extends ConsumerWidget {
     int currentIndex = 0;
     if (location.startsWith('/anti-masking')) {
       currentIndex = 1;
-    } else if (location.startsWith('/remittance')) {
+    } else if (location.startsWith('/settings')) {
       currentIndex = 2;
-    } else if (location.startsWith('/marketplace')) {
-      currentIndex = 3;
     }
 
     return BottomNavigationBar(
@@ -189,10 +121,7 @@ class MainBottomNavigation extends ConsumerWidget {
             context.go('/anti-masking');
             break;
           case 2:
-            context.go('/remittance');
-            break;
-          case 3:
-            context.go('/marketplace');
+            context.go('/settings');
             break;
         }
       },
@@ -205,17 +134,12 @@ class MainBottomNavigation extends ConsumerWidget {
         BottomNavigationBarItem(
           icon: Icon(Icons.security_outlined),
           activeIcon: Icon(Icons.security),
-          label: 'Security',
+          label: 'Verify',
         ),
         BottomNavigationBarItem(
-          icon: Icon(Icons.send_outlined),
-          activeIcon: Icon(Icons.send),
-          label: 'Send',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.store_outlined),
-          activeIcon: Icon(Icons.store),
-          label: 'Market',
+          icon: Icon(Icons.settings_outlined),
+          activeIcon: Icon(Icons.settings),
+          label: 'Settings',
         ),
       ],
     );
@@ -260,7 +184,7 @@ class ErrorPage extends StatelessWidget {
   }
 }
 
-// Placeholder pages (to be implemented in features)
+// Placeholder pages
 class AntiMaskingPage extends StatelessWidget {
   const AntiMaskingPage({super.key});
   @override
@@ -273,20 +197,9 @@ class VerificationHistoryPage extends StatelessWidget {
   Widget build(BuildContext context) => const Scaffold(body: Center(child: Text('History')));
 }
 
-class RemittancePage extends StatelessWidget {
-  const RemittancePage({super.key});
-  @override
-  Widget build(BuildContext context) => const Scaffold(body: Center(child: Text('Remittance')));
-}
-
-class CreateListingPage extends StatelessWidget {
-  const CreateListingPage({super.key});
-  @override
-  Widget build(BuildContext context) => const Scaffold(body: Center(child: Text('Create Listing')));
-}
-
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
   @override
   Widget build(BuildContext context) => const Scaffold(body: Center(child: Text('Settings')));
 }
+

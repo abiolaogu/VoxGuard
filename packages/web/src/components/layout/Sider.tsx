@@ -6,14 +6,9 @@ import {
     AlertOutlined,
     PhoneOutlined,
     ApiOutlined,
-    SwapOutlined,
-    BankOutlined,
-    TeamOutlined,
-    ShopOutlined,
-    ShoppingCartOutlined,
+    FileTextOutlined,
     SafetyOutlined,
-    SendOutlined,
-    AppstoreOutlined,
+    SettingOutlined,
 } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
 
@@ -57,51 +52,19 @@ export const Sider: React.FC = () => {
                     label: 'Call Log',
                     onClick: () => push('/anti-masking/calls'),
                 },
-            ],
-        },
-        {
-            key: 'remittance',
-            icon: <SendOutlined />,
-            label: 'Remittance',
-            children: [
                 {
-                    key: 'corridors',
-                    icon: <SwapOutlined />,
-                    label: 'Corridors',
-                    onClick: () => push('/remittance/corridors'),
-                },
-                {
-                    key: 'transactions',
-                    icon: <BankOutlined />,
-                    label: 'Transactions',
-                    onClick: () => push('/remittance/transactions'),
-                },
-                {
-                    key: 'beneficiaries',
-                    icon: <TeamOutlined />,
-                    label: 'Beneficiaries',
-                    onClick: () => push('/remittance/beneficiaries'),
+                    key: 'reports',
+                    icon: <FileTextOutlined />,
+                    label: 'Reports',
+                    onClick: () => push('/anti-masking/reports'),
                 },
             ],
         },
         {
-            key: 'marketplace',
-            icon: <AppstoreOutlined />,
-            label: 'Marketplace',
-            children: [
-                {
-                    key: 'listings',
-                    icon: <ShopOutlined />,
-                    label: 'Listings',
-                    onClick: () => push('/marketplace/listings'),
-                },
-                {
-                    key: 'orders',
-                    icon: <ShoppingCartOutlined />,
-                    label: 'Orders',
-                    onClick: () => push('/marketplace/orders'),
-                },
-            ],
+            key: 'settings',
+            icon: <SettingOutlined />,
+            label: 'Settings',
+            onClick: () => push('/settings'),
         },
     ];
 
@@ -168,3 +131,4 @@ export const Sider: React.FC = () => {
 };
 
 export default Sider;
+
