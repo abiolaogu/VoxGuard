@@ -4,6 +4,7 @@ import 'package:gql_http_link/gql_http_link.dart';
 import 'package:gql_websocket_link/gql_websocket_link.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:gql_exec/gql_exec.dart' as gql_exec;
 
 import '../constants/api_constants.dart';
 
@@ -82,6 +83,3 @@ extension on OperationRequest {
     });
   }
 }
-
-// Need to import this for the extension
-import 'package:gql_exec/gql_exec.dart' as gql_exec;

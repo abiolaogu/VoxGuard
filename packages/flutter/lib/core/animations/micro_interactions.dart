@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -252,8 +253,6 @@ class _ShakeAnimationState extends State<ShakeAnimation>
     );
   }
 }
-
-import 'dart:math';
 
 /// Floating animation widget (gentle float up and down)
 class FloatingAnimation extends StatefulWidget {
