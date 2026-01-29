@@ -1,0 +1,74 @@
+table:
+  name: nigerian_banks
+  schema: reference
+configuration:
+  column_config:
+    code:
+      custom_name: code
+    name:
+      custom_name: name
+    short_name:
+      custom_name: shortName
+    bank_type:
+      custom_name: bankType
+    nibss_code:
+      custom_name: nibssCode
+    nip_code:
+      custom_name: nipCode
+    swift_code:
+      custom_name: swiftCode
+    logo_url:
+      custom_name: logoUrl
+    is_active:
+      custom_name: isActive
+    supports_instant_transfer:
+      custom_name: supportsInstantTransfer
+  custom_root_fields:
+    select: nigerianBanks
+    select_by_pk: nigerianBank
+    select_aggregate: nigerianBanksAggregate
+select_permissions:
+  - role: anonymous
+    permission:
+      columns:
+        - code
+        - name
+        - shortName
+        - bankType
+        - logoUrl
+        - isActive
+        - supportsInstantTransfer
+      filter:
+        isActive:
+          _eq: true
+  - role: user
+    permission:
+      columns:
+        - code
+        - name
+        - shortName
+        - bankType
+        - nibssCode
+        - nipCode
+        - logoUrl
+        - isActive
+        - supportsInstantTransfer
+      filter:
+        isActive:
+          _eq: true
+  - role: admin
+    permission:
+      columns: "*"
+      filter: {}
+      allow_aggregations: true
+insert_permissions:
+  - role: admin
+    permission:
+      columns: "*"
+      check: {}
+update_permissions:
+  - role: admin
+    permission:
+      columns: "*"
+      filter: {}
+      check: {}
