@@ -1,4 +1,4 @@
-# kdb+ files
+# kdb+ files (legacy - no longer used)
 *.q~
 *.k~
 
@@ -26,6 +26,10 @@ prometheus-data/
 grafana-data/
 redis-data/
 
+# Generated outputs (exclude from version control)
+mnt/
+**/mnt/
+
 # OS
 .DS_Store
 Thumbs.db
@@ -36,5 +40,23 @@ Thumbs.db
 *.swp
 *.swo
 
-# License files (kdb+)
-*.lic
+# Build artifacts
+target/
+dist/
+build/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Rust
+Cargo.lock
+*.rlib
+
+# Node.js (if frontend)
+node_modules/
+
+# Temporary files
+*.tmp
+*.temp

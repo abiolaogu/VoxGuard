@@ -14,9 +14,11 @@ import {
     SettingOutlined,
     MoonOutlined,
     SunOutlined,
+    SafetyOutlined,
+    GlobalOutlined,
 } from '@ant-design/icons';
 
-import { dataProvider } from './providers/dataProvider';
+import { hasuraDataProvider as dataProvider } from './providers/dataProvider';
 import { liveProvider } from './providers/liveProvider';
 import { authProvider } from './providers/authProvider';
 import { lovableTheme, lovableDarkTheme } from './theme';
@@ -31,6 +33,12 @@ import { FraudAlertList, FraudAlertShow } from './pages/anti-masking/fraud-alert
 import { CallList, CallShow } from './pages/anti-masking/calls';
 import { GatewayList, GatewayCreate, GatewayEdit } from './pages/anti-masking/gateways';
 import { Login } from './pages/auth/login';
+
+// Pages - Fraud Prevention
+import FraudPreventionDashboard from './pages/fraud-prevention';
+import { CLIVerificationList, CLIVerificationShow } from './pages/fraud-prevention/cli-integrity';
+import { IRSFIncidentsList, IRSFDestinationsList } from './pages/fraud-prevention/irsf';
+import { WangiriIncidentsList, WangiriCampaignsList } from './pages/fraud-prevention/wangiri';
 
 import '@refinedev/antd/dist/reset.css';
 import './styles/index.css';
@@ -165,6 +173,62 @@ const App: React.FC = () => {
                                             parent: 'Anti-Masking',
                                         },
                                     },
+                                    // Fraud Prevention Resources
+                                    {
+                                        name: 'fraud-dashboard',
+                                        list: '/fraud-prevention',
+                                        meta: {
+                                            label: 'Fraud Dashboard',
+                                            icon: <SafetyOutlined />,
+                                            parent: 'Fraud Prevention',
+                                        },
+                                    },
+                                    {
+                                        name: 'cli-verifications',
+                                        list: '/fraud-prevention/cli-integrity',
+                                        show: '/fraud-prevention/cli-integrity/:id',
+                                        meta: {
+                                            label: 'CLI Verifications',
+                                            icon: <SafetyOutlined />,
+                                            parent: 'Fraud Prevention',
+                                        },
+                                    },
+                                    {
+                                        name: 'irsf-incidents',
+                                        list: '/fraud-prevention/irsf',
+                                        meta: {
+                                            label: 'IRSF Detection',
+                                            icon: <GlobalOutlined />,
+                                            parent: 'Fraud Prevention',
+                                        },
+                                    },
+                                    {
+                                        name: 'irsf-destinations',
+                                        list: '/fraud-prevention/irsf/destinations',
+                                        meta: {
+                                            label: 'High-Risk Destinations',
+                                            icon: <GlobalOutlined />,
+                                            parent: 'Fraud Prevention',
+                                        },
+                                    },
+                                    {
+                                        name: 'wangiri-incidents',
+                                        list: '/fraud-prevention/wangiri',
+                                        meta: {
+                                            label: 'Wangiri Detection',
+                                            icon: <PhoneOutlined />,
+                                            parent: 'Fraud Prevention',
+                                        },
+                                    },
+                                    {
+                                        name: 'wangiri-campaigns',
+                                        list: '/fraud-prevention/wangiri/campaigns',
+                                        meta: {
+                                            label: 'Wangiri Campaigns',
+                                            icon: <PhoneOutlined />,
+                                            parent: 'Fraud Prevention',
+                                        },
+                                    },
                                 ]}
                             >
                                 <Routes>
@@ -181,6 +245,15 @@ const App: React.FC = () => {
                                         <Route path="/anti-masking/gateways" element={<GatewayList />} />
                                         <Route path="/anti-masking/gateways/create" element={<GatewayCreate />} />
                                         <Route path="/anti-masking/gateways/:id/edit" element={<GatewayEdit />} />
+
+                                        {/* Fraud Prevention Routes */}
+                                        <Route path="/fraud-prevention" element={<FraudPreventionDashboard />} />
+                                        <Route path="/fraud-prevention/cli-integrity" element={<CLIVerificationList />} />
+                                        <Route path="/fraud-prevention/cli-integrity/:id" element={<CLIVerificationShow />} />
+                                        <Route path="/fraud-prevention/irsf" element={<IRSFIncidentsList />} />
+                                        <Route path="/fraud-prevention/irsf/destinations" element={<IRSFDestinationsList />} />
+                                        <Route path="/fraud-prevention/wangiri" element={<WangiriIncidentsList />} />
+                                        <Route path="/fraud-prevention/wangiri/campaigns" element={<WangiriCampaignsList />} />
                                     </Route>
                                 </Routes>
                             </Refine>

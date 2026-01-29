@@ -244,5 +244,3 @@ export const WangiriCampaignsList: React.FC = () => {
         </List>
     );
 };
-
-export { WangiriIncidentsList, WangiriCampaignsList };

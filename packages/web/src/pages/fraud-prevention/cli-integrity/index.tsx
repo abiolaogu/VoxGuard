@@ -231,5 +231,3 @@ export const CLIVerificationShow: React.FC = () => {
         </Show>
     );
 };
-
-export { CLIVerificationList, CLIVerificationShow };

@@ -223,5 +223,3 @@ export const IRSFDestinationsList: React.FC = () => {
         </List>
     );
 };
-
-export { IRSFIncidentsList, IRSFDestinationsList };

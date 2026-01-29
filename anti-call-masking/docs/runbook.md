@@ -1,5 +1,11 @@
 # Anti-Call Masking Detection System - Operations Runbook
 
+**Version:** 2.0
+**Last Updated:** January 2026
+**Architecture:** Rust Detection Engine + QuestDB + DragonflyDB + YugabyteDB
+
+---
+
 ## Table of Contents
 1. [System Overview](#system-overview)
 2. [Common Operations](#common-operations)
@@ -7,6 +13,7 @@
 4. [Troubleshooting](#troubleshooting)
 5. [Maintenance Procedures](#maintenance-procedures)
 6. [Performance Tuning](#performance-tuning)
+7. [NCC Compliance Operations](#ncc-compliance-operations)
 
 ---
 
@@ -15,27 +22,46 @@
 ### Architecture
 ```
 ┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
-│   SIP Clients   │────>│  Voice Switch    │────>│  kdb+ Fraud     │
-│                 │     │  (ESL/MI)        │     │  Detection      │
-│                 │<────│                  │<────│  (port 5012)    │
+│   SIP Clients   │────>│    OpenSIPS      │────>│  ACM Detection  │
+│                 │     │  (MI Interface)  │     │  Engine (Rust)  │
+│                 │<────│                  │<────│  (port 8080)    │
 └─────────────────┘     └──────────────────┘     └─────────────────┘
+                                                         │
+                        ┌────────────────────────────────┼────────────────────────────────┐
+                        │                                │                                │
+                        ▼                                ▼                                ▼
+               ┌─────────────────┐              ┌─────────────────┐              ┌─────────────────┐
+               │   DragonflyDB   │              │    QuestDB      │              │   YugabyteDB    │
+               │  (Real-time     │              │  (Time-series   │              │  (Persistent    │
+               │   Cache)        │              │   Analytics)    │              │   Storage)      │
+               │  port 6379      │              │  ports 8812,    │              │  port 5433      │
+               └─────────────────┘              │  9009, 9000     │              └─────────────────┘
+                                                └─────────────────┘
 ```
 
 ### Key Ports
 | Port | Service | Protocol |
 |------|---------|----------|
-| 5012 | Detection IPC | kdb+ |
-| 5013 | Admin API | kdb+ |
-| 8021 | FreeSWITCH ESL | TCP |
-| 9090 | Prometheus metrics | HTTP |
+| 8080 | ACM Detection Engine API | HTTP/REST |
+| 9090 | ACM Metrics (Prometheus) | HTTP |
+| 5060 | OpenSIPS SIP | UDP/TCP |
+| 8888 | OpenSIPS MI HTTP | HTTP |
+| 6379 | DragonflyDB | Redis Protocol |
+| 8812 | QuestDB PostgreSQL Wire | PostgreSQL |
+| 9009 | QuestDB ILP | InfluxDB Line Protocol |
+| 9000 | QuestDB Web Console | HTTP |
+| 5433 | YugabyteDB YSQL | PostgreSQL |
+| 8123 | ClickHouse HTTP | HTTP |
 
 ### Critical Thresholds
 | Metric | Warning | Critical |
 |--------|---------|----------|
-| P99 Latency | 50ms | 100ms |
-| Memory | 2GB | 3GB |
-| Switch Disconnect | 10s | 30s |
+| P99 Latency | 1ms | 5ms |
+| Memory (per container) | 3GB | 4GB |
+| DragonflyDB Memory | 4GB | 5GB |
+| Detection Rate | 99.5% | 99.0% |
 | Alert Rate | 10/min | 50/min |
+| CPS (Calls per Second) | 100K | 150K |
 
 ---
 
@@ -44,89 +70,96 @@
 ### Starting the System
 
 ```bash
-# Docker deployment
-docker-compose up -d fraud-detection
+# Docker Compose deployment (recommended)
+cd /path/to/anti-call-masking
+docker-compose up -d
 
-# Local deployment
-cd anti-call-masking/src
-q main.q -p 5012
+# Verify all services are healthy
+docker-compose ps
 
-# With custom config
-q main.q -p 5012 -switch_host 10.0.0.1 -threshold 5
+# Check logs
+docker-compose logs -f acm-engine
 ```
 
 ### Stopping the System
 
 ```bash
-# Graceful shutdown (saves checkpoint)
-# Connect to IPC port and run:
-h:hopen `:localhost:5012
-h ".recovery.prepareShutdown[]"
-h "exit 0"
-
-# Docker
+# Graceful shutdown
 docker-compose down
+
+# Force stop (if unresponsive)
+docker-compose down --timeout 30
 ```
 
 ### Checking System Status
 
-```q
-// Connect to system
-h:hopen `:localhost:5012
+```bash
+# API Health Check
+curl http://localhost:8080/health
 
-// Get status
-h "status"
+# Detailed Status
+curl http://localhost:8080/api/v1/status
 
-// Get detailed stats
-h ".fraud.detection.getStats[]"
+# Prometheus Metrics
+curl http://localhost:9090/metrics
 
-// Check switch connection
-h ".fraud.switch.healthCheck[]"
+# DragonflyDB Connection
+redis-cli -h localhost -p 6379 ping
 
-// View recent alerts
-h ".fraud.detection.getRecentAlerts[10]"
+# QuestDB Health
+curl http://localhost:9003
+
+# YugabyteDB Status
+psql -h localhost -p 5433 -U opensips -d opensips -c "SELECT 1"
+```
+
+### Managing Configuration
+
+```bash
+# View current config
+curl http://localhost:8080/api/v1/config
+
+# Update detection threshold (live)
+curl -X PATCH http://localhost:8080/api/v1/config \
+  -H "Content-Type: application/json" \
+  -d '{"detection_threshold": 7}'
+
+# Update detection window (live)
+curl -X PATCH http://localhost:8080/api/v1/config \
+  -H "Content-Type: application/json" \
+  -d '{"detection_window_seconds": 3}'
 ```
 
 ### Managing Whitelist
 
-```q
-// Add B-number to whitelist (exempt from detection)
-h ".fraud.actions.addToWhitelist[`$\"+18005551234\"]"
+```bash
+# View current whitelist
+curl http://localhost:8080/api/v1/whitelist
 
-// Remove from whitelist
-h ".fraud.actions.removeFromWhitelist[`$\"+18005551234\"]"
+# Add B-number to whitelist
+curl -X POST http://localhost:8080/api/v1/whitelist \
+  -H "Content-Type: application/json" \
+  -d '{"b_number": "+2348012345678", "reason": "Call center"}'
 
-// View current whitelist
-h ".fraud.config.whitelist"
+# Remove from whitelist
+curl -X DELETE http://localhost:8080/api/v1/whitelist/+2348012345678
 ```
 
 ### Manual Intervention
 
-```q
-// Manually flag and disconnect all calls to a B-number
-h ".fraud.actions.manualFlagBNumber[`B123;\"operator_request\"]"
+```bash
+# Disconnect active calls to a B-number
+curl -X POST http://localhost:8080/api/v1/fraud/disconnect \
+  -H "Content-Type: application/json" \
+  -d '{"b_number": "+2348012345678", "reason": "manual_intervention"}'
 
-// Disconnect specific call
-h ".fraud.actions.manualDisconnect[`call_id_here]"
+# Block a pattern
+curl -X POST http://localhost:8080/api/v1/blocks \
+  -H "Content-Type: application/json" \
+  -d '{"pattern": "+234801*", "duration_hours": 24}'
 
-// Clear a block pattern
-h ".fraud.actions.removeBlock[blockId]"
-```
-
-### Configuration Changes
-
-```q
-// View current config
-h ".fraud.showConfig[]"
-
-// Update detection window (live)
-h ".recovery.updateConfig[`detection;`window_seconds;10]"
-
-// Update threshold (live)
-h ".recovery.updateConfig[`detection;`min_distinct_a;7]"
-
-// Full config reload from file
-h ".recovery.reloadConfig[]"
+# View recent alerts
+curl "http://localhost:8080/api/v1/fraud/alerts?limit=10"
 ```
 
 ---
@@ -136,64 +169,73 @@ h ".recovery.reloadConfig[]"
 ### INC-001: High Detection Latency
 
 **Symptoms:**
-- P99 latency > 100ms
-- Alert: "P99 latency exceeds threshold"
+- P99 latency > 5ms
+- Alert: "Detection latency exceeds threshold"
 - Grafana shows latency spike
 
 **Diagnosis:**
-```q
-// Check current latency
-h ".metrics.current"
+```bash
+# Check current metrics
+curl http://localhost:9090/metrics | grep acm_detection_latency
 
-// Check call volume
-h "count .fraud.calls"
+# Check DragonflyDB latency
+redis-cli -p 6379 --latency
 
-// Check memory
-h ".fraud.memoryUsage[]"
+# Check container resources
+docker stats acm-engine dragonfly questdb
 ```
 
 **Resolution:**
-1. If memory high, trigger garbage collection:
-   ```q
-   h ".fraud.detection.runGC[]"
+1. If DragonflyDB latency high:
+   ```bash
+   # Check memory usage
+   redis-cli -p 6379 INFO memory
+
+   # Trigger background save if needed
+   redis-cli -p 6379 BGSAVE
    ```
-2. If call volume unusually high, check for attack:
-   ```q
-   h ".fraud.detection.getElevatedThreats[]"
+2. If detection engine memory high:
+   ```bash
+   # Restart detection engine
+   docker-compose restart acm-engine
    ```
-3. Consider increasing GC frequency:
-   ```q
-   h ".recovery.updateConfig[`performance;`gc_interval_ms;500]"
+3. If QuestDB slow:
+   ```bash
+   # Check active queries
+   curl "http://localhost:9000/exec?query=SELECT%20*%20FROM%20sys.query_activity"
    ```
 
-### INC-002: Switch Connection Lost
+### INC-002: OpenSIPS Connection Lost
 
 **Symptoms:**
-- Alert: "Switch disconnected"
-- Grafana shows connection status = 0
+- Alert: "OpenSIPS disconnected"
 - No new events being processed
+- Dashboard shows connection status = 0
 
 **Diagnosis:**
-```q
-// Check connection state
-h ".fraud.switch.healthCheck[]"
+```bash
+# Check OpenSIPS is running
+docker-compose ps opensips
 
-// Check connection errors
-h ".fraud.connections"
+# Check MI interface
+curl http://localhost:8888/mi/version
+
+# Check logs
+docker-compose logs --tail=100 opensips
 ```
 
 **Resolution:**
-1. Verify switch is accessible:
+1. Verify network connectivity:
    ```bash
-   telnet <switch_host> 8021
+   docker-compose exec acm-engine ping opensips
    ```
-2. Force reconnection:
-   ```q
-   h ".fraud.switch.reconnect[]"
+2. Restart OpenSIPS:
+   ```bash
+   docker-compose restart opensips
    ```
-3. If switch is down, system will queue detections. Monitor queue:
-   ```q
-   h "count .fraud.actions.queue"
+3. Force reconnection from detection engine:
+   ```bash
+   curl -X POST http://localhost:8080/api/v1/reconnect/opensips
    ```
 
 ### INC-003: High Alert Volume
@@ -203,76 +245,76 @@ h ".fraud.connections"
 - Possible mass attack or false positive storm
 
 **Diagnosis:**
-```q
-// Get recent alerts
-h ".fraud.detection.getRecentAlerts[30]"
+```bash
+# Get recent alerts
+curl "http://localhost:8080/api/v1/fraud/alerts?minutes=30"
 
-// Analyze B-numbers under attack
-h "select count i, first a_numbers by b_number from .fraud.fraud_alerts where created_at > .z.P - 00:30"
+# Analyze B-numbers under attack
+curl "http://localhost:8080/api/v1/analytics/top-targets?minutes=30"
 ```
 
 **Resolution:**
-1. If legitimate attack, let system handle automatically
-2. If false positives (e.g., call center):
-   ```q
-   // Add to whitelist
-   h ".fraud.actions.addToWhitelist[`$\"call_center_number\"]"
+1. If legitimate attack, monitor and let system handle
+2. If false positives:
+   ```bash
+   # Identify pattern and whitelist
+   curl -X POST http://localhost:8080/api/v1/whitelist \
+     -H "Content-Type: application/json" \
+     -d '{"b_number": "+2348012345678", "reason": "False positive - call center"}'
    ```
 3. If threshold too sensitive:
-   ```q
-   h ".recovery.updateConfig[`detection;`min_distinct_a;7]"
+   ```bash
+   curl -X PATCH http://localhost:8080/api/v1/config \
+     -H "Content-Type: application/json" \
+     -d '{"detection_threshold": 7}'
    ```
 
 ### INC-004: Memory Critical
 
 **Symptoms:**
-- Memory > 3GB
-- System slowdown
-- Possible OOM risk
+- Container memory > 4GB
+- OOM warnings in logs
 
 **Resolution:**
-1. Immediate GC:
-   ```q
-   h ".fraud.detection.runGC[]"
+1. Restart affected service:
+   ```bash
+   docker-compose restart acm-engine
    ```
-2. Force expire old data:
-   ```q
-   h ".fraud.expireCalls[1]"  // Keep only 1 second
+2. Clear DragonflyDB cache if needed:
+   ```bash
+   redis-cli -p 6379 FLUSHDB
    ```
-3. Archive old alerts:
-   ```q
-   h ".fraud.archiveAlerts[1]"  // Archive alerts > 1 day old
-   ```
-4. If persistent, reduce window size:
-   ```q
-   h ".recovery.updateConfig[`detection;`window_seconds;3]"
+3. Check for memory leaks:
+   ```bash
+   docker-compose logs acm-engine | grep -i "memory\|oom"
    ```
 
-### INC-005: System Unresponsive
+### INC-005: NCC SFTP Upload Failed
 
 **Symptoms:**
-- IPC connections timeout
-- No metrics updates
-- Process appears hung
+- Daily report not uploaded
+- Alert: "NCC SFTP upload failed"
+
+**Diagnosis:**
+```bash
+# Check SFTP uploader logs
+docker-compose logs --tail=100 ncc-sftp-uploader
+
+# Verify SFTP connectivity
+docker-compose exec ncc-sftp-uploader sftp -o BatchMode=yes ${NCC_SFTP_HOST}
+```
 
 **Resolution:**
-1. Check process is running:
+1. Check credentials:
    ```bash
-   ps aux | grep "q main.q"
+   # Verify environment variables
+   docker-compose exec ncc-sftp-uploader env | grep NCC
    ```
-2. Check for core dump or OOM kill:
+2. Manual upload:
    ```bash
-   dmesg | grep -i "killed process"
+   docker-compose exec ncc-sftp-uploader /scripts/manual-upload.sh
    ```
-3. If process running but unresponsive, may need restart:
-   ```bash
-   # Graceful (if possible)
-   echo ".recovery.prepareShutdown[]" | nc localhost 5012
-
-   # Force restart
-   docker-compose restart fraud-detection
-   ```
-4. On restart, system will auto-recover from checkpoint
+3. Contact NCC if their server is down
 
 ---
 
@@ -281,53 +323,45 @@ h "select count i, first a_numbers by b_number from .fraud.fraud_alerts where cr
 ### No Alerts Generated
 
 1. Check detection is enabled:
-   ```q
-   h ".fraud.config.detection"
+   ```bash
+   curl http://localhost:8080/api/v1/config | jq '.detection_enabled'
    ```
 2. Check events are being received:
-   ```q
-   h ".fraud.detection.processedCount"
-   // Wait 10 seconds and check again
+   ```bash
+   curl http://localhost:9090/metrics | grep acm_events_received_total
    ```
 3. Check threshold settings:
-   ```q
-   // min_distinct_a should be 5 for standard detection
-   h ".fraud.config.detection`min_distinct_a"
+   ```bash
+   curl http://localhost:8080/api/v1/config | jq '.detection_threshold'
    ```
-4. Check whitelist isn't blocking:
-   ```q
-   h ".fraud.config.whitelist`b_numbers"
-   ```
-5. Test with simulation:
-   ```q
-   h ".fraud.switch.enableSimulation[]"
-   h ".fraud.switch.simulateAttack[\"B123\";5;0]"
+4. Verify DragonflyDB connectivity:
+   ```bash
+   redis-cli -p 6379 ping
    ```
 
 ### False Positives
 
 1. Identify patterns:
-   ```q
-   h "select count i, first a_numbers by b_number from .fraud.fraud_alerts where created_at > .z.P - 01:00"
+   ```bash
+   curl "http://localhost:8080/api/v1/fraud/alerts?status=new&limit=50"
    ```
-2. Check if legitimate call centers:
-   - High volume to single B-number
-   - Same A-number prefixes
-3. Add to whitelist or adjust threshold
+2. Common false positives:
+   - Conference call setups
+   - Call center campaigns
+   - IVR callback systems
+3. Add to whitelist as needed
 
 ### Disconnect Commands Failing
 
-1. Check switch connection:
-   ```q
-   h ".fraud.switch.connected"
+1. Check OpenSIPS connection:
+   ```bash
+   curl http://localhost:8080/api/v1/status | jq '.opensips_connected'
    ```
 2. Check action queue:
-   ```q
-   h ".fraud.actions.queue"
-   h ".fraud.actions.failedCount"
+   ```bash
+   curl http://localhost:8080/api/v1/actions/queue
    ```
-3. Check switch logs for rejection reasons
-4. Verify call IDs are valid
+3. Verify call IDs are valid
 
 ---
 
@@ -335,106 +369,88 @@ h "select count i, first a_numbers by b_number from .fraud.fraud_alerts where cr
 
 ### Daily Health Check
 
-```q
-// Connect and run
-h:hopen `:localhost:5012
+```bash
+#!/bin/bash
+# Daily health check script
 
-// Basic health
-h ".startup.healthCheck[]"
+echo "=== ACM Daily Health Check ==="
+echo "Date: $(date)"
 
-// Key metrics
-h ".metrics.get[]"
+# API Health
+echo -n "API Health: "
+curl -s http://localhost:8080/health | jq -r '.status'
 
-// Recent alerts (should review any new ones)
-h ".fraud.detection.getRecentAlerts[1440]"  // Last 24 hours
+# Container Status
+echo "Container Status:"
+docker-compose ps
 
-// Memory trend
-h "select avg memory_used_mb by `minute$timestamp from .metrics.history"
+# Key Metrics
+echo "Key Metrics:"
+curl -s http://localhost:9090/metrics | grep -E "acm_detection_latency_p99|acm_alerts_total|acm_calls_processed"
+
+# Disk Usage
+echo "Disk Usage:"
+df -h /var/lib/docker
 ```
 
 ### Weekly Maintenance
 
-1. **Review and prune old data:**
-   ```q
-   h ".fraud.archiveAlerts[7]"
+1. **Review and archive old data:**
+   ```bash
+   # Archive alerts older than 30 days
+   curl -X POST http://localhost:8080/api/v1/maintenance/archive-alerts?days=30
    ```
 
 2. **Review blocked patterns:**
-   ```q
-   h "select from .fraud.blocked_patterns where active"
-   // Remove stale blocks if needed
+   ```bash
+   curl http://localhost:8080/api/v1/blocks?active=true
    ```
 
-3. **Check checkpoint health:**
-   ```q
-   h ".recovery.listCheckpoints[]"
-   ```
-
-4. **Review detection accuracy:**
-   ```q
-   // Run test suite
-   h "\\l tests/integration_tests.q"
-   h "runIntegrationTests[]"
+3. **Check storage usage:**
+   ```bash
+   docker-compose exec clickhouse clickhouse-client --query="SELECT database, table, formatReadableSize(sum(bytes)) FROM system.parts GROUP BY database, table"
    ```
 
 ### Monthly Maintenance
 
 1. **Rotate logs:**
-   ```q
-   h ".log.rotate[]"
+   ```bash
+   docker-compose exec acm-engine logrotate /etc/logrotate.d/acm
    ```
 
-2. **Full system test:**
+2. **Update containers (if new versions):**
    ```bash
-   # In test environment
-   q tests/test_load.q
-   .loadtest.runStressTest[]
+   docker-compose pull
+   docker-compose up -d
    ```
 
 3. **Review and update thresholds based on traffic patterns**
 
 ### Backup Procedures
 
-1. **Create manual checkpoint:**
-   ```q
-   h ".recovery.saveCheckpoint[]"
-   ```
+```bash
+# Backup YugabyteDB
+docker-compose exec yugabyte ysql_dump -U opensips opensips > backup_$(date +%Y%m%d).sql
 
-2. **Backup checkpoint directory:**
-   ```bash
-   tar -czf backup_$(date +%Y%m%d).tar.gz checkpoints/
-   ```
+# Backup configuration
+cp docker-compose.yml docker-compose.yml.bak
+cp config/prometheus.yml config/prometheus.yml.bak
 
-3. **Backup configuration:**
-   ```bash
-   cp src/config.q config_backup_$(date +%Y%m%d).q
-   ```
+# Backup ClickHouse data
+docker-compose exec clickhouse clickhouse-client --query="BACKUP DATABASE acm TO Disk('backups', 'acm_$(date +%Y%m%d)')"
+```
 
 ### Recovery Procedures
 
-1. **From checkpoint:**
-   ```q
-   // List available checkpoints
-   h ".recovery.listCheckpoints[]"
+```bash
+# Restore YugabyteDB
+docker-compose exec -T yugabyte ysql -U opensips opensips < backup_20260129.sql
 
-   // Load specific checkpoint
-   h ".recovery.loadCheckpoint[`checkpoint_1699999999]"
-
-   // Or load latest
-   h ".recovery.loadCheckpoint[]"
-   ```
-
-2. **Full restore:**
-   ```bash
-   # Stop system
-   docker-compose down
-
-   # Restore checkpoint
-   tar -xzf backup_20231101.tar.gz -C anti-call-masking/
-
-   # Start system (will auto-recover)
-   docker-compose up -d
-   ```
+# Restore from full backup
+docker-compose down
+# Restore volume data
+docker-compose up -d
+```
 
 ---
 
@@ -442,78 +458,117 @@ h "select avg memory_used_mb by `minute$timestamp from .metrics.history"
 
 ### For Higher Throughput
 
-```q
-// Reduce GC frequency (more memory, less CPU)
-h ".recovery.updateConfig[`performance;`gc_interval_ms;5000]"
+```bash
+# Increase detection engine workers
+docker-compose exec acm-engine env ACM_WORKER_THREADS=8
 
-// Increase batch size
-h ".recovery.updateConfig[`performance;`batch_size;500]"
-
-// Shorter detection window (less data to search)
-h ".recovery.updateConfig[`detection;`window_seconds;3]"
+# Increase DragonflyDB threads
+# In docker-compose.yml, update dragonfly command:
+# --proactor_threads=8
 ```
 
 ### For Lower Latency
 
-```q
-// More frequent GC (smaller tables)
-h ".recovery.updateConfig[`performance;`gc_interval_ms;500]"
+```bash
+# Reduce detection window
+curl -X PATCH http://localhost:8080/api/v1/config \
+  -d '{"detection_window_seconds": 3}'
 
-// Smaller batch size
-h ".recovery.updateConfig[`performance;`batch_size;50]"
+# Enable aggressive caching
+curl -X PATCH http://localhost:8080/api/v1/config \
+  -d '{"cache_ttl_seconds": 1}'
 ```
 
 ### For Lower Memory
 
-```q
-// Shorter detection window
-h ".recovery.updateConfig[`detection;`window_seconds;3]"
+```bash
+# Reduce DragonflyDB max memory
+# In docker-compose.yml: --maxmemory=2gb
 
-// More aggressive GC
-h ".recovery.updateConfig[`performance;`gc_interval_ms;500]"
-
-// Reduce max window calls
-h ".recovery.updateConfig[`detection;`max_window_calls;5000]"
+# Reduce detection window
+curl -X PATCH http://localhost:8080/api/v1/config \
+  -d '{"detection_window_seconds": 3}'
 ```
 
-### Scaling Considerations
+### Scaling Guidelines
 
 | CPS | Recommended Config |
 |-----|-------------------|
-| <10K | Default settings |
-| 10K-50K | window=3s, gc=1000ms |
-| 50K-100K | window=3s, gc=500ms, batch=200 |
-| >100K | Consider sharding by B-number prefix |
+| <50K | Default settings |
+| 50K-100K | window=3s, workers=4 |
+| 100K-150K | window=3s, workers=8, dragonfly=8GB |
+| >150K | Consider horizontal scaling with load balancer |
+
+---
+
+## NCC Compliance Operations
+
+### Daily Report Generation
+
+Reports are automatically generated and uploaded daily at 01:00 AM WAT.
+
+```bash
+# Check last upload status
+docker-compose logs --tail=50 ncc-sftp-uploader | grep -i upload
+
+# Manual report generation
+docker-compose exec ncc-sftp-uploader /scripts/generate-daily-report.sh
+
+# View generated reports
+docker-compose exec ncc-sftp-uploader ls -la /var/acm/reports/
+```
+
+### ATRS Integration Status
+
+```bash
+# Check ATRS API connectivity
+curl -X GET http://localhost:8080/api/v1/ncc/atrs/status
+
+# Verify ATRS credentials
+curl -X POST http://localhost:8080/api/v1/ncc/atrs/verify
+```
+
+### Monthly Compliance Report
+
+```bash
+# Generate monthly compliance summary
+curl -X POST "http://localhost:8080/api/v1/ncc/reports/monthly?year=2026&month=01"
+
+# Export for NCC submission
+curl -X GET "http://localhost:8080/api/v1/ncc/reports/monthly/2026-01/export" -o ncc_monthly_202601.csv
+```
 
 ---
 
 ## Appendix: Quick Reference
 
-### IPC Commands
+### API Endpoints
 ```
-status         - System status
-stats          - Detection statistics
-health         - Full health check
-alerts N       - Recent alerts (N minutes)
-tables         - Table sizes
-memory         - Memory usage
-config         - Configuration
+GET  /health              - Liveness probe
+GET  /api/v1/status       - Detailed status
+GET  /api/v1/config       - Configuration
+PATCH /api/v1/config      - Update config
+GET  /api/v1/fraud/alerts - List alerts
+POST /api/v1/fraud/disconnect - Disconnect calls
+GET  /api/v1/whitelist    - View whitelist
+POST /api/v1/whitelist    - Add to whitelist
 ```
 
-### Key Functions
-```q
-.fraud.processCall[event]              // Process call
-.fraud.detection.getStats[]            // Get stats
-.fraud.detection.getThreatLevel[bNum]  // Threat level
-.fraud.actions.addToWhitelist[bNum]    // Whitelist
-.fraud.switch.healthCheck[]            // Switch health
-.recovery.saveCheckpoint[]             // Save state
-.recovery.loadCheckpoint[]             // Restore state
-.recovery.updateConfig[s;k;v]          // Update config
-.metrics.get[]                         // Current metrics
+### Docker Commands
+```bash
+docker-compose ps          # Service status
+docker-compose logs -f     # Follow all logs
+docker-compose restart X   # Restart service X
+docker-compose exec X bash # Shell into container
 ```
 
 ### Emergency Contacts
 - On-call: [Configure in deployment]
 - Escalation: [Configure in deployment]
-- Switch NOC: [Configure in deployment]
+- NCC Contact: [Configure based on ICL agreement]
+- Carrier NOC: [Configure in deployment]
+
+---
+
+**Document Version:** 2.0
+**Classification:** Internal Operations
