@@ -1,0 +1,75 @@
+query GetCallVerifications($limit: Int, $offset: Int, $maskingOnly: Boolean) {
+  call_verifications(
+    limit: $limit
+    offset: $offset
+    masking_only: $maskingOnly
+  ) {
+    id
+    caller_number
+    callee_number
+    original_cli
+    detected_cli
+    masking_detected
+    confidence_score
+    status
+    gateway_id
+    gateway {
+      id
+      name
+      operator
+    }
+    mno
+    verified_at
+    created_at
+  }
+}
+
+query GetCallVerification($id: UUID!) {
+  call_verification(id: $id) {
+    id
+    caller_number
+    callee_number
+    original_cli
+    detected_cli
+    masking_detected
+    confidence_score
+    status
+    gateway_id
+    gateway {
+      id
+      name
+      operator
+      status
+      health_score
+    }
+    mno
+    verified_at
+    created_at
+    updated_at
+  }
+}
+
+query GetFraudAlerts($limit: Int, $offset: Int, $status: AlertStatus, $minSeverity: AlertSeverity) {
+  fraud_alerts(
+    limit: $limit
+    offset: $offset
+    status: $status
+    min_severity: $minSeverity
+  ) {
+    id
+    call_verification_id
+    gateway_id
+    severity
+    alert_type
+    description
+    status
+    acknowledged_at
+    resolved_at
+    resolution
+    created_at
+  }
+}
+
+query GetPendingAlertsCount {
+  pending_alerts_count
+}

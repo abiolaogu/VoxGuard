@@ -1,0 +1,97 @@
+query GetExchangeRate($fromCurrency: String!, $toCurrency: String!) {
+  exchange_rate(from_currency: $fromCurrency, to_currency: $toCurrency) {
+    from_currency
+    to_currency
+    rate
+    fee
+    fee_percent
+    valid_until
+  }
+}
+
+query GetTransactions($limit: Int, $offset: Int, $status: TransactionStatus) {
+  transactions(limit: $limit, offset: $offset, status: $status) {
+    id
+    sender_id
+    recipient_id
+    amount_sent
+    currency_sent
+    amount_received
+    currency_received
+    exchange_rate
+    fee
+    status
+    reference
+    recipient {
+      id
+      first_name
+      last_name
+      bank_name
+      account_number
+    }
+    created_at
+    completed_at
+  }
+}
+
+query GetTransaction($id: UUID!) {
+  transaction(id: $id) {
+    id
+    sender_id
+    recipient_id
+    amount_sent
+    currency_sent
+    amount_received
+    currency_received
+    exchange_rate
+    fee
+    status
+    reference
+    recipient {
+      id
+      first_name
+      last_name
+      phone_number
+      bank_code
+      bank_name
+      account_number
+      account_name
+    }
+    created_at
+    completed_at
+  }
+}
+
+query GetRecipients($limit: Int, $offset: Int) {
+  recipients(limit: $limit, offset: $offset) {
+    id
+    user_id
+    first_name
+    last_name
+    phone_number
+    email
+    bank_code
+    bank_name
+    account_number
+    account_name
+    is_verified
+    created_at
+  }
+}
+
+query GetRecipient($id: UUID!) {
+  recipient(id: $id) {
+    id
+    user_id
+    first_name
+    last_name
+    phone_number
+    email
+    bank_code
+    bank_name
+    account_number
+    account_name
+    is_verified
+    created_at
+  }
+}
