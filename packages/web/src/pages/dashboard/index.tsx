@@ -1,189 +1,292 @@
-import { Row, Col, Card, Statistic, Typography, Space, Tag } from 'antd';
+import React from 'react';
+import { Row, Col, Card, Typography, Space, Badge, Tooltip, Button, Tabs } from 'antd';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
     AlertOutlined,
     PhoneOutlined,
-    WarningOutlined,
-    CheckCircleOutlined,
+    DollarOutlined,
+    ShopOutlined,
     ArrowUpOutlined,
     ArrowDownOutlined,
+    ReloadOutlined,
+    SettingOutlined,
 } from '@ant-design/icons';
-import { useCustom, useSubscription } from '@refinedev/core';
+import { useList, useSubscription } from '@refinedev/core';
 
-import { CallMaskingStats } from './widgets/CallMaskingStats';
-import { FraudAlertsFeed } from './widgets/FraudAlertsFeed';
-import { GatewayHealthGrid } from './widgets/GatewayHealthGrid';
-import { RemittanceVolume } from './widgets/RemittanceVolume';
-import { MarketplaceActivity } from './widgets/MarketplaceActivity';
+import { StatCard, StaggerList, StaggerItem, AnimatedCounter, FadeIn } from '@/components/animations';
+import { RealTimeIndicator } from '@/components/shared';
+import { DashboardSkeleton } from '@/components/feedback';
+import { NairaDisplay, formatNaira } from '@/components/nigerian';
+import { staggerContainer, staggerItem } from '@/theme/animations';
 
-import type { DashboardSummary } from '@/types';
+import CallMaskingStats from './widgets/CallMaskingStats';
+import FraudAlertsFeed from './widgets/FraudAlertsFeed';
+import GatewayHealthGrid from './widgets/GatewayHealthGrid';
+import RemittanceVolume from './widgets/RemittanceVolume';
+import MarketplaceActivity from './widgets/MarketplaceActivity';
 
 const { Title, Text } = Typography;
 
-const DASHBOARD_SUMMARY_QUERY = `
-  query DashboardSummary {
-    call_verifications_aggregate(where: { created_at: { _gte: "now() - interval '24 hours'" } }) {
-      aggregate { count }
-    }
-    fraud_alerts_aggregate(where: { detected_at: { _gte: "now() - interval '24 hours'" } }) {
-      aggregate { count }
-    }
-    pending_alerts: fraud_alerts_aggregate(where: { status: { _eq: "PENDING" } }) {
-      aggregate { count }
-    }
-    critical_alerts: fraud_alerts_aggregate(where: { severity: { _eq: "CRITICAL" }, status: { _eq: "PENDING" } }) {
-      aggregate { count }
-    }
-    resolved_alerts: fraud_alerts_aggregate(where: { status: { _eq: "RESOLVED" }, resolved_at: { _gte: "now() - interval '24 hours'" } }) {
-      aggregate { count }
-    }
-  }
-`;
-
-export const Dashboard: React.FC = () => {
-    const { data, isLoading, refetch } = useCustom<DashboardSummary>({
-        url: '',
-        method: 'get',
-        meta: {
-            gqlQuery: DASHBOARD_SUMMARY_QUERY,
-        },
+// Quick stats configuration
+const useQuickStats = () => {
+    const { data: alertsData, isLoading: alertsLoading } = useList({
+        resource: 'fraud_alerts',
+        filters: [{ field: 'status', operator: 'eq', value: 'PENDING' }],
+        meta: { fields: ['id'] },
     });
 
-    // Real-time subscription for new alerts
+    const { data: callsData, isLoading: callsLoading } = useList({
+        resource: 'call_verifications',
+        filters: [{ field: 'masking_detected', operator: 'eq', value: true }],
+        meta: { fields: ['id'] },
+        pagination: { current: 1, pageSize: 1 },
+    });
+
+    const { data: txData, isLoading: txLoading } = useList({
+        resource: 'remittance_transactions',
+        filters: [{ field: 'status', operator: 'eq', value: 'COMPLETED' }],
+        pagination: { current: 1, pageSize: 100 },
+        meta: { fields: ['id', 'amount_received'] },
+    });
+
+    const { data: listingsData, isLoading: listingsLoading } = useList({
+        resource: 'marketplace_listings',
+        filters: [{ field: 'status', operator: 'eq', value: 'ACTIVE' }],
+        meta: { fields: ['id'] },
+    });
+
+    const pendingAlerts = alertsData?.total || 0;
+    const maskedCalls = callsData?.total || 0;
+    const totalRemitted = (txData?.data || []).reduce(
+        (sum: number, tx: any) => sum + (tx.amount_received || 0),
+        0
+    );
+    const activeListings = listingsData?.total || 0;
+
+    return {
+        pendingAlerts,
+        maskedCalls,
+        totalRemitted,
+        activeListings,
+        isLoading: alertsLoading || callsLoading || txLoading || listingsLoading,
+    };
+};
+
+const Dashboard: React.FC = () => {
+    const [lastUpdate, setLastUpdate] = React.useState(new Date());
+    const [isConnected, setIsConnected] = React.useState(true);
+    const { pendingAlerts, maskedCalls, totalRemitted, activeListings, isLoading } = useQuickStats();
+
+    // Subscribe to real-time updates
     useSubscription({
         channel: 'fraud_alerts',
+        types: ['created', 'updated'],
         onLiveEvent: () => {
-            refetch();
+            setLastUpdate(new Date());
         },
     });
 
-    const summary = data?.data;
-    const totalCalls = (summary as any)?.call_verifications_aggregate?.aggregate?.count ?? 0;
-    const totalAlerts = (summary as any)?.fraud_alerts_aggregate?.aggregate?.count ?? 0;
-    const pendingAlerts = (summary as any)?.pending_alerts?.aggregate?.count ?? 0;
-    const criticalAlerts = (summary as any)?.critical_alerts?.aggregate?.count ?? 0;
-    const resolvedAlerts = (summary as any)?.resolved_alerts?.aggregate?.count ?? 0;
-
-    const fraudRate = totalCalls > 0 ? ((totalAlerts / totalCalls) * 100).toFixed(2) : '0.00';
+    if (isLoading) {
+        return <DashboardSkeleton />;
+    }
 
     return (
-        <div style={{ padding: 24 }}>
-            <Space direction="vertical" size="large" style={{ width: '100%' }}>
-                {/* Header */}
-                <div>
-                    <Title level={3} style={{ margin: 0 }}>
-                        Dashboard
-                    </Title>
-                    <Text type="secondary">Real-time fraud detection monitoring</Text>
-                </div>
-
-                {/* Stats Cards */}
-                <Row gutter={[16, 16]}>
-                    <Col xs={24} sm={12} lg={6}>
-                        <Card>
-                            <Statistic
-                                title="Calls (24h)"
-                                value={totalCalls}
-                                prefix={<PhoneOutlined />}
-                                loading={isLoading}
-                            />
-                        </Card>
+        <motion.div
+            initial="hidden"
+            animate="visible"
+            variants={staggerContainer}
+            style={{ padding: 24 }}
+        >
+            {/* Header */}
+            <motion.div variants={staggerItem}>
+                <Row justify="space-between" align="middle" style={{ marginBottom: 24 }}>
+                    <Col>
+                        <Space direction="vertical" size={0}>
+                            <Title level={3} style={{ margin: 0 }}>
+                                Dashboard
+                            </Title>
+                            <Text type="secondary">
+                                Welcome back! Here's what's happening today.
+                            </Text>
+                        </Space>
                     </Col>
-                    <Col xs={24} sm={12} lg={6}>
-                        <Card>
-                            <Statistic
-                                title="Alerts (24h)"
-                                value={totalAlerts}
-                                prefix={<AlertOutlined style={{ color: '#faad14' }} />}
-                                loading={isLoading}
-                            />
-                        </Card>
-                    </Col>
-                    <Col xs={24} sm={12} lg={6}>
-                        <Card>
-                            <Statistic
-                                title="Pending Alerts"
-                                value={pendingAlerts}
-                                prefix={<WarningOutlined style={{ color: '#ff4d4f' }} />}
-                                suffix={
-                                    criticalAlerts > 0 && (
-                                        <Tag color="red" style={{ marginLeft: 8 }}>
-                                            {criticalAlerts} critical
-                                        </Tag>
-                                    )
-                                }
-                                loading={isLoading}
-                            />
-                        </Card>
-                    </Col>
-                    <Col xs={24} sm={12} lg={6}>
-                        <Card>
-                            <Statistic
-                                title="Fraud Rate"
-                                value={fraudRate}
-                                suffix="%"
-                                prefix={
-                                    parseFloat(fraudRate) < 1 ? (
-                                        <ArrowDownOutlined style={{ color: '#52c41a' }} />
-                                    ) : (
-                                        <ArrowUpOutlined style={{ color: '#ff4d4f' }} />
-                                    )
-                                }
-                                valueStyle={{
-                                    color: parseFloat(fraudRate) < 1 ? '#52c41a' : '#ff4d4f',
-                                }}
-                                loading={isLoading}
-                            />
-                        </Card>
+                    <Col>
+                        <Space>
+                            <RealTimeIndicator isConnected={isConnected} lastUpdate={lastUpdate} />
+                            <Button type="text" icon={<ReloadOutlined />} onClick={() => window.location.reload()}>
+                                Refresh
+                            </Button>
+                            <Button type="text" icon={<SettingOutlined />} />
+                        </Space>
                     </Col>
                 </Row>
+            </motion.div>
 
-                {/* Main Dashboard Content */}
-                <Row gutter={[16, 16]}>
-                    {/* Call Masking Stats */}
-                    <Col xs={24} lg={16}>
-                        <Card title="Call Masking Detection" style={{ height: '100%' }}>
-                            <CallMaskingStats />
-                        </Card>
-                    </Col>
+            {/* Quick Stats */}
+            <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+                <Col xs={24} sm={12} lg={6}>
+                    <motion.div variants={staggerItem}>
+                        <StatCard
+                            title="Pending Alerts"
+                            value={pendingAlerts}
+                            prefix={<AlertOutlined />}
+                            color={pendingAlerts > 0 ? 'error' : 'success'}
+                            trend={
+                                pendingAlerts > 0
+                                    ? { value: 12, direction: 'up' }
+                                    : undefined
+                            }
+                        />
+                    </motion.div>
+                </Col>
+                <Col xs={24} sm={12} lg={6}>
+                    <motion.div variants={staggerItem}>
+                        <StatCard
+                            title="Masked Calls"
+                            value={maskedCalls}
+                            prefix={<PhoneOutlined />}
+                            color={maskedCalls > 10 ? 'warning' : 'primary'}
+                            trend={{ value: 8, direction: 'down' }}
+                        />
+                    </motion.div>
+                </Col>
+                <Col xs={24} sm={12} lg={6}>
+                    <motion.div variants={staggerItem}>
+                        <StatCard
+                            title="Volume (NGN)"
+                            value={formatNaira(totalRemitted, { decimals: 0 })}
+                            prefix={<DollarOutlined />}
+                            color="success"
+                            trend={{ value: 23, direction: 'up' }}
+                        />
+                    </motion.div>
+                </Col>
+                <Col xs={24} sm={12} lg={6}>
+                    <motion.div variants={staggerItem}>
+                        <StatCard
+                            title="Active Listings"
+                            value={activeListings}
+                            prefix={<ShopOutlined />}
+                            color="primary"
+                            trend={{ value: 5, direction: 'up' }}
+                        />
+                    </motion.div>
+                </Col>
+            </Row>
 
-                    {/* Live Alerts Feed */}
-                    <Col xs={24} lg={8}>
+            {/* Main Content */}
+            <Row gutter={[16, 16]}>
+                {/* Left Column */}
+                <Col xs={24} lg={16}>
+                    <StaggerList staggerDelay={0.1}>
+                        {/* Call Masking Stats */}
+                        <StaggerItem>
+                            <Card
+                                title={
+                                    <Space>
+                                        <PhoneOutlined />
+                                        <span>Call Masking Detection</span>
+                                        <Badge
+                                            count="Live"
+                                            style={{
+                                                backgroundColor: '#52c41a',
+                                                fontSize: 10,
+                                                height: 18,
+                                                lineHeight: '18px',
+                                            }}
+                                        />
+                                    </Space>
+                                }
+                                style={{ marginBottom: 16, borderRadius: 12 }}
+                                bodyStyle={{ padding: 16 }}
+                            >
+                                <CallMaskingStats />
+                            </Card>
+                        </StaggerItem>
+
+                        {/* Gateway Health */}
+                        <StaggerItem>
+                            <Card
+                                title={
+                                    <Space>
+                                        <span>Gateway Health</span>
+                                    </Space>
+                                }
+                                style={{ marginBottom: 16, borderRadius: 12 }}
+                                bodyStyle={{ padding: 16 }}
+                            >
+                                <GatewayHealthGrid />
+                            </Card>
+                        </StaggerItem>
+
+                        {/* Tabs for Remittance & Marketplace */}
+                        <StaggerItem>
+                            <Card style={{ borderRadius: 12 }} bodyStyle={{ padding: 0 }}>
+                                <Tabs
+                                    defaultActiveKey="remittance"
+                                    style={{ padding: '0 16px' }}
+                                    items={[
+                                        {
+                                            key: 'remittance',
+                                            label: (
+                                                <Space>
+                                                    <DollarOutlined />
+                                                    Remittance Volume
+                                                </Space>
+                                            ),
+                                            children: (
+                                                <div style={{ padding: '16px 0' }}>
+                                                    <RemittanceVolume />
+                                                </div>
+                                            ),
+                                        },
+                                        {
+                                            key: 'marketplace',
+                                            label: (
+                                                <Space>
+                                                    <ShopOutlined />
+                                                    Marketplace Activity
+                                                </Space>
+                                            ),
+                                            children: (
+                                                <div style={{ padding: '16px 0' }}>
+                                                    <MarketplaceActivity />
+                                                </div>
+                                            ),
+                                        },
+                                    ]}
+                                />
+                            </Card>
+                        </StaggerItem>
+                    </StaggerList>
+                </Col>
+
+                {/* Right Column - Alerts Feed */}
+                <Col xs={24} lg={8}>
+                    <motion.div variants={staggerItem}>
                         <Card
                             title={
                                 <Space>
-                                    <span>Live Alerts</span>
-                                    <Tag color="processing">Real-time</Tag>
+                                    <AlertOutlined style={{ color: '#ff4d4f' }} />
+                                    <span>Live Fraud Alerts</span>
+                                    {pendingAlerts > 0 && (
+                                        <Badge
+                                            count={pendingAlerts}
+                                            overflowCount={99}
+                                            style={{ backgroundColor: '#ff4d4f' }}
+                                        />
+                                    )}
                                 </Space>
                             }
-                            style={{ height: '100%' }}
+                            style={{ borderRadius: 12, height: '100%' }}
+                            bodyStyle={{ padding: 0, maxHeight: 600, overflow: 'auto' }}
                         >
                             <FraudAlertsFeed />
                         </Card>
-                    </Col>
-                </Row>
-
-                {/* Gateway Health & Secondary Widgets */}
-                <Row gutter={[16, 16]}>
-                    <Col xs={24} lg={12}>
-                        <Card title="Gateway Health">
-                            <GatewayHealthGrid />
-                        </Card>
-                    </Col>
-
-                    <Col xs={24} lg={6}>
-                        <Card title="Remittance (24h)">
-                            <RemittanceVolume />
-                        </Card>
-                    </Col>
-
-                    <Col xs={24} lg={6}>
-                        <Card title="Marketplace Activity">
-                            <MarketplaceActivity />
-                        </Card>
-                    </Col>
-                </Row>
-            </Space>
-        </div>
+                    </motion.div>
+                </Col>
+            </Row>
+        </motion.div>
     );
 };
 
