@@ -1,0 +1,345 @@
+# Fraud Prevention Hasura Metadata
+# Add to existing tables.yaml
+
+# ============================================================
+# CLI INTEGRITY TABLES
+# ============================================================
+
+- table:
+    schema: public
+    name: cli_verifications
+  select_permissions:
+    - role: admin
+      permission:
+        columns: '*'
+        filter: {}
+    - role: operator
+      permission:
+        columns: '*'
+        filter: {}
+    - role: carrier
+      permission:
+        columns: '*'
+        filter:
+          carrier_id:
+            _eq: X-Hasura-Carrier-Id
+  insert_permissions:
+    - role: operator
+      permission:
+        columns:
+          - presented_cli
+          - actual_cli
+          - network_cli
+          - spoofing_detected
+          - spoofing_type
+          - confidence_score
+          - verification_method
+          - ss7_analysis
+          - sip_header_analysis
+          - stir_shaken_result
+          - carrier_id
+          - call_direction
+        check: {}
+  event_triggers:
+    - name: cli_spoofing_detected
+      definition:
+        enable_manual: false
+        insert:
+          columns: '*'
+        update:
+          columns:
+            - spoofing_detected
+      retry_conf:
+        num_retries: 3
+        interval_sec: 10
+      webhook: "{{N8N_WEBHOOK_URL}}/fraud/cli-spoofing"
+      headers:
+        - name: x-webhook-secret
+          value_from_env: WEBHOOK_SECRET
+
+- table:
+    schema: public
+    name: spoofing_blacklist
+  select_permissions:
+    - role: admin
+      permission:
+        columns: '*'
+        filter: {}
+    - role: operator
+      permission:
+        columns: '*'
+        filter: {}
+  insert_permissions:
+    - role: operator
+      permission:
+        columns:
+          - number_pattern
+          - pattern_type
+          - spoofing_type
+          - reason
+        check: {}
+
+# ============================================================
+# IRSF TABLES
+# ============================================================
+
+- table:
+    schema: public
+    name: irsf_destinations
+  select_permissions:
+    - role: admin
+      permission:
+        columns: '*'
+        filter: {}
+    - role: operator
+      permission:
+        columns: '*'
+        filter: {}
+    - role: carrier
+      permission:
+        columns:
+          - id
+          - country_code
+          - prefix
+          - country_name
+          - risk_level
+          - is_blacklisted
+        filter: {}
+
+- table:
+    schema: public
+    name: irsf_incidents
+  select_permissions:
+    - role: admin
+      permission:
+        columns: '*'
+        filter: {}
+    - role: operator
+      permission:
+        columns: '*'
+        filter: {}
+    - role: carrier
+      permission:
+        columns: '*'
+        filter:
+          carrier_id:
+            _eq: X-Hasura-Carrier-Id
+  insert_permissions:
+    - role: operator
+      permission:
+        columns:
+          - source_number
+          - destination_number
+          - destination_country
+          - destination_prefix
+          - risk_score
+          - irsf_indicators
+          - detection_method
+          - matched_pattern_id
+          - call_duration_seconds
+          - rate_per_minute
+          - estimated_loss
+          - action_taken
+          - carrier_id
+          - subscriber_id
+        check: {}
+  event_triggers:
+    - name: irsf_detected
+      definition:
+        enable_manual: false
+        insert:
+          columns: '*'
+      retry_conf:
+        num_retries: 3
+        interval_sec: 10
+      webhook: "{{N8N_WEBHOOK_URL}}/fraud/irsf"
+
+# ============================================================
+# WANGIRI TABLES
+# ============================================================
+
+- table:
+    schema: public
+    name: wangiri_incidents
+  select_permissions:
+    - role: admin
+      permission:
+        columns: '*'
+        filter: {}
+    - role: operator
+      permission:
+        columns: '*'
+        filter: {}
+  insert_permissions:
+    - role: operator
+      permission:
+        columns:
+          - source_number
+          - target_number
+          - ring_duration_ms
+          - wangiri_indicators
+          - confidence_score
+        check: {}
+  event_triggers:
+    - name: wangiri_detected
+      definition:
+        enable_manual: false
+        insert:
+          columns: '*'
+      retry_conf:
+        num_retries: 3
+        interval_sec: 10
+      webhook: "{{N8N_WEBHOOK_URL}}/fraud/wangiri"
+
+- table:
+    schema: public
+    name: wangiri_campaigns
+  select_permissions:
+    - role: admin
+      permission:
+        columns: '*'
+        filter: {}
+    - role: operator
+      permission:
+        columns: '*'
+        filter: {}
+
+# ============================================================
+# OBR TABLES
+# ============================================================
+
+- table:
+    schema: public
+    name: obr_profiles
+  select_permissions:
+    - role: admin
+      permission:
+        columns: '*'
+        filter: {}
+    - role: operator
+      permission:
+        columns: '*'
+        filter: {}
+
+- table:
+    schema: public
+    name: obr_rate_tables
+  select_permissions:
+    - role: admin
+      permission:
+        columns: '*'
+        filter: {}
+    - role: operator
+      permission:
+        columns: '*'
+        filter: {}
+
+# ============================================================
+# PREMIUM RATE TABLES
+# ============================================================
+
+- table:
+    schema: public
+    name: premium_rate_numbers
+  select_permissions:
+    - role: admin
+      permission:
+        columns: '*'
+        filter: {}
+    - role: operator
+      permission:
+        columns: '*'
+        filter: {}
+
+- table:
+    schema: public
+    name: premium_rate_calls
+  select_permissions:
+    - role: admin
+      permission:
+        columns: '*'
+        filter: {}
+    - role: operator
+      permission:
+        columns: '*'
+        filter: {}
+  event_triggers:
+    - name: premium_fraud_detected
+      definition:
+        enable_manual: false
+        insert:
+          columns: '*'
+      retry_conf:
+        num_retries: 3
+        interval_sec: 10
+      webhook: "{{N8N_WEBHOOK_URL}}/fraud/premium"
+
+# ============================================================
+# CALLBACK FRAUD TABLE
+# ============================================================
+
+- table:
+    schema: public
+    name: callback_fraud_incidents
+  select_permissions:
+    - role: admin
+      permission:
+        columns: '*'
+        filter: {}
+    - role: operator
+      permission:
+        columns: '*'
+        filter: {}
+  event_triggers:
+    - name: callback_fraud_detected
+      definition:
+        enable_manual: false
+        insert:
+          columns: '*'
+      retry_conf:
+        num_retries: 3
+        interval_sec: 10
+      webhook: "{{N8N_WEBHOOK_URL}}/fraud/callback"
+
+# ============================================================
+# FEATURE FLAGS TABLE
+# ============================================================
+
+- table:
+    schema: public
+    name: fraud_feature_flags
+  select_permissions:
+    - role: admin
+      permission:
+        columns: '*'
+        filter: {}
+    - role: operator
+      permission:
+        columns:
+          - flag_name
+          - flag_value
+          - description
+        filter: {}
+  update_permissions:
+    - role: admin
+      permission:
+        columns:
+          - flag_value
+        filter: {}
+
+# ============================================================
+# FRAUD EVENTS TABLE
+# ============================================================
+
+- table:
+    schema: public
+    name: fraud_events
+  select_permissions:
+    - role: admin
+      permission:
+        columns: '*'
+        filter: {}
+    - role: operator
+      permission:
+        columns: '*'
+        filter: {}

@@ -1,0 +1,239 @@
+{
+    "name": "Fraud Alert Pipeline",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "fraud/cli-spoofing",
+                "authentication": "headerAuth",
+                "headerAuth": {
+                    "name": "x-webhook-secret",
+                    "value": "={{$env.WEBHOOK_SECRET}}"
+                }
+            },
+            "id": "cli-webhook",
+            "name": "CLI Spoofing Webhook",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 1,
+            "position": [
+                250,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "fraud/irsf",
+                "authentication": "headerAuth"
+            },
+            "id": "irsf-webhook",
+            "name": "IRSF Webhook",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 1,
+            "position": [
+                250,
+                500
+            ]
+        },
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "fraud/wangiri",
+                "authentication": "headerAuth"
+            },
+            "id": "wangiri-webhook",
+            "name": "Wangiri Webhook",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 1,
+            "position": [
+                250,
+                700
+            ]
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "number": [
+                        {
+                            "value1": "={{$json.risk_score}}",
+                            "operation": "larger",
+                            "value2": 0.7
+                        }
+                    ]
+                }
+            },
+            "id": "check-risk",
+            "name": "Check Risk Level",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 1,
+            "position": [
+                500,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "fromEmail": "alerts@acm.ng",
+                "toEmail": "fraud-team@acm.ng",
+                "subject": "🚨 CLI Spoofing Alert - {{$json.spoofing_type}}",
+                "text": "CLI Spoofing Detected\n\nPresented CLI: {{$json.presented_cli}}\nActual CLI: {{$json.actual_cli}}\nSpoofing Type: {{$json.spoofing_type}}\nConfidence: {{$json.confidence_score * 100}}%\n\nTime: {{$json.created_at}}"
+            },
+            "id": "send-cli-email",
+            "name": "Send CLI Alert Email",
+            "type": "n8n-nodes-base.emailSend",
+            "typeVersion": 1,
+            "position": [
+                750,
+                200
+            ]
+        },
+        {
+            "parameters": {
+                "fromEmail": "alerts@acm.ng",
+                "toEmail": "fraud-team@acm.ng",
+                "subject": "⚠️ IRSF Alert - {{$json.destination_country}}",
+                "text": "IRSF Fraud Attempt Detected\n\nSource: {{$json.source_number}}\nDestination: {{$json.destination_number}}\nCountry: {{$json.destination_country}}\nRisk Score: {{$json.risk_score * 100}}%\nEstimated Loss: ₦{{$json.estimated_loss}}\n\nAction: {{$json.action_taken}}\nTime: {{$json.created_at}}"
+            },
+            "id": "send-irsf-email",
+            "name": "Send IRSF Alert Email",
+            "type": "n8n-nodes-base.emailSend",
+            "typeVersion": 1,
+            "position": [
+                500,
+                500
+            ]
+        },
+        {
+            "parameters": {
+                "url": "={{$env.PUSH_NOTIFICATION_URL}}",
+                "method": "POST",
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "title",
+                            "value": "Wangiri Detected"
+                        },
+                        {
+                            "name": "body",
+                            "value": "Suspicious call from {{$json.source_number}} ({{$json.ring_duration_ms}}ms ring)"
+                        },
+                        {
+                            "name": "target_number",
+                            "value": "={{$json.target_number}}"
+                        }
+                    ]
+                }
+            },
+            "id": "send-wangiri-push",
+            "name": "Send Wangiri Push",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 3,
+            "position": [
+                500,
+                700
+            ]
+        },
+        {
+            "parameters": {
+                "operation": "set",
+                "key": "fraud:alert:{{$json.id}}",
+                "value": "={{JSON.stringify($json)}}",
+                "expiration": 86400
+            },
+            "id": "cache-alert",
+            "name": "Cache Alert",
+            "type": "n8n-nodes-base.redis",
+            "typeVersion": 1,
+            "position": [
+                750,
+                400
+            ],
+            "credentials": {
+                "redis": {
+                    "id": "1",
+                    "name": "DragonflyDB"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "channel": "#fraud-alerts",
+                "text": "🚨 *{{$json.event_type}}* detected\n• Risk: {{$json.risk_score * 100}}%\n• Time: {{$json.created_at}}"
+            },
+            "id": "slack-notify",
+            "name": "Slack Notification",
+            "type": "n8n-nodes-base.slack",
+            "typeVersion": 1,
+            "position": [
+                750,
+                600
+            ]
+        }
+    ],
+    "connections": {
+        "CLI Spoofing Webhook": {
+            "main": [
+                [
+                    {
+                        "node": "Check Risk Level",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Check Risk Level": {
+            "main": [
+                [
+                    {
+                        "node": "Send CLI Alert Email",
+                        "type": "main",
+                        "index": 0
+                    },
+                    {
+                        "node": "Cache Alert",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "IRSF Webhook": {
+            "main": [
+                [
+                    {
+                        "node": "Send IRSF Alert Email",
+                        "type": "main",
+                        "index": 0
+                    },
+                    {
+                        "node": "Slack Notification",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Wangiri Webhook": {
+            "main": [
+                [
+                    {
+                        "node": "Send Wangiri Push",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1"
+    },
+    "staticData": null,
+    "tags": [
+        {
+            "name": "fraud",
+            "id": "1"
+        }
+    ]
+}
