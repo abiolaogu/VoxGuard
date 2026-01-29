@@ -1,0 +1,80 @@
+{
+    "projectName": "anti-call-masking-web",
+    "framework": "refine",
+    "version": "4.x",
+    "uiLibrary": "antd",
+    "antdVersion": "5.x",
+    "dataProvider": "hasura",
+    "graphqlEndpoint": "${VITE_HASURA_ENDPOINT}",
+    "wsEndpoint": "${VITE_HASURA_WS_ENDPOINT}",
+    "features": {
+        "authentication": "hasura-auth",
+        "realtime": "graphql-subscriptions",
+        "i18n": true,
+        "darkMode": true,
+        "storybook": true,
+        "testing": "vitest"
+    },
+    "boundedContexts": [
+        {
+            "name": "anti-masking",
+            "resources": [
+                "fraud-alerts",
+                "gateways",
+                "calls",
+                "carriers",
+                "blacklist"
+            ],
+            "description": "Fraud detection and call masking prevention"
+        },
+        {
+            "name": "remittance",
+            "resources": [
+                "corridors",
+                "transactions",
+                "beneficiaries",
+                "banks"
+            ],
+            "description": "Diaspora money transfer services"
+        },
+        {
+            "name": "marketplace",
+            "resources": [
+                "categories",
+                "listings",
+                "orders",
+                "providers"
+            ],
+            "description": "Nigerian services marketplace"
+        },
+        {
+            "name": "identity",
+            "resources": [
+                "users",
+                "sessions",
+                "kyc",
+                "notifications"
+            ],
+            "description": "User identity and authentication"
+        }
+    ],
+    "structure": {
+        "src": {
+            "components": "Reusable UI components",
+            "contexts": "React contexts per bounded context",
+            "hooks": "Custom hooks for business logic",
+            "pages": "Route-based pages organized by context",
+            "providers": "Data, auth, and live providers",
+            "graphql": "GraphQL queries, mutations, subscriptions",
+            "types": "TypeScript type definitions",
+            "styles": "Global CSS and theme"
+        }
+    },
+    "commands": {
+        "dev": "npm run dev",
+        "build": "npm run build",
+        "test": "npm run test",
+        "storybook": "npm run storybook",
+        "codegen": "npm run codegen"
+    }
+}
