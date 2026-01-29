@@ -2,6 +2,7 @@ import ComposableArchitecture
 import Foundation
 
 // MARK: - App Feature (Root Reducer)
+// Cleaned: Anti-Call Masking Only
 
 @Reducer
 public struct AppFeature {
@@ -12,23 +13,21 @@ public struct AppFeature {
     public struct State: Equatable {
         public var selectedTab: Tab = .antiMasking
         public var antiMasking: AntiMaskingFeature.State = .init()
-        public var remittance: RemittanceFeature.State = .init()
-        public var marketplace: MarketplaceFeature.State = .init()
         
         public init() {}
     }
     
     public enum Tab: String, Equatable, CaseIterable {
         case antiMasking = "Verify"
-        case remittance = "Send Money"
-        case marketplace = "Market"
+        case reports = "Reports"
+        case carriers = "Carriers"
         case settings = "Settings"
         
         public var icon: String {
             switch self {
             case .antiMasking: return "shield.checkered"
-            case .remittance: return "paperplane.fill"
-            case .marketplace: return "storefront.fill"
+            case .reports: return "doc.text.fill"
+            case .carriers: return "antenna.radiowaves.left.and.right"
             case .settings: return "gearshape.fill"
             }
         }
@@ -39,8 +38,6 @@ public struct AppFeature {
     public enum Action {
         case tabSelected(Tab)
         case antiMasking(AntiMaskingFeature.Action)
-        case remittance(RemittanceFeature.Action)
-        case marketplace(MarketplaceFeature.Action)
     }
     
     // MARK: - Body
@@ -50,21 +47,13 @@ public struct AppFeature {
             AntiMaskingFeature()
         }
         
-        Scope(state: \.remittance, action: \.remittance) {
-            RemittanceFeature()
-        }
-        
-        Scope(state: \.marketplace, action: \.marketplace) {
-            MarketplaceFeature()
-        }
-        
         Reduce { state, action in
             switch action {
             case let .tabSelected(tab):
                 state.selectedTab = tab
                 return .none
                 
-            case .antiMasking, .remittance, .marketplace:
+            case .antiMasking:
                 return .none
             }
         }
@@ -72,3 +61,4 @@ public struct AppFeature {
     
     public init() {}
 }
+
