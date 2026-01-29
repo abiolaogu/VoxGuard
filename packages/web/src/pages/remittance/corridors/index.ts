@@ -1,0 +1,1 @@
+export { CorridorList } from './list';
