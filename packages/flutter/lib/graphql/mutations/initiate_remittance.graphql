@@ -1,0 +1,67 @@
+mutation InitiateRemittance($recipientId: UUID!, $amountSent: Float!, $currencySent: String!) {
+  initiate_remittance(
+    recipient_id: $recipientId
+    amount_sent: $amountSent
+    currency_sent: $currencySent
+  ) {
+    id
+    sender_id
+    recipient_id
+    amount_sent
+    currency_sent
+    amount_received
+    currency_received
+    exchange_rate
+    fee
+    status
+    reference
+    recipient {
+      id
+      first_name
+      last_name
+      bank_name
+      account_number
+    }
+    created_at
+  }
+}
+
+mutation AddRecipient(
+  $firstName: String!
+  $lastName: String!
+  $phoneNumber: String!
+  $bankCode: String!
+  $accountNumber: String!
+) {
+  add_recipient(
+    first_name: $firstName
+    last_name: $lastName
+    phone_number: $phoneNumber
+    bank_code: $bankCode
+    account_number: $accountNumber
+  ) {
+    id
+    user_id
+    first_name
+    last_name
+    phone_number
+    bank_code
+    bank_name
+    account_number
+    account_name
+    is_verified
+    created_at
+  }
+}
+
+mutation VerifyBankAccount($bankCode: String!, $accountNumber: String!) {
+  verify_bank_account(bank_code: $bankCode, account_number: $accountNumber) {
+    id
+    first_name
+    last_name
+    bank_name
+    account_number
+    account_name
+    is_verified
+  }
+}
