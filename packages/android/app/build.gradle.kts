@@ -1,36 +1,52 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android") version "1.9.22"
+    id("org.jetbrains.kotlin.plugin.compose") version "1.9.22"
     id("com.google.dagger.hilt.android") version "2.50"
-    id("com.apollographql.apollo3") version "3.8.2"
-    id("org.jlleitschuh.gradle.ktlint") version "12.1.0"
-    kotlin("kapt")
+    id("com.google.devtools.ksp") version "1.9.22-1.0.17"
+    id("com.apollographql.apollo3") version "4.0.0-beta.4"
+}
+
+// Load local properties
+val localProperties = Properties().apply {
+    val localPropertiesFile = rootProject.file("local.properties")
+    if (localPropertiesFile.exists()) {
+        load(localPropertiesFile.inputStream())
+    }
 }
 
 android {
-    namespace = "com.billyronks.acm"
+    namespace = "com.billyrinks.antimasking"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.billyronks.acm"
+        applicationId = "com.billyrinks.antimasking"
         minSdk = 26
         targetSdk = 34
         versionCode = 1
         versionName = "1.0.0"
 
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-
+        testInstrumentationRunner = "com.billyrinks.antimasking.HiltTestRunner"
         vectorDrawables {
             useSupportLibrary = true
         }
 
-        buildConfigField("String", "GRAPHQL_ENDPOINT", "\"http://10.0.2.2:8080/v1/graphql\"")
-        buildConfigField("String", "WS_ENDPOINT", "\"ws://10.0.2.2:8080/v1/graphql\"")
+        // Build config fields
+        buildConfigField("String", "HASURA_ENDPOINT", "\"${localProperties.getProperty("HASURA_ENDPOINT", "https://your-hasura.hasura.app/v1/graphql")}\"")
+        buildConfigField("String", "HASURA_WS_ENDPOINT", "\"${localProperties.getProperty("HASURA_WS_ENDPOINT", "wss://your-hasura.hasura.app/v1/graphql")}\"")
+        buildConfigField("String", "HASURA_ADMIN_SECRET", "\"${localProperties.getProperty("HASURA_ADMIN_SECRET", "")}\"")
     }
 
     buildTypes {
+        debug {
+            isMinifyEnabled = false
+            isDebuggable = true
+        }
         release {
             isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -45,6 +61,10 @@ android {
 
     kotlinOptions {
         jvmTarget = "17"
+        freeCompilerArgs += listOf(
+            "-opt-in=kotlinx.coroutines.ExperimentalCoroutinesApi",
+            "-opt-in=androidx.compose.material3.ExperimentalMaterial3Api"
+        )
     }
 
     buildFeatures {
@@ -52,76 +72,90 @@ android {
         buildConfig = true
     }
 
-    composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.8"
-    }
-
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
+
+    testOptions {
+        unitTests {
+            isIncludeAndroidResources = true
+        }
+    }
 }
 
+// Apollo GraphQL configuration
 apollo {
     service("acm") {
-        packageName.set("com.billyronks.acm.graphql")
-        schemaFile.set(file("../../../packages/shared/contracts/schema.graphql"))
+        packageName.set("com.billyrinks.antimasking.graphql")
         srcDir("src/main/graphql")
-        generateOptionalOperationVariables.set(false)
+        schemaFile.set(file("src/main/graphql/schema.graphqls"))
+        generateOptionalOperationVariables.set(true)
+        generateDataBuilders.set(true)
     }
 }
 
 dependencies {
-    // Core Android
+    // Core
     implementation("androidx.core:core-ktx:1.12.0")
+    implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")
-    implementation("androidx.activity:activity-compose:1.8.2")
+    implementation("androidx.datastore:datastore-preferences:1.0.0")
+
+    // Coroutines
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
 
     // Compose
-    implementation(platform("androidx.compose:compose-bom:2024.01.00"))
+    implementation(platform("androidx.compose:compose-bom:2024.02.00"))
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.ui:ui-tooling-preview")
-    implementation("androidx.compose.material3:material3")
+    implementation("androidx.compose.material3:material3:1.2.0")
+    implementation("androidx.compose.material:material-icons-extended")
+    implementation("androidx.activity:activity-compose:1.8.2")
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.7.0")
+    implementation("androidx.navigation:navigation-compose:2.7.7")
+    debugImplementation("androidx.compose.ui:ui-tooling")
 
-    // Navigation
-    implementation("androidx.navigation:navigation-compose:2.7.6")
+    // Hilt DI
+    implementation("com.google.dagger:hilt-android:2.50")
+    ksp("com.google.dagger:hilt-android-compiler:2.50")
     implementation("androidx.hilt:hilt-navigation-compose:1.1.0")
 
     // Apollo GraphQL
-    implementation("com.apollographql.apollo3:apollo-runtime:3.8.2")
-    implementation("com.apollographql.apollo3:apollo-normalized-cache:3.8.2")
-    implementation("com.apollographql.apollo3:apollo-normalized-cache-sqlite:3.8.2")
+    implementation("com.apollographql.apollo3:apollo-runtime:4.0.0-beta.4")
+    implementation("com.apollographql.apollo3:apollo-adapters:4.0.0-beta.4")
+    implementation("com.apollographql.apollo3:apollo-normalized-cache:4.0.0-beta.4")
+    implementation("com.apollographql.apollo3:apollo-normalized-cache-sqlite:4.0.0-beta.4")
 
-    // Dependency Injection
-    implementation("com.google.dagger:hilt-android:2.50")
-    kapt("com.google.dagger:hilt-android-compiler:2.50")
+    // OkHttp
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
 
-    // Coroutines
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+    // Orbit MVI
+    implementation("org.orbit-mvi:orbit-core:6.1.0")
+    implementation("org.orbit-mvi:orbit-viewmodel:6.1.0")
+    implementation("org.orbit-mvi:orbit-compose:6.1.0")
 
-    // DataStore
-    implementation("androidx.datastore:datastore-preferences:1.0.0")
-
-    // Coil (Image Loading)
+    // Image Loading
     implementation("io.coil-kt:coil-compose:2.5.0")
 
-    // Charts
-    implementation("com.patrykandpatrick.vico:compose-m3:1.13.1")
-
-    // Testing
+    // Unit Tests
     testImplementation("junit:junit:4.13.2")
     testImplementation("io.mockk:mockk:1.13.9")
+    testImplementation("app.cash.turbine:turbine:1.0.0")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
+    testImplementation("org.orbit-mvi:orbit-test:6.1.0")
+
+    // Instrumented Tests
+    androidTestImplementation(platform("androidx.compose:compose-bom:2024.02.00"))
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
-    androidTestImplementation(platform("androidx.compose:compose-bom:2024.01.00"))
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
-    debugImplementation("androidx.compose.ui:ui-tooling")
+    androidTestImplementation("io.mockk:mockk-android:1.13.9")
+    androidTestImplementation("com.google.dagger:hilt-android-testing:2.50")
+    kspAndroidTest("com.google.dagger:hilt-android-compiler:2.50")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
-}
-
-kapt {
-    correctErrorTypes = true
 }

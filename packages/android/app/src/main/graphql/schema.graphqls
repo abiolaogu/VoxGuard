@@ -1,0 +1,298 @@
+# GraphQL Schema for Anti-Call Masking Platform
+# This is the schema used by Apollo Kotlin for code generation
+
+type Query {
+  # Call Verification
+  verification(id: ID!): CallVerification
+  verifications(
+    limit: Int = 20
+    offset: Int = 0
+    maskingDetected: Boolean
+  ): [CallVerification!]!
+
+  # Fraud Alerts
+  fraudAlerts(
+    limit: Int = 20
+    isAcknowledged: Boolean
+  ): [FraudAlert!]!
+
+  # Remittance
+  exchangeRate(
+    sourceCurrency: Currency!
+    targetCurrency: Currency!
+  ): ExchangeRate!
+  corridors: [Corridor!]!
+  transaction(id: ID!): RemittanceTransaction
+  transactions(
+    limit: Int = 20
+    offset: Int = 0
+    status: TransactionStatus
+  ): [RemittanceTransaction!]!
+  recipients: [Recipient!]!
+
+  # Marketplace
+  listings(
+    limit: Int = 20
+    offset: Int = 0
+    category: ListingCategory
+    state: NigerianState
+    minPrice: Float
+    maxPrice: Float
+    searchQuery: String
+    diasporaFriendlyOnly: Boolean
+  ): [MarketplaceListing!]!
+  listing(id: ID!): MarketplaceListing
+  featuredListings(limit: Int = 10): [MarketplaceListing!]!
+  favorites: [MarketplaceListing!]!
+}
+
+type Mutation {
+  # Call Verification
+  verifyCall(
+    callerNumber: String!
+    calleeNumber: String!
+  ): CallVerification!
+  
+  reportMasking(
+    verificationId: ID!
+    additionalInfo: String
+  ): Boolean!
+  
+  acknowledgeFraudAlert(alertId: ID!): Boolean!
+
+  # Remittance
+  initiateRemittance(
+    recipientId: ID!
+    amountSent: Float!
+    sourceCurrency: Currency!
+    targetCurrency: Currency!
+  ): RemittanceTransaction!
+  
+  addRecipient(input: RecipientInput!): Recipient!
+  deleteRecipient(recipientId: ID!): Boolean!
+
+  # Marketplace
+  toggleFavorite(listingId: ID!): Boolean!
+}
+
+type Subscription {
+  # Real-time updates
+  onVerification: CallVerification!
+  onFraudAlert: FraudAlert!
+  onTransactionStatus(transactionId: ID!): RemittanceTransaction!
+  onNewListing: MarketplaceListing!
+}
+
+# ============================================================================
+# Anti-Masking Types
+# ============================================================================
+
+type CallVerification {
+  id: ID!
+  callerNumber: String!
+  calleeNumber: String!
+  originalCli: String!
+  detectedCli: String
+  maskingDetected: Boolean!
+  confidenceScore: Float!
+  status: VerificationStatus!
+  gatewayName: String
+  detectedMno: String
+  verifiedAt: DateTime!
+  createdAt: DateTime!
+}
+
+enum VerificationStatus {
+  PENDING
+  VERIFYING
+  VERIFIED
+  MASKING_DETECTED
+  FAILED
+}
+
+type FraudAlert {
+  id: ID!
+  verificationId: ID!
+  severity: AlertSeverity!
+  title: String!
+  message: String!
+  callerNumber: String!
+  detectedMno: String
+  isAcknowledged: Boolean!
+  createdAt: DateTime!
+}
+
+enum AlertSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+# ============================================================================
+# Remittance Types
+# ============================================================================
+
+type RemittanceTransaction {
+  id: ID!
+  senderId: ID!
+  recipientId: ID!
+  recipientName: String!
+  amountSent: Float!
+  currencySent: Currency!
+  amountReceived: Float!
+  currencyReceived: Currency!
+  exchangeRate: Float!
+  fee: Float!
+  status: TransactionStatus!
+  reference: String!
+  createdAt: DateTime!
+  completedAt: DateTime
+}
+
+enum TransactionStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+type ExchangeRate {
+  sourceCurrency: Currency!
+  targetCurrency: Currency!
+  rate: Float!
+  inverseRate: Float!
+  timestamp: DateTime!
+}
+
+type Corridor {
+  id: ID!
+  sourceCurrency: Currency!
+  targetCurrency: Currency!
+  minAmount: Float!
+  maxAmount: Float!
+  feePercentage: Float!
+  flatFee: Float!
+  isActive: Boolean!
+}
+
+type Recipient {
+  id: ID!
+  fullName: String!
+  phoneNumber: String!
+  bankName: String
+  bankCode: String
+  accountNumber: String
+  state: String
+  isFavorite: Boolean!
+  createdAt: DateTime!
+}
+
+input RecipientInput {
+  fullName: String!
+  phoneNumber: String!
+  bankCode: String
+  accountNumber: String
+  state: String
+}
+
+enum Currency {
+  NGN
+  USD
+  GBP
+  EUR
+  CAD
+  ZAR
+}
+
+# ============================================================================
+# Marketplace Types
+# ============================================================================
+
+type MarketplaceListing {
+  id: ID!
+  title: String!
+  description: String!
+  price: Float!
+  currency: Currency!
+  category: ListingCategory!
+  images: [String!]!
+  thumbnailUrl: String
+  sellerId: ID!
+  sellerName: String!
+  state: NigerianState!
+  lga: String
+  isDiasporaFriendly: Boolean!
+  isNegotiable: Boolean!
+  viewCount: Int!
+  isFavorite: Boolean!
+  status: ListingStatus!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+enum ListingCategory {
+  ELECTRONICS
+  VEHICLES
+  PROPERTY
+  FASHION
+  AGRICULTURE
+  SERVICES
+  FOOD
+  HEALTH
+  FURNITURE
+  JOBS
+  OTHER
+}
+
+enum ListingStatus {
+  ACTIVE
+  SOLD
+  RESERVED
+  EXPIRED
+  DELETED
+}
+
+enum NigerianState {
+  ABIA
+  ADAMAWA
+  AKWA_IBOM
+  ANAMBRA
+  BAUCHI
+  BAYELSA
+  BENUE
+  BORNO
+  CROSS_RIVER
+  DELTA
+  EBONYI
+  EDO
+  EKITI
+  ENUGU
+  FCT
+  GOMBE
+  IMO
+  JIGAWA
+  KADUNA
+  KANO
+  KATSINA
+  KEBBI
+  KOGI
+  KWARA
+  LAGOS
+  NASARAWA
+  NIGER
+  OGUN
+  ONDO
+  OSUN
+  OYO
+  PLATEAU
+  RIVERS
+  SOKOTO
+  TARABA
+  YOBE
+  ZAMFARA
+}
+
+# Custom scalars
+scalar DateTime

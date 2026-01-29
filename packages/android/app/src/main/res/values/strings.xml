@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Anti-Masking 🇳🇬</string>
+    <string name="app_name_full">Anti-Call Masking Platform</string>
+
+    <!-- Anti-Masking Feature -->
+    <string name="verify_call">Verify Call</string>
+    <string name="caller_number">Caller Number</string>
+    <string name="callee_number">Callee Number</string>
+    <string name="verification_complete">Verification Complete</string>
+    <string name="masking_detected">Masking Detected!</string>
+    <string name="report_to_ncc">Report to NCC</string>
+    <string name="block_number">Block Number</string>
+    <string name="fraud_alerts">Fraud Alerts</string>
+    <string name="verification_history">Verification History</string>
+    <string name="no_verifications">No verifications yet</string>
+
+    <!-- Remittance Feature -->
+    <string name="send_money">Send Money</string>
+    <string name="recipients">Recipients</string>
+    <string name="amount">Amount</string>
+    <string name="exchange_rate">Exchange Rate</string>
+    <string name="fee">Fee</string>
+    <string name="total">Total</string>
+    <string name="continue_btn">Continue</string>
+    <string name="confirm_transfer">Confirm Transfer</string>
+    <string name="transaction_successful">Transaction Successful!</string>
+
+    <!-- Marketplace Feature -->
+    <string name="marketplace">Marketplace</string>
+    <string name="search">Search</string>
+    <string name="categories">Categories</string>
+    <string name="diaspora_friendly">Diaspora Friendly 🇳🇬</string>
+    <string name="contact_seller">Contact Seller</string>
+    <string name="add_to_favorites">Add to Favorites</string>
+
+    <!-- Common -->
+    <string name="loading">Loading…</string>
+    <string name="error_occurred">An error occurred</string>
+    <string name="retry">Retry</string>
+    <string name="cancel">Cancel</string>
+    <string name="ok">OK</string>
+    <string name="dismiss">Dismiss</string>
+    <string name="settings">Settings</string>
+
+    <!-- Nigerian Context -->
+    <string name="nigeria_flag">🇳🇬</string>
+    <string name="naira_symbol">₦</string>
+
+    <!-- MNOs -->
+    <string name="mno_mtn">MTN Nigeria</string>
+    <string name="mno_glo">Globacom</string>
+    <string name="mno_airtel">Airtel Nigeria</string>
+    <string name="mno_9mobile">9mobile</string>
+</resources>
