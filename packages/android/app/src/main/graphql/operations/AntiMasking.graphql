@@ -1,0 +1,111 @@
+# Verify a call between two numbers
+mutation VerifyCall($callerNumber: String!, $calleeNumber: String!) {
+  verifyCall(callerNumber: $callerNumber, calleeNumber: $calleeNumber) {
+    id
+    callerNumber
+    calleeNumber
+    originalCli
+    detectedCli
+    maskingDetected
+    confidenceScore
+    status
+    gatewayName
+    detectedMno
+    verifiedAt
+    createdAt
+  }
+}
+
+# Get verification history
+query GetVerifications($limit: Int, $offset: Int, $maskingDetected: Boolean) {
+  verifications(limit: $limit, offset: $offset, maskingDetected: $maskingDetected) {
+    id
+    callerNumber
+    calleeNumber
+    originalCli
+    detectedCli
+    maskingDetected
+    confidenceScore
+    status
+    gatewayName
+    detectedMno
+    verifiedAt
+    createdAt
+  }
+}
+
+# Get verification by ID
+query GetVerificationById($id: ID!) {
+  verification(id: $id) {
+    id
+    callerNumber
+    calleeNumber
+    originalCli
+    detectedCli
+    maskingDetected
+    confidenceScore
+    status
+    gatewayName
+    detectedMno
+    verifiedAt
+    createdAt
+  }
+}
+
+# Report masking to NCC
+mutation ReportMasking($verificationId: ID!, $additionalInfo: String) {
+  reportMasking(verificationId: $verificationId, additionalInfo: $additionalInfo)
+}
+
+# Get fraud alerts
+query GetFraudAlerts($limit: Int, $isAcknowledged: Boolean) {
+  fraudAlerts(limit: $limit, isAcknowledged: $isAcknowledged) {
+    id
+    verificationId
+    severity
+    title
+    message
+    callerNumber
+    detectedMno
+    isAcknowledged
+    createdAt
+  }
+}
+
+# Acknowledge fraud alert
+mutation AcknowledgeFraudAlert($alertId: ID!) {
+  acknowledgeFraudAlert(alertId: $alertId)
+}
+
+# Subscribe to real-time verifications
+subscription OnVerification {
+  onVerification {
+    id
+    callerNumber
+    calleeNumber
+    originalCli
+    detectedCli
+    maskingDetected
+    confidenceScore
+    status
+    gatewayName
+    detectedMno
+    verifiedAt
+    createdAt
+  }
+}
+
+# Subscribe to real-time fraud alerts
+subscription OnFraudAlert {
+  onFraudAlert {
+    id
+    verificationId
+    severity
+    title
+    message
+    callerNumber
+    detectedMno
+    isAcknowledged
+    createdAt
+  }
+}
