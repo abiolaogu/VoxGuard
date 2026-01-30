@@ -180,7 +180,7 @@ services:
     restart: unless-stopped
     ports:
       - "5433:5433"   # YSQL
-      - "9000:9000"   # Master web UI
+      - "9005:9000"   # Master web UI
       - "9042:9042"   # YCQL
       - "7100:7000"   # Master RPC (remapped from 7000 to avoid macOS AirPlay conflict)
     command: >
@@ -422,7 +422,7 @@ services:
 
   # Homer SIP Capture
   homer:
-    image: sipcapture/homer-app:latest
+    image: sipcapture/homer-webapp:latest
     platform: linux/amd64
     container_name: homer
     restart: unless-stopped
