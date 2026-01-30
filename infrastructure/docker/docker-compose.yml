@@ -2,7 +2,7 @@
 # VoxGuard - Voice Network Fraud Detection Platform
 # Nigerian ICL Complete Stack Deployment
 # Version: 2.0 | Date: 2026-01-30
-# Target Architecture: linux/amd64 (x86_64)
+# Local Development (ARM64/Apple Silicon compatible)
 # ============================================================================
 
 services:
@@ -87,59 +87,53 @@ services:
           memory: 2G
 
   # ==========================================================================
-  # OPENSIPS (SIP Server)
+  # OPENSIPS (SIP Server) - x86 only, disabled for ARM64 local dev
   # Note: Requires opensips-integration/opensips-acm.cfg to be present
   # ==========================================================================
-  opensips:
-    image: opensips/opensips:3.4
-    platform: linux/amd64
-    container_name: opensips
-    restart: unless-stopped
-    ports:
-      - "5060:5060/udp"
-      - "5060:5060/tcp"
-      - "5061:5061/tcp"  # TLS
-      - "8888:8888"      # MI HTTP
-    volumes:
-      - ../../opensips-integration/opensips-acm.cfg:/usr/local/etc/opensips/opensips.cfg:ro
-      - opensips-tls:/etc/opensips/tls
-    environment:
-      # Database
-      DB_HOST: yugabyte
-      DB_PORT: 5433
-      DB_USER: opensips
-      DB_PASS: ${YUGABYTE_PASSWORD:-acm_secure_2026}
-      DB_NAME: opensips
-
-      # Cache
-      REDIS_HOST: dragonfly
-      REDIS_PORT: 6379
-
-      # ACM Engine
-      ACM_ENGINE_HOST: acm-engine
-      ACM_ENGINE_PORT: 8080
-    depends_on:
-      acm-engine:
-        condition: service_healthy
-      dragonfly:
-        condition: service_healthy
-      yugabyte:
-        condition: service_healthy
-    networks:
-      - acm-network
-    cap_add:
-      - NET_ADMIN
-    ulimits:
-      nofile:
-        soft: 65536
-        hard: 65536
+  # opensips:
+  #   image: opensips/opensips:3.4
+  #   platform: linux/amd64
+  #   container_name: opensips
+  #   restart: unless-stopped
+  #   ports:
+  #     - "5060:5060/udp"
+  #     - "5060:5060/tcp"
+  #     - "5061:5061/tcp"  # TLS
+  #     - "8888:8888"      # MI HTTP
+  #   volumes:
+  #     - ../../opensips-integration/opensips-acm.cfg:/usr/local/etc/opensips/opensips.cfg:ro
+  #     - opensips-tls:/etc/opensips/tls
+  #   environment:
+  #     DB_HOST: yugabyte
+  #     DB_PORT: 5433
+  #     DB_USER: opensips
+  #     DB_PASS: ${YUGABYTE_PASSWORD:-acm_secure_2026}
+  #     DB_NAME: opensips
+  #     REDIS_HOST: dragonfly
+  #     REDIS_PORT: 6379
+  #     ACM_ENGINE_HOST: acm-engine
+  #     ACM_ENGINE_PORT: 8080
+  #   depends_on:
+  #     acm-engine:
+  #       condition: service_healthy
+  #     dragonfly:
+  #       condition: service_healthy
+  #     yugabyte:
+  #       condition: service_healthy
+  #   networks:
+  #     - acm-network
+  #   cap_add:
+  #     - NET_ADMIN
+  #   ulimits:
+  #     nofile:
+  #       soft: 65536
+  #       hard: 65536
 
   # ==========================================================================
   # DRAGONFLYDB (High-Performance Cache)
   # ==========================================================================
   dragonfly:
     image: docker.dragonflydb.io/dragonflydb/dragonfly:v1.14.0
-    platform: linux/amd64
     container_name: dragonfly
     restart: unless-stopped
     ports:
@@ -255,8 +249,7 @@ services:
   # QUESTDB (Real-time Time-Series Analytics - replaces kdb+)
   # ==========================================================================
   questdb:
-    image: questdb/questdb:7.4.0
-    platform: linux/amd64
+    image: questdb/questdb:8.0.0
     container_name: questdb
     restart: unless-stopped
     ports:
@@ -423,7 +416,6 @@ services:
   # Homer SIP Capture
   homer:
     image: sipcapture/homer-webapp:latest
-    platform: linux/amd64
     container_name: homer
     restart: unless-stopped
     ports:
@@ -450,53 +442,53 @@ services:
     networks:
       - acm-network
 
-  heplify-server:
-    image: sipcapture/heplify-server:latest
-    platform: linux/amd64
-    container_name: heplify-server
-    restart: unless-stopped
-    ports:
-      - "9060:9060/udp"
-    environment:
-      HEPLIFYSERVER_HEPADDR: "0.0.0.0:9060"
-      HEPLIFYSERVER_DBDRIVER: postgres
-      HEPLIFYSERVER_DBADDR: homer-postgres:5432
-      HEPLIFYSERVER_DBUSER: homer
-      HEPLIFYSERVER_DBPASS: ${HOMER_DB_PASSWORD:-homer_secure_2026}
-      HEPLIFYSERVER_DBNAME: homer
-    depends_on:
-      - homer-postgres
-    networks:
-      - acm-network
+  # heplify-server - x86 only, disabled for ARM64 local dev
+  # heplify-server:
+  #   image: sipcapture/heplify-server:latest
+  #   platform: linux/amd64
+  #   container_name: heplify-server
+  #   restart: unless-stopped
+  #   ports:
+  #     - "9060:9060/udp"
+  #   environment:
+  #     HEPLIFYSERVER_HEPADDR: "0.0.0.0:9060"
+  #     HEPLIFYSERVER_DBDRIVER: postgres
+  #     HEPLIFYSERVER_DBADDR: homer-postgres:5432
+  #     HEPLIFYSERVER_DBUSER: homer
+  #     HEPLIFYSERVER_DBPASS: ${HOMER_DB_PASSWORD:-homer_secure_2026}
+  #     HEPLIFYSERVER_DBNAME: homer
+  #   depends_on:
+  #     - homer-postgres
+  #   networks:
+  #     - acm-network
 
   # ==========================================================================
-  # NCC COMPLIANCE SERVICES
+  # NCC COMPLIANCE SERVICES - x86 only, disabled for ARM64 local dev
   # Note: Requires ncc-compliance/sftp-uploader directory with Dockerfile
   # ==========================================================================
 
-  ncc-sftp-uploader:
-    build:
-      context: ../../ncc-compliance/sftp-uploader
-      dockerfile: Dockerfile
-    image: acm/ncc-sftp:2.0
-    platform: linux/amd64
-    container_name: ncc-sftp-uploader
-    restart: unless-stopped
-    environment:
-      NCC_SFTP_HOST: ${NCC_SFTP_HOST:-sftp.ncc.gov.ng}
-      NCC_SFTP_PORT: 22
-      NCC_SFTP_USER: ${NCC_SFTP_USER:-}
-      NCC_ICL_LICENSE: ${NCC_ICL_LICENSE:-}
-      CLICKHOUSE_URL: http://clickhouse:8123
-    volumes:
-      - ncc-keys:/etc/acm/keys:ro
-      - ncc-reports:/var/acm/reports
-    depends_on:
-      - clickhouse
-    networks:
-      - acm-network
-    # Runs daily at 01:00 AM WAT
-    entrypoint: ["crond", "-f"]
+  # ncc-sftp-uploader:
+  #   build:
+  #     context: ../../ncc-compliance/sftp-uploader
+  #     dockerfile: Dockerfile
+  #   image: acm/ncc-sftp:2.0
+  #   platform: linux/amd64
+  #   container_name: ncc-sftp-uploader
+  #   restart: unless-stopped
+  #   environment:
+  #     NCC_SFTP_HOST: ${NCC_SFTP_HOST:-sftp.ncc.gov.ng}
+  #     NCC_SFTP_PORT: 22
+  #     NCC_SFTP_USER: ${NCC_SFTP_USER:-}
+  #     NCC_ICL_LICENSE: ${NCC_ICL_LICENSE:-}
+  #     CLICKHOUSE_URL: http://clickhouse:8123
+  #   volumes:
+  #     - ncc-keys:/etc/acm/keys:ro
+  #     - ncc-reports:/var/acm/reports
+  #   depends_on:
+  #     - clickhouse
+  #   networks:
+  #     - acm-network
+  #   entrypoint: ["crond", "-f"]
 
 # ==========================================================================
 # NETWORKS
