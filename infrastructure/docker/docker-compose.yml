@@ -2,6 +2,7 @@
 # VoxGuard - Voice Network Fraud Detection Platform
 # Nigerian ICL Complete Stack Deployment
 # Version: 2.0 | Date: 2026-01-30
+# Target Architecture: linux/amd64 (x86_64)
 # ============================================================================
 
 services:
@@ -86,56 +87,59 @@ services:
           memory: 2G
 
   # ==========================================================================
-  # OPENSIPS (SIP Server) - disabled, config file not available
+  # OPENSIPS (SIP Server)
+  # Note: Requires opensips-integration/opensips-acm.cfg to be present
   # ==========================================================================
-  # opensips:
-  #   image: opensips/opensips:3.4
-  #   container_name: opensips
-  #   restart: unless-stopped
-  #   ports:
-  #     - "5060:5060/udp"
-  #     - "5060:5060/tcp"
-  #     - "5061:5061/tcp"  # TLS
-  #     - "8888:8888"      # MI HTTP
-  #   volumes:
-  #     - ../../opensips-integration/opensips-acm.cfg:/usr/local/etc/opensips/opensips.cfg:ro
-  #     - opensips-tls:/etc/opensips/tls
-  #   environment:
-  #     # Database
-  #     DB_HOST: yugabyte
-  #     DB_PORT: 5433
-  #     DB_USER: opensips
-  #     DB_PASS: ${YUGABYTE_PASSWORD:-acm_secure_2026}
-  #     DB_NAME: opensips
-  #
-  #     # Cache
-  #     REDIS_HOST: dragonfly
-  #     REDIS_PORT: 6379
-  #
-  #     # ACM Engine
-  #     ACM_ENGINE_HOST: acm-engine
-  #     ACM_ENGINE_PORT: 8080
-  #   depends_on:
-  #     acm-engine:
-  #       condition: service_healthy
-  #     dragonfly:
-  #       condition: service_healthy
-  #     yugabyte:
-  #       condition: service_healthy
-  #   networks:
-  #     - acm-network
-  #   cap_add:
-  #     - NET_ADMIN
-  #   ulimits:
-  #     nofile:
-  #       soft: 65536
-  #       hard: 65536
+  opensips:
+    image: opensips/opensips:3.4
+    platform: linux/amd64
+    container_name: opensips
+    restart: unless-stopped
+    ports:
+      - "5060:5060/udp"
+      - "5060:5060/tcp"
+      - "5061:5061/tcp"  # TLS
+      - "8888:8888"      # MI HTTP
+    volumes:
+      - ../../opensips-integration/opensips-acm.cfg:/usr/local/etc/opensips/opensips.cfg:ro
+      - opensips-tls:/etc/opensips/tls
+    environment:
+      # Database
+      DB_HOST: yugabyte
+      DB_PORT: 5433
+      DB_USER: opensips
+      DB_PASS: ${YUGABYTE_PASSWORD:-acm_secure_2026}
+      DB_NAME: opensips
+
+      # Cache
+      REDIS_HOST: dragonfly
+      REDIS_PORT: 6379
+
+      # ACM Engine
+      ACM_ENGINE_HOST: acm-engine
+      ACM_ENGINE_PORT: 8080
+    depends_on:
+      acm-engine:
+        condition: service_healthy
+      dragonfly:
+        condition: service_healthy
+      yugabyte:
+        condition: service_healthy
+    networks:
+      - acm-network
+    cap_add:
+      - NET_ADMIN
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
 
   # ==========================================================================
   # DRAGONFLYDB (High-Performance Cache)
   # ==========================================================================
   dragonfly:
     image: docker.dragonflydb.io/dragonflydb/dragonfly:v1.14.0
+    platform: linux/amd64
     container_name: dragonfly
     restart: unless-stopped
     ports:
@@ -176,7 +180,7 @@ services:
     restart: unless-stopped
     ports:
       - "5433:5433"   # YSQL
-      - "9005:9000"   # Master web UI (remapped to avoid conflict)
+      - "9000:9000"   # Master web UI
       - "9042:9042"   # YCQL
       - "7100:7000"   # Master RPC (remapped from 7000 to avoid macOS AirPlay conflict)
     command: >
@@ -184,8 +188,7 @@ services:
       --base_dir=/home/yugabyte/yb_data
       --daemon=false
       --ui=true
-      --listen=0.0.0.0
-      --tserver_flags="yb_enable_read_committed_isolation=true,ysql_enable_packed_row=true,listen_on_all_interfaces=true"
+      --tserver_flags="yb_enable_read_committed_isolation=true,ysql_enable_packed_row=true"
     environment:
       YSQL_USER: opensips
       YSQL_PASSWORD: ${YUGABYTE_PASSWORD:-acm_secure_2026}
@@ -252,14 +255,15 @@ services:
   # QUESTDB (Real-time Time-Series Analytics - replaces kdb+)
   # ==========================================================================
   questdb:
-    image: questdb/questdb:8.0.0
+    image: questdb/questdb:7.4.0
+    platform: linux/amd64
     container_name: questdb
     restart: unless-stopped
     ports:
       - "9009:9009"    # InfluxDB Line Protocol (high-speed ingestion)
       - "8812:8812"    # PostgreSQL wire protocol (queries)
       - "9003:9003"    # Min health server
-      - "9004:9000"    # Web Console & REST API (remapped to avoid conflict)
+      - "9002:9000"    # Web Console & REST API
     volumes:
       - questdb-data:/var/lib/questdb
     environment:
@@ -418,7 +422,8 @@ services:
 
   # Homer SIP Capture
   homer:
-    image: sipcapture/homer-webapp:latest
+    image: sipcapture/homer-app:latest
+    platform: linux/amd64
     container_name: homer
     restart: unless-stopped
     ports:
@@ -447,6 +452,7 @@ services:
 
   heplify-server:
     image: sipcapture/heplify-server:latest
+    platform: linux/amd64
     container_name: heplify-server
     restart: unless-stopped
     ports:
@@ -464,32 +470,33 @@ services:
       - acm-network
 
   # ==========================================================================
-  # NCC COMPLIANCE SERVICES (disabled - build context not available)
+  # NCC COMPLIANCE SERVICES
+  # Note: Requires ncc-compliance/sftp-uploader directory with Dockerfile
   # ==========================================================================
 
-  # # Daily SFTP Uploader (runs as cron)
-  # ncc-sftp-uploader:
-  #   build:
-  #     context: ../../ncc-compliance/sftp-uploader
-  #     dockerfile: Dockerfile
-  #   image: acm/ncc-sftp:2.0
-  #   container_name: ncc-sftp-uploader
-  #   restart: unless-stopped
-  #   environment:
-  #     NCC_SFTP_HOST: ${NCC_SFTP_HOST:-sftp.ncc.gov.ng}
-  #     NCC_SFTP_PORT: 22
-  #     NCC_SFTP_USER: ${NCC_SFTP_USER:-}
-  #     NCC_ICL_LICENSE: ${NCC_ICL_LICENSE:-}
-  #     CLICKHOUSE_URL: http://clickhouse:8123
-  #   volumes:
-  #     - ncc-keys:/etc/acm/keys:ro
-  #     - ncc-reports:/var/acm/reports
-  #   depends_on:
-  #     - clickhouse
-  #   networks:
-  #     - acm-network
-  #   # Runs daily at 01:00 AM WAT
-  #   entrypoint: ["crond", "-f"]
+  ncc-sftp-uploader:
+    build:
+      context: ../../ncc-compliance/sftp-uploader
+      dockerfile: Dockerfile
+    image: acm/ncc-sftp:2.0
+    platform: linux/amd64
+    container_name: ncc-sftp-uploader
+    restart: unless-stopped
+    environment:
+      NCC_SFTP_HOST: ${NCC_SFTP_HOST:-sftp.ncc.gov.ng}
+      NCC_SFTP_PORT: 22
+      NCC_SFTP_USER: ${NCC_SFTP_USER:-}
+      NCC_ICL_LICENSE: ${NCC_ICL_LICENSE:-}
+      CLICKHOUSE_URL: http://clickhouse:8123
+    volumes:
+      - ncc-keys:/etc/acm/keys:ro
+      - ncc-reports:/var/acm/reports
+    depends_on:
+      - clickhouse
+    networks:
+      - acm-network
+    # Runs daily at 01:00 AM WAT
+    entrypoint: ["crond", "-f"]
 
 # ==========================================================================
 # NETWORKS
