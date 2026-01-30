@@ -1,0 +1,7 @@
+version: 3
+endpoint: http://localhost:8082
+admin_secret: acm_hasura_secret
+metadata_directory: metadata
+actions:
+  kind: synchronous
+  handler_webhook_baseurl: http://management-api:8081

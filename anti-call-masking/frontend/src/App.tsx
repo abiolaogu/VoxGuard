@@ -1,65 +1,150 @@
-import { ReactNode } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Layout } from './components/Layout';
-import { ErrorBoundary } from './components/ErrorBoundary';
-import { Dashboard } from './pages/Dashboard';
-import { Alerts } from './pages/Alerts';
-import { AlertDetail } from './pages/AlertDetail';
-import { Analytics } from './pages/Analytics';
-import { Settings } from './pages/Settings';
-import { Users } from './pages/Users';
-import { Login } from './pages/Login';
-import { useAuthStore } from './stores/authStore';
+import { Refine, Authenticated } from '@refinedev/core';
+import { RefineKbar, RefineKbarProvider } from '@refinedev/kbar';
+import {
+  ThemedLayoutV2,
+  ThemedSiderV2,
+  useNotificationProvider,
+  ErrorComponent,
+} from '@refinedev/antd';
+import routerBindings, {
+  CatchAllNavigate,
+  DocumentTitleHandler,
+  NavigateToResource,
+  UnsavedChangesNotifier,
+} from '@refinedev/react-router-v6';
+import { BrowserRouter, Routes, Route, Outlet } from 'react-router-dom';
+import { ApolloProvider } from '@apollo/client';
+import { App as AntdApp, ConfigProvider } from 'antd';
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      refetchInterval: 5000,
-      staleTime: 1000,
-      retry: 2,
-      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
-    },
-  },
-});
+// Providers
+import { authProvider, acmDataProvider, liveProvider, accessControlProvider, apolloClient } from './providers';
 
-function ProtectedRoute({ children }: { children: ReactNode }) {
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
-  }
-  return <>{children}</>;
+// Config
+import { resources, refineOptions } from './config/refine';
+import { lightTheme, darkTheme } from './config/antd-theme';
+
+// Layout Components
+import { Header } from './components/layout/Header';
+import { Title } from './components/layout/Title';
+
+// Pages
+import { DashboardPage } from './pages/dashboard';
+import { LoginPage } from './pages/login';
+
+// Resources
+import { AlertList, AlertShow, AlertEdit } from './resources/alerts';
+import { UserList, UserShow, UserCreate, UserEdit } from './resources/users';
+import { AnalyticsPage } from './resources/analytics';
+import { SettingsPage } from './resources/settings';
+
+// Hooks
+import { useThemeMode } from './hooks/useThemeMode';
+
+// Ant Design styles
+import '@refinedev/antd/dist/reset.css';
+
+function AppContent() {
+  const { mode } = useThemeMode();
+  const theme = mode === 'dark' ? darkTheme : lightTheme;
+
+  return (
+    <ConfigProvider theme={theme}>
+      <AntdApp>
+        <BrowserRouter>
+          <Refine
+            dataProvider={acmDataProvider}
+            authProvider={authProvider}
+            liveProvider={liveProvider}
+            accessControlProvider={accessControlProvider}
+            routerProvider={routerBindings}
+            notificationProvider={useNotificationProvider}
+            resources={resources}
+            options={refineOptions}
+          >
+            <Routes>
+              {/* Public Routes */}
+              <Route
+                element={
+                  <Authenticated
+                    key="auth-outer"
+                    fallback={<Outlet />}
+                  >
+                    <NavigateToResource resource="dashboard" />
+                  </Authenticated>
+                }
+              >
+                <Route path="/login" element={<LoginPage />} />
+              </Route>
+
+              {/* Protected Routes */}
+              <Route
+                element={
+                  <Authenticated
+                    key="auth-inner"
+                    fallback={<CatchAllNavigate to="/login" />}
+                  >
+                    <ThemedLayoutV2
+                      Header={() => <Header />}
+                      Sider={() => (
+                        <ThemedSiderV2
+                          Title={({ collapsed }) => (
+                            <Title collapsed={collapsed} />
+                          )}
+                          fixed
+                        />
+                      )}
+                    >
+                      <Outlet />
+                    </ThemedLayoutV2>
+                  </Authenticated>
+                }
+              >
+                {/* Dashboard */}
+                <Route index element={<NavigateToResource resource="dashboard" />} />
+                <Route path="/dashboard" element={<DashboardPage />} />
+
+                {/* Alerts */}
+                <Route path="/alerts">
+                  <Route index element={<AlertList />} />
+                  <Route path="show/:id" element={<AlertShow />} />
+                  <Route path="edit/:id" element={<AlertEdit />} />
+                </Route>
+
+                {/* Users */}
+                <Route path="/users">
+                  <Route index element={<UserList />} />
+                  <Route path="show/:id" element={<UserShow />} />
+                  <Route path="create" element={<UserCreate />} />
+                  <Route path="edit/:id" element={<UserEdit />} />
+                </Route>
+
+                {/* Analytics */}
+                <Route path="/analytics" element={<AnalyticsPage />} />
+
+                {/* Settings */}
+                <Route path="/settings" element={<SettingsPage />} />
+
+                {/* Catch All */}
+                <Route path="*" element={<ErrorComponent />} />
+              </Route>
+            </Routes>
+
+            <RefineKbar />
+            <UnsavedChangesNotifier />
+            <DocumentTitleHandler />
+          </Refine>
+        </BrowserRouter>
+      </AntdApp>
+    </ConfigProvider>
+  );
 }
 
 export default function App() {
   return (
-    <ErrorBoundary>
-      <QueryClientProvider client={queryClient}>
-        <BrowserRouter>
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route
-              path="/*"
-              element={
-                <ProtectedRoute>
-                  <Layout>
-                    <ErrorBoundary>
-                      <Routes>
-                        <Route path="/" element={<Dashboard />} />
-                        <Route path="/alerts" element={<Alerts />} />
-                        <Route path="/alerts/:id" element={<AlertDetail />} />
-                        <Route path="/analytics" element={<Analytics />} />
-                        <Route path="/settings" element={<Settings />} />
-                        <Route path="/users" element={<Users />} />
-                      </Routes>
-                    </ErrorBoundary>
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-          </Routes>
-        </BrowserRouter>
-      </QueryClientProvider>
-    </ErrorBoundary>
+    <ApolloProvider client={apolloClient}>
+      <RefineKbarProvider>
+        <AppContent />
+      </RefineKbarProvider>
+    </ApolloProvider>
   );
 }

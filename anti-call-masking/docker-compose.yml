@@ -178,7 +178,7 @@ services:
       - "5433:5433"   # YSQL
       - "9000:9000"   # Master web UI
       - "9042:9042"   # YCQL
-      - "7000:7000"   # Master RPC
+      - "7100:7000"   # Master RPC (remapped from 7000 to avoid macOS AirPlay conflict)
     command: >
       bin/yugabyted start
       --base_dir=/home/yugabyte/yb_data
@@ -195,11 +195,11 @@ services:
     networks:
       - acm-network
     healthcheck:
-      test: ["CMD", "bin/ysqlsh", "-U", "yugabyte", "-d", "yugabyte", "-c", "SELECT 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 60s
+      test: ["CMD-SHELL", "pgrep -x yb-tserver > /dev/null && pgrep -x postgres > /dev/null"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 90s
     deploy:
       resources:
         limits:
@@ -288,6 +288,58 @@ services:
         reservations:
           cpus: '2'
           memory: 4G
+
+  # ==========================================================================
+  # HASURA GRAPHQL ENGINE
+  # ==========================================================================
+  hasura:
+    image: hasura/graphql-engine:v2.36.0
+    container_name: hasura
+    restart: unless-stopped
+    ports:
+      - "8082:8080"
+    environment:
+      ## PostgreSQL database URL (YugabyteDB)
+      HASURA_GRAPHQL_DATABASE_URL: postgres://opensips:${YUGABYTE_PASSWORD:-acm_secure_2026}@yugabyte:5433/opensips
+      ## Enable the console served by server
+      HASURA_GRAPHQL_ENABLE_CONSOLE: "true"
+      ## Enable debugging mode
+      HASURA_GRAPHQL_DEV_MODE: "true"
+      ## Admin secret for console access
+      HASURA_GRAPHQL_ADMIN_SECRET: ${HASURA_ADMIN_SECRET:-acm_hasura_secret}
+      ## JWT authentication
+      HASURA_GRAPHQL_JWT_SECRET: '{"type":"HS256", "key":"${JWT_SECRET:-change_me_in_production_32_chars!}"}'
+      ## Unauthorized role
+      HASURA_GRAPHQL_UNAUTHORIZED_ROLE: anonymous
+      ## Enable WebSocket subscriptions
+      HASURA_GRAPHQL_ENABLE_REMOTE_SCHEMA_PERMISSIONS: "true"
+      ## CORS settings
+      HASURA_GRAPHQL_CORS_DOMAIN: "*"
+      ## Logging
+      HASURA_GRAPHQL_ENABLED_LOG_TYPES: startup, http-log, webhook-log, websocket-log, query-log
+      ## Metadata directory
+      HASURA_GRAPHQL_METADATA_DIR: /hasura-metadata
+    volumes:
+      - ../../hasura/metadata:/hasura-metadata:ro
+    depends_on:
+      yugabyte:
+        condition: service_healthy
+    networks:
+      - acm-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '1'
+          memory: 1G
 
   # ==========================================================================
   # MANAGEMENT API (Go)

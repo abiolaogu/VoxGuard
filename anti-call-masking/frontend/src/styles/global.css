@@ -1,0 +1,221 @@
+/* ACM Admin Dashboard - Global Styles */
+
+/* Font imports */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+/* CSS Variables for ACM Brand */
+:root {
+  /* Primary Colors */
+  --acm-primary: #1B4F72;
+  --acm-primary-light: #2E86AB;
+  --acm-primary-dark: #154360;
+
+  /* Secondary Colors */
+  --acm-secondary: #17A2B8;
+  --acm-secondary-light: #20C997;
+  --acm-secondary-dark: #138496;
+
+  /* Accent Colors */
+  --acm-accent: #E67E22;
+  --acm-accent-light: #F39C12;
+  --acm-accent-dark: #D35400;
+
+  /* Status Colors */
+  --acm-success: #28A745;
+  --acm-warning: #FFC107;
+  --acm-error: #DC3545;
+  --acm-info: #17A2B8;
+
+  /* Severity Colors */
+  --acm-critical: #DC3545;
+  --acm-high: #E67E22;
+  --acm-medium: #FFC107;
+  --acm-low: #17A2B8;
+
+  /* Neutrals */
+  --acm-background: #F8F9FA;
+  --acm-surface: #FFFFFF;
+  --acm-text-primary: #212529;
+  --acm-text-secondary: #6C757D;
+  --acm-border: #DEE2E6;
+}
+
+/* Dark mode variables */
+[data-theme='dark'] {
+  --acm-background: #141414;
+  --acm-surface: #1F1F1F;
+  --acm-text-primary: #FFFFFF;
+  --acm-text-secondary: #A0A0A0;
+  --acm-border: #303030;
+}
+
+/* Global resets and base styles */
+* {
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 14px;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--acm-background);
+  color: var(--acm-text-primary);
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--acm-background);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--acm-border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--acm-text-secondary);
+}
+
+/* Ant Design overrides */
+.ant-layout {
+  background: var(--acm-background);
+}
+
+.ant-layout-sider {
+  background: var(--acm-primary-dark) !important;
+}
+
+.ant-menu-dark {
+  background: transparent !important;
+}
+
+.ant-card {
+  border-radius: 8px;
+}
+
+/* ACM specific utility classes */
+.acm-page-header {
+  margin-bottom: 24px;
+}
+
+.acm-stats-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.acm-stats-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Severity badges */
+.acm-severity-critical {
+  background-color: var(--acm-critical);
+  color: white;
+}
+
+.acm-severity-high {
+  background-color: var(--acm-high);
+  color: white;
+}
+
+.acm-severity-medium {
+  background-color: var(--acm-medium);
+  color: black;
+}
+
+.acm-severity-low {
+  background-color: var(--acm-low);
+  color: white;
+}
+
+/* Status badges */
+.acm-status-new {
+  background-color: var(--acm-info);
+  color: white;
+}
+
+.acm-status-investigating {
+  background-color: var(--acm-warning);
+  color: black;
+}
+
+.acm-status-confirmed {
+  background-color: var(--acm-error);
+  color: white;
+}
+
+.acm-status-resolved {
+  background-color: var(--acm-success);
+  color: white;
+}
+
+.acm-status-false-positive {
+  background-color: var(--acm-text-secondary);
+  color: white;
+}
+
+/* Animation utilities */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.acm-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.acm-fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* Responsive utilities */
+@media (max-width: 768px) {
+  .acm-hide-mobile {
+    display: none !important;
+  }
+}
+
+@media (min-width: 769px) {
+  .acm-hide-desktop {
+    display: none !important;
+  }
+}
+
+/* Print styles */
+@media print {
+  .ant-layout-sider,
+  .ant-layout-header {
+    display: none !important;
+  }
+
+  .ant-layout-content {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+}

@@ -1,0 +1,171 @@
+# ACM Tables for Hasura tracking
+# These tables should be tracked in Hasura console
+
+# Alerts table
+- table:
+    name: acm_alerts
+    schema: public
+  select_permissions:
+    - role: admin
+      permission:
+        columns: "*"
+        filter: {}
+    - role: analyst
+      permission:
+        columns: "*"
+        filter: {}
+    - role: developer
+      permission:
+        columns:
+          - id
+          - b_number
+          - a_number
+          - severity
+          - status
+          - threat_score
+          - detection_type
+          - carrier_name
+          - created_at
+          - updated_at
+        filter: {}
+    - role: viewer
+      permission:
+        columns:
+          - id
+          - b_number
+          - severity
+          - status
+          - threat_score
+          - created_at
+        filter: {}
+  update_permissions:
+    - role: admin
+      permission:
+        columns:
+          - status
+          - notes
+          - assigned_to
+          - updated_at
+        filter: {}
+    - role: analyst
+      permission:
+        columns:
+          - status
+          - notes
+          - assigned_to
+          - updated_at
+        filter: {}
+
+# Users table
+- table:
+    name: acm_users
+    schema: public
+  select_permissions:
+    - role: admin
+      permission:
+        columns: "*"
+        filter: {}
+    - role: analyst
+      permission:
+        columns:
+          - id
+          - name
+          - email
+          - role
+          - is_active
+        filter: {}
+  insert_permissions:
+    - role: admin
+      permission:
+        columns:
+          - name
+          - email
+          - role
+          - is_active
+  update_permissions:
+    - role: admin
+      permission:
+        columns:
+          - name
+          - email
+          - role
+          - is_active
+          - updated_at
+        filter: {}
+  delete_permissions:
+    - role: admin
+      permission:
+        filter: {}
+
+# Settings table
+- table:
+    name: acm_settings
+    schema: public
+  select_permissions:
+    - role: admin
+      permission:
+        columns: "*"
+        filter: {}
+    - role: analyst
+      permission:
+        columns:
+          - id
+          - key
+          - value
+          - description
+          - category
+        filter:
+          is_sensitive:
+            _eq: false
+    - role: developer
+      permission:
+        columns:
+          - id
+          - key
+          - value
+          - description
+          - category
+        filter:
+          is_sensitive:
+            _eq: false
+  update_permissions:
+    - role: admin
+      permission:
+        columns:
+          - value
+          - updated_at
+          - updated_by
+        filter: {}
+
+# Alert audit logs table
+- table:
+    name: acm_alert_audit_logs
+    schema: public
+  select_permissions:
+    - role: admin
+      permission:
+        columns: "*"
+        filter: {}
+    - role: analyst
+      permission:
+        columns: "*"
+        filter: {}
+  insert_permissions:
+    - role: admin
+      permission:
+        columns:
+          - alert_id
+          - action
+          - user_id
+          - user_name
+          - old_value
+          - new_value
+    - role: analyst
+      permission:
+        columns:
+          - alert_id
+          - action
+          - user_id
+          - user_name
+          - old_value
+          - new_value
