@@ -1,269 +1,150 @@
-import React, { useState } from 'react';
-import { Refine } from '@refinedev/core';
-import { RefineKbarProvider } from '@refinedev/kbar';
-import { ThemedLayoutV2, notificationProvider, RefineThemes } from '@refinedev/antd';
-import { App as AntApp, ConfigProvider, theme as antTheme, Switch, Space, Typography } from 'antd';
-import { BrowserRouter, Routes, Route, Outlet } from 'react-router-dom';
-import { AnimatePresence } from 'framer-motion';
+import { Refine, Authenticated } from '@refinedev/core';
+import { RefineKbar, RefineKbarProvider } from '@refinedev/kbar';
 import {
-    DashboardOutlined,
-    AlertOutlined,
-    PhoneOutlined,
-    ApiOutlined,
-    FileTextOutlined,
-    SettingOutlined,
-    MoonOutlined,
-    SunOutlined,
-    SafetyOutlined,
-    GlobalOutlined,
-} from '@ant-design/icons';
+  ThemedLayoutV2,
+  ThemedSiderV2,
+  useNotificationProvider,
+  ErrorComponent,
+} from '@refinedev/antd';
+import routerBindings, {
+  CatchAllNavigate,
+  DocumentTitleHandler,
+  NavigateToResource,
+  UnsavedChangesNotifier,
+} from '@refinedev/react-router-v6';
+import { BrowserRouter, Routes, Route, Outlet } from 'react-router-dom';
+import { ApolloProvider } from '@apollo/client';
+import { App as AntdApp, ConfigProvider } from 'antd';
 
-import { hasuraDataProvider as dataProvider } from './providers/dataProvider';
-import { liveProvider } from './providers/liveProvider';
-import { authProvider } from './providers/authProvider';
-import { lovableTheme, lovableDarkTheme } from './theme';
-import { ErrorBoundary } from './components/feedback';
-import { PageTransition } from './components/animations';
+// Providers
+import { authProvider, acmDataProvider, liveProvider, accessControlProvider, apolloClient } from './providers';
+
+// Config
+import { resources, refineOptions } from './config/refine';
+import { lightTheme, darkTheme } from './config/antd-theme';
+
+// Layout Components
 import { Header } from './components/layout/Header';
-import { Sider } from './components/layout/Sider';
+import { Title } from './components/layout/Title';
 
-// Pages - Anti-Masking Only
-import Dashboard from './pages/dashboard';
-import { FraudAlertList, FraudAlertShow } from './pages/anti-masking/fraud-alerts';
-import { CallList, CallShow } from './pages/anti-masking/calls';
-import { GatewayList, GatewayCreate, GatewayEdit } from './pages/anti-masking/gateways';
-import { Login } from './pages/auth/login';
+// Pages
+import { DashboardPage } from './pages/dashboard';
+import { LoginPage } from './pages/login';
 
-// Pages - Fraud Prevention
-import FraudPreventionDashboard from './pages/fraud-prevention';
-import { CLIVerificationList, CLIVerificationShow } from './pages/fraud-prevention/cli-integrity';
-import { IRSFIncidentsList, IRSFDestinationsList } from './pages/fraud-prevention/irsf';
-import { WangiriIncidentsList, WangiriCampaignsList } from './pages/fraud-prevention/wangiri';
+// Resources
+import { AlertList, AlertShow, AlertEdit } from './resources/alerts';
+import { UserList, UserShow, UserCreate, UserEdit } from './resources/users';
+import { AnalyticsPage } from './resources/analytics';
+import { SettingsPage } from './resources/settings';
 
+// Hooks
+import { useThemeMode } from './hooks/useThemeMode';
+
+// Ant Design styles
 import '@refinedev/antd/dist/reset.css';
-import './styles/index.css';
 
-const { Text } = Typography;
+function AppContent() {
+  const { mode } = useThemeMode();
+  const theme = mode === 'dark' ? darkTheme : lightTheme;
 
-// Dark mode context
-const ThemeContext = React.createContext<{
-    isDarkMode: boolean;
-    toggleDarkMode: () => void;
-}>({
-    isDarkMode: false,
-    toggleDarkMode: () => { },
-});
+  return (
+    <ConfigProvider theme={theme}>
+      <AntdApp>
+        <BrowserRouter>
+          <Refine
+            dataProvider={acmDataProvider}
+            authProvider={authProvider}
+            liveProvider={liveProvider}
+            accessControlProvider={accessControlProvider}
+            routerProvider={routerBindings}
+            notificationProvider={useNotificationProvider}
+            resources={resources}
+            options={refineOptions}
+          >
+            <Routes>
+              {/* Public Routes */}
+              <Route
+                element={
+                  <Authenticated
+                    key="auth-outer"
+                    fallback={<Outlet />}
+                  >
+                    <NavigateToResource resource="dashboard" />
+                  </Authenticated>
+                }
+              >
+                <Route path="/login" element={<LoginPage />} />
+              </Route>
 
-export const useTheme = () => React.useContext(ThemeContext);
+              {/* Protected Routes */}
+              <Route
+                element={
+                  <Authenticated
+                    key="auth-inner"
+                    fallback={<CatchAllNavigate to="/login" />}
+                  >
+                    <ThemedLayoutV2
+                      Header={() => <Header />}
+                      Sider={() => (
+                        <ThemedSiderV2
+                          Title={({ collapsed }) => (
+                            <Title collapsed={collapsed} />
+                          )}
+                          fixed
+                        />
+                      )}
+                    >
+                      <Outlet />
+                    </ThemedLayoutV2>
+                  </Authenticated>
+                }
+              >
+                {/* Dashboard */}
+                <Route index element={<NavigateToResource resource="dashboard" />} />
+                <Route path="/dashboard" element={<DashboardPage />} />
 
-// Theme toggle component for header
-export const ThemeToggle: React.FC = () => {
-    const { isDarkMode, toggleDarkMode } = useTheme();
+                {/* Alerts */}
+                <Route path="/alerts">
+                  <Route index element={<AlertList />} />
+                  <Route path="show/:id" element={<AlertShow />} />
+                  <Route path="edit/:id" element={<AlertEdit />} />
+                </Route>
 
-    return (
-        <Space>
-            <SunOutlined style={{ color: isDarkMode ? '#666' : '#faad14' }} />
-            <Switch
-                checked={isDarkMode}
-                onChange={toggleDarkMode}
-                size="small"
-                style={{ backgroundColor: isDarkMode ? '#1890ff' : undefined }}
-            />
-            <MoonOutlined style={{ color: isDarkMode ? '#1890ff' : '#666' }} />
-        </Space>
-    );
-};
+                {/* Users */}
+                <Route path="/users">
+                  <Route index element={<UserList />} />
+                  <Route path="show/:id" element={<UserShow />} />
+                  <Route path="create" element={<UserCreate />} />
+                  <Route path="edit/:id" element={<UserEdit />} />
+                </Route>
 
-// Layout wrapper with animations
-const AnimatedLayout: React.FC = () => {
-    return (
-        <ThemedLayoutV2
-            Header={() => <Header />}
-            Sider={() => <Sider />}
-        >
-            <AnimatePresence mode="wait">
-                <PageTransition>
-                    <ErrorBoundary>
-                        <Outlet />
-                    </ErrorBoundary>
-                </PageTransition>
-            </AnimatePresence>
-        </ThemedLayoutV2>
-    );
-};
+                {/* Analytics */}
+                <Route path="/analytics" element={<AnalyticsPage />} />
 
-const App: React.FC = () => {
-    const [isDarkMode, setIsDarkMode] = useState(false);
+                {/* Settings */}
+                <Route path="/settings" element={<SettingsPage />} />
 
-    const toggleDarkMode = () => {
-        setIsDarkMode((prev) => !prev);
-    };
+                {/* Catch All */}
+                <Route path="*" element={<ErrorComponent />} />
+              </Route>
+            </Routes>
 
-    const currentTheme = isDarkMode ? lovableDarkTheme : lovableTheme;
+            <RefineKbar />
+            <UnsavedChangesNotifier />
+            <DocumentTitleHandler />
+          </Refine>
+        </BrowserRouter>
+      </AntdApp>
+    </ConfigProvider>
+  );
+}
 
-    return (
-        <ThemeContext.Provider value={{ isDarkMode, toggleDarkMode }}>
-            <BrowserRouter>
-                <ConfigProvider
-                    theme={{
-                        ...currentTheme,
-                        algorithm: isDarkMode ? antTheme.darkAlgorithm : antTheme.defaultAlgorithm,
-                    }}
-                >
-                    <AntApp>
-                        <RefineKbarProvider>
-                            <Refine
-                                dataProvider={dataProvider}
-                                liveProvider={liveProvider}
-                                authProvider={authProvider}
-                                notificationProvider={notificationProvider}
-                                routerProvider={{} as any}
-                                options={{
-                                    syncWithLocation: true,
-                                    warnWhenUnsavedChanges: true,
-                                    liveMode: 'auto',
-                                }}
-                                resources={[
-                                    {
-                                        name: 'dashboard',
-                                        list: '/dashboard',
-                                        meta: {
-                                            label: 'Dashboard',
-                                            icon: <DashboardOutlined />,
-                                        },
-                                    },
-                                    // Anti-Masking Resources
-                                    {
-                                        name: 'fraud-alerts',
-                                        list: '/anti-masking/fraud-alerts',
-                                        show: '/anti-masking/fraud-alerts/:id',
-                                        meta: {
-                                            label: 'Fraud Alerts',
-                                            icon: <AlertOutlined />,
-                                            parent: 'Anti-Masking',
-                                        },
-                                    },
-                                    {
-                                        name: 'calls',
-                                        list: '/anti-masking/calls',
-                                        show: '/anti-masking/calls/:id',
-                                        meta: {
-                                            label: 'Call Log',
-                                            icon: <PhoneOutlined />,
-                                            parent: 'Anti-Masking',
-                                        },
-                                    },
-                                    {
-                                        name: 'gateways',
-                                        list: '/anti-masking/gateways',
-                                        create: '/anti-masking/gateways/create',
-                                        edit: '/anti-masking/gateways/:id/edit',
-                                        meta: {
-                                            label: 'Gateways',
-                                            icon: <ApiOutlined />,
-                                            parent: 'Anti-Masking',
-                                        },
-                                    },
-                                    {
-                                        name: 'reports',
-                                        list: '/anti-masking/reports',
-                                        meta: {
-                                            label: 'Reports',
-                                            icon: <FileTextOutlined />,
-                                            parent: 'Anti-Masking',
-                                        },
-                                    },
-                                    // Fraud Prevention Resources
-                                    {
-                                        name: 'fraud-dashboard',
-                                        list: '/fraud-prevention',
-                                        meta: {
-                                            label: 'Fraud Dashboard',
-                                            icon: <SafetyOutlined />,
-                                            parent: 'Fraud Prevention',
-                                        },
-                                    },
-                                    {
-                                        name: 'cli-verifications',
-                                        list: '/fraud-prevention/cli-integrity',
-                                        show: '/fraud-prevention/cli-integrity/:id',
-                                        meta: {
-                                            label: 'CLI Verifications',
-                                            icon: <SafetyOutlined />,
-                                            parent: 'Fraud Prevention',
-                                        },
-                                    },
-                                    {
-                                        name: 'irsf-incidents',
-                                        list: '/fraud-prevention/irsf',
-                                        meta: {
-                                            label: 'IRSF Detection',
-                                            icon: <GlobalOutlined />,
-                                            parent: 'Fraud Prevention',
-                                        },
-                                    },
-                                    {
-                                        name: 'irsf-destinations',
-                                        list: '/fraud-prevention/irsf/destinations',
-                                        meta: {
-                                            label: 'High-Risk Destinations',
-                                            icon: <GlobalOutlined />,
-                                            parent: 'Fraud Prevention',
-                                        },
-                                    },
-                                    {
-                                        name: 'wangiri-incidents',
-                                        list: '/fraud-prevention/wangiri',
-                                        meta: {
-                                            label: 'Wangiri Detection',
-                                            icon: <PhoneOutlined />,
-                                            parent: 'Fraud Prevention',
-                                        },
-                                    },
-                                    {
-                                        name: 'wangiri-campaigns',
-                                        list: '/fraud-prevention/wangiri/campaigns',
-                                        meta: {
-                                            label: 'Wangiri Campaigns',
-                                            icon: <PhoneOutlined />,
-                                            parent: 'Fraud Prevention',
-                                        },
-                                    },
-                                ]}
-                            >
-                                <Routes>
-                                    <Route path="/login" element={<Login />} />
-                                    <Route element={<AnimatedLayout />}>
-                                        <Route index element={<Dashboard />} />
-                                        <Route path="/dashboard" element={<Dashboard />} />
-
-                                        {/* Anti-Masking Routes */}
-                                        <Route path="/anti-masking/fraud-alerts" element={<FraudAlertList />} />
-                                        <Route path="/anti-masking/fraud-alerts/:id" element={<FraudAlertShow />} />
-                                        <Route path="/anti-masking/calls" element={<CallList />} />
-                                        <Route path="/anti-masking/calls/:id" element={<CallShow />} />
-                                        <Route path="/anti-masking/gateways" element={<GatewayList />} />
-                                        <Route path="/anti-masking/gateways/create" element={<GatewayCreate />} />
-                                        <Route path="/anti-masking/gateways/:id/edit" element={<GatewayEdit />} />
-
-                                        {/* Fraud Prevention Routes */}
-                                        <Route path="/fraud-prevention" element={<FraudPreventionDashboard />} />
-                                        <Route path="/fraud-prevention/cli-integrity" element={<CLIVerificationList />} />
-                                        <Route path="/fraud-prevention/cli-integrity/:id" element={<CLIVerificationShow />} />
-                                        <Route path="/fraud-prevention/irsf" element={<IRSFIncidentsList />} />
-                                        <Route path="/fraud-prevention/irsf/destinations" element={<IRSFDestinationsList />} />
-                                        <Route path="/fraud-prevention/wangiri" element={<WangiriIncidentsList />} />
-                                        <Route path="/fraud-prevention/wangiri/campaigns" element={<WangiriCampaignsList />} />
-                                    </Route>
-                                </Routes>
-                            </Refine>
-                        </RefineKbarProvider>
-                    </AntApp>
-                </ConfigProvider>
-            </BrowserRouter>
-        </ThemeContext.Provider>
-    );
-};
-
-export default App;
-
+export default function App() {
+  return (
+    <ApolloProvider client={apolloClient}>
+      <RefineKbarProvider>
+        <AppContent />
+      </RefineKbarProvider>
+    </ApolloProvider>
+  );
+}

@@ -1,293 +1,259 @@
-import React from 'react';
-import { Row, Col, Card, Typography, Space, Badge, Tooltip, Button, Tabs } from 'antd';
-import { motion, AnimatePresence } from 'framer-motion';
+import { Row, Col, Card, Statistic, Typography, Space, Table, Tag, Badge } from 'antd';
 import {
-    AlertOutlined,
-    PhoneOutlined,
-    DollarOutlined,
-    ShopOutlined,
-    ArrowUpOutlined,
-    ArrowDownOutlined,
-    ReloadOutlined,
-    SettingOutlined,
+  AlertOutlined,
+  CheckCircleOutlined,
+  ExclamationCircleOutlined,
+  ClockCircleOutlined,
 } from '@ant-design/icons';
-import { useList, useSubscription } from '@refinedev/core';
+import { useSubscription, useQuery } from '@apollo/client';
+import { Link } from 'react-router-dom';
+import dayjs from 'dayjs';
+import relativeTime from 'dayjs/plugin/relativeTime';
 
-import { StatCard, StaggerList, StaggerItem, AnimatedCounter, FadeIn } from '@/components/animations';
-import { RealTimeIndicator } from '@/components/shared';
-import { DashboardSkeleton } from '@/components/feedback';
-import { NairaDisplay, formatNaira } from '@/components/nigerian';
-import { staggerContainer, staggerItem } from '@/theme/animations';
+import { UNRESOLVED_ALERTS_COUNT_SUBSCRIPTION } from '../../graphql/subscriptions';
+import { GET_RECENT_ALERTS } from '../../graphql/queries';
+import { VG_COLORS, severityColors, statusColors } from '../../config/antd-theme';
+import { AlertsTrendChart } from './components/AlertsTrendChart';
+import { SeverityPieChart } from './components/SeverityPieChart';
+import { TrafficAreaChart } from './components/TrafficAreaChart';
 
-import CallMaskingStats from './widgets/CallMaskingStats';
-import FraudAlertsFeed from './widgets/FraudAlertsFeed';
-import GatewayHealthGrid from './widgets/GatewayHealthGrid';
-import RemittanceVolume from './widgets/RemittanceVolume';
-import MarketplaceActivity from './widgets/MarketplaceActivity';
+dayjs.extend(relativeTime);
 
 const { Title, Text } = Typography;
 
-// Quick stats configuration
-const useQuickStats = () => {
-    const { data: alertsData, isLoading: alertsLoading } = useList({
-        resource: 'fraud_alerts',
-        filters: [{ field: 'status', operator: 'eq', value: 'PENDING' }],
-        meta: { fields: ['id'] },
-    });
+interface Alert {
+  id: string;
+  b_number: string;
+  a_number: string;
+  severity: string;
+  status: string;
+  threat_score: number;
+  carrier_name: string;
+  created_at: string;
+}
 
-    const { data: callsData, isLoading: callsLoading } = useList({
-        resource: 'call_verifications',
-        filters: [{ field: 'masking_detected', operator: 'eq', value: true }],
-        meta: { fields: ['id'] },
-        pagination: { current: 1, pageSize: 1 },
-    });
+export const DashboardPage: React.FC = () => {
+  // Real-time alert counts
+  const { data: alertCounts, loading: countsLoading } = useSubscription(
+    UNRESOLVED_ALERTS_COUNT_SUBSCRIPTION
+  );
 
-    const { data: txData, isLoading: txLoading } = useList({
-        resource: 'remittance_transactions',
-        filters: [{ field: 'status', operator: 'eq', value: 'COMPLETED' }],
-        pagination: { current: 1, pageSize: 100 },
-        meta: { fields: ['id', 'amount_received'] },
-    });
+  // Recent alerts
+  const { data: recentAlertsData, loading: alertsLoading } = useQuery(GET_RECENT_ALERTS, {
+    variables: { limit: 10 },
+    pollInterval: 10000, // Poll every 10 seconds
+  });
 
-    const { data: listingsData, isLoading: listingsLoading } = useList({
-        resource: 'marketplace_listings',
-        filters: [{ field: 'status', operator: 'eq', value: 'ACTIVE' }],
-        meta: { fields: ['id'] },
-    });
+  const newCount = alertCounts?.new_count?.aggregate?.count || 0;
+  const investigatingCount = alertCounts?.investigating_count?.aggregate?.count || 0;
+  const confirmedCount = alertCounts?.confirmed_count?.aggregate?.count || 0;
+  const criticalCount = alertCounts?.critical_count?.aggregate?.count || 0;
+  const recentAlerts: Alert[] = recentAlertsData?.acm_alerts || [];
 
-    const pendingAlerts = alertsData?.total || 0;
-    const maskedCalls = callsData?.total || 0;
-    const totalRemitted = (txData?.data || []).reduce(
-        (sum: number, tx: any) => sum + (tx.amount_received || 0),
-        0
-    );
-    const activeListings = listingsData?.total || 0;
-
-    return {
-        pendingAlerts,
-        maskedCalls,
-        totalRemitted,
-        activeListings,
-        isLoading: alertsLoading || callsLoading || txLoading || listingsLoading,
-    };
-};
-
-const Dashboard: React.FC = () => {
-    const [lastUpdate, setLastUpdate] = React.useState(new Date());
-    const [isConnected, setIsConnected] = React.useState(true);
-    const { pendingAlerts, maskedCalls, totalRemitted, activeListings, isLoading } = useQuickStats();
-
-    // Subscribe to real-time updates
-    useSubscription({
-        channel: 'fraud_alerts',
-        types: ['created', 'updated'],
-        onLiveEvent: () => {
-            setLastUpdate(new Date());
-        },
-    });
-
-    if (isLoading) {
-        return <DashboardSkeleton />;
-    }
-
-    return (
-        <motion.div
-            initial="hidden"
-            animate="visible"
-            variants={staggerContainer}
-            style={{ padding: 24 }}
+  const alertColumns = [
+    {
+      title: 'Time',
+      dataIndex: 'created_at',
+      key: 'created_at',
+      width: 100,
+      render: (date: string) => (
+        <Text type="secondary" style={{ fontSize: 12 }}>
+          {dayjs(date).fromNow()}
+        </Text>
+      ),
+    },
+    {
+      title: 'B-Number',
+      dataIndex: 'b_number',
+      key: 'b_number',
+      render: (text: string, record: Alert) => (
+        <Link to={`/alerts/show/${record.id}`}>
+          <Text strong>{text}</Text>
+        </Link>
+      ),
+    },
+    {
+      title: 'Severity',
+      dataIndex: 'severity',
+      key: 'severity',
+      width: 100,
+      render: (severity: string) => {
+        const colors = severityColors[severity] || severityColors.LOW;
+        return (
+          <Tag
+            style={{
+              backgroundColor: colors.background,
+              color: colors.color,
+              border: 'none',
+            }}
+          >
+            {severity}
+          </Tag>
+        );
+      },
+    },
+    {
+      title: 'Status',
+      dataIndex: 'status',
+      key: 'status',
+      width: 120,
+      render: (status: string) => {
+        const colors = statusColors[status] || statusColors.NEW;
+        return (
+          <Tag
+            style={{
+              backgroundColor: colors.background,
+              color: colors.color,
+              border: 'none',
+            }}
+          >
+            {status.replace('_', ' ')}
+          </Tag>
+        );
+      },
+    },
+    {
+      title: 'Score',
+      dataIndex: 'threat_score',
+      key: 'threat_score',
+      width: 80,
+      render: (score: number) => (
+        <Text
+          style={{
+            color: score >= 80 ? VG_COLORS.critical : score >= 60 ? VG_COLORS.high : VG_COLORS.medium,
+            fontWeight: 600,
+          }}
         >
-            {/* Header */}
-            <motion.div variants={staggerItem}>
-                <Row justify="space-between" align="middle" style={{ marginBottom: 24 }}>
-                    <Col>
-                        <Space direction="vertical" size={0}>
-                            <Title level={3} style={{ margin: 0 }}>
-                                Dashboard
-                            </Title>
-                            <Text type="secondary">
-                                Welcome back! Here's what's happening today.
-                            </Text>
-                        </Space>
-                    </Col>
-                    <Col>
-                        <Space>
-                            <RealTimeIndicator isConnected={isConnected} lastUpdate={lastUpdate} />
-                            <Button type="text" icon={<ReloadOutlined />} onClick={() => window.location.reload()}>
-                                Refresh
-                            </Button>
-                            <Button type="text" icon={<SettingOutlined />} />
-                        </Space>
-                    </Col>
-                </Row>
-            </motion.div>
+          {score}%
+        </Text>
+      ),
+    },
+  ];
 
-            {/* Quick Stats */}
-            <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-                <Col xs={24} sm={12} lg={6}>
-                    <motion.div variants={staggerItem}>
-                        <StatCard
-                            title="Pending Alerts"
-                            value={pendingAlerts}
-                            prefix={<AlertOutlined />}
-                            color={pendingAlerts > 0 ? 'error' : 'success'}
-                            trend={
-                                pendingAlerts > 0
-                                    ? { value: 12, direction: 'up' }
-                                    : undefined
-                            }
-                        />
-                    </motion.div>
-                </Col>
-                <Col xs={24} sm={12} lg={6}>
-                    <motion.div variants={staggerItem}>
-                        <StatCard
-                            title="Masked Calls"
-                            value={maskedCalls}
-                            prefix={<PhoneOutlined />}
-                            color={maskedCalls > 10 ? 'warning' : 'primary'}
-                            trend={{ value: 8, direction: 'down' }}
-                        />
-                    </motion.div>
-                </Col>
-                <Col xs={24} sm={12} lg={6}>
-                    <motion.div variants={staggerItem}>
-                        <StatCard
-                            title="Volume (NGN)"
-                            value={formatNaira(totalRemitted, { decimals: 0 })}
-                            prefix={<DollarOutlined />}
-                            color="success"
-                            trend={{ value: 23, direction: 'up' }}
-                        />
-                    </motion.div>
-                </Col>
-                <Col xs={24} sm={12} lg={6}>
-                    <motion.div variants={staggerItem}>
-                        <StatCard
-                            title="Active Listings"
-                            value={activeListings}
-                            prefix={<ShopOutlined />}
-                            color="primary"
-                            trend={{ value: 5, direction: 'up' }}
-                        />
-                    </motion.div>
-                </Col>
-            </Row>
+  return (
+    <div className="acm-fade-in">
+      <div className="acm-page-header">
+        <Title level={3} style={{ marginBottom: 4 }}>
+          Dashboard
+        </Title>
+        <Text type="secondary">Real-time monitoring of call masking detection</Text>
+      </div>
 
-            {/* Main Content */}
-            <Row gutter={[16, 16]}>
-                {/* Left Column */}
-                <Col xs={24} lg={16}>
-                    <StaggerList staggerDelay={0.1}>
-                        {/* Call Masking Stats */}
-                        <StaggerItem>
-                            <Card
-                                title={
-                                    <Space>
-                                        <PhoneOutlined />
-                                        <span>Call Masking Detection</span>
-                                        <Badge
-                                            count="Live"
-                                            style={{
-                                                backgroundColor: '#52c41a',
-                                                fontSize: 10,
-                                                height: 18,
-                                                lineHeight: '18px',
-                                            }}
-                                        />
-                                    </Space>
-                                }
-                                style={{ marginBottom: 16, borderRadius: 12 }}
-                                bodyStyle={{ padding: 16 }}
-                            >
-                                <CallMaskingStats />
-                            </Card>
-                        </StaggerItem>
+      {/* Stats Cards */}
+      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+        <Col xs={24} sm={12} lg={6}>
+          <Card className="acm-stats-card" bordered={false}>
+            <Statistic
+              title="New Alerts"
+              value={newCount}
+              loading={countsLoading}
+              prefix={<AlertOutlined style={{ color: VG_COLORS.info }} />}
+              valueStyle={{ color: VG_COLORS.info }}
+            />
+          </Card>
+        </Col>
 
-                        {/* Gateway Health */}
-                        <StaggerItem>
-                            <Card
-                                title={
-                                    <Space>
-                                        <span>Gateway Health</span>
-                                    </Space>
-                                }
-                                style={{ marginBottom: 16, borderRadius: 12 }}
-                                bodyStyle={{ padding: 16 }}
-                            >
-                                <GatewayHealthGrid />
-                            </Card>
-                        </StaggerItem>
+        <Col xs={24} sm={12} lg={6}>
+          <Card className="acm-stats-card" bordered={false}>
+            <Statistic
+              title="Critical Alerts"
+              value={criticalCount}
+              loading={countsLoading}
+              prefix={<ExclamationCircleOutlined style={{ color: VG_COLORS.critical }} />}
+              valueStyle={{ color: VG_COLORS.critical }}
+              suffix={
+                criticalCount > 0 && (
+                  <Badge status="processing" style={{ marginLeft: 8 }} />
+                )
+              }
+            />
+          </Card>
+        </Col>
 
-                        {/* Tabs for Remittance & Marketplace */}
-                        <StaggerItem>
-                            <Card style={{ borderRadius: 12 }} bodyStyle={{ padding: 0 }}>
-                                <Tabs
-                                    defaultActiveKey="remittance"
-                                    style={{ padding: '0 16px' }}
-                                    items={[
-                                        {
-                                            key: 'remittance',
-                                            label: (
-                                                <Space>
-                                                    <DollarOutlined />
-                                                    Remittance Volume
-                                                </Space>
-                                            ),
-                                            children: (
-                                                <div style={{ padding: '16px 0' }}>
-                                                    <RemittanceVolume />
-                                                </div>
-                                            ),
-                                        },
-                                        {
-                                            key: 'marketplace',
-                                            label: (
-                                                <Space>
-                                                    <ShopOutlined />
-                                                    Marketplace Activity
-                                                </Space>
-                                            ),
-                                            children: (
-                                                <div style={{ padding: '16px 0' }}>
-                                                    <MarketplaceActivity />
-                                                </div>
-                                            ),
-                                        },
-                                    ]}
-                                />
-                            </Card>
-                        </StaggerItem>
-                    </StaggerList>
-                </Col>
+        <Col xs={24} sm={12} lg={6}>
+          <Card className="acm-stats-card" bordered={false}>
+            <Statistic
+              title="Investigating"
+              value={investigatingCount}
+              loading={countsLoading}
+              prefix={<ClockCircleOutlined style={{ color: VG_COLORS.warning }} />}
+              valueStyle={{ color: VG_COLORS.warning }}
+            />
+          </Card>
+        </Col>
 
-                {/* Right Column - Alerts Feed */}
-                <Col xs={24} lg={8}>
-                    <motion.div variants={staggerItem}>
-                        <Card
-                            title={
-                                <Space>
-                                    <AlertOutlined style={{ color: '#ff4d4f' }} />
-                                    <span>Live Fraud Alerts</span>
-                                    {pendingAlerts > 0 && (
-                                        <Badge
-                                            count={pendingAlerts}
-                                            overflowCount={99}
-                                            style={{ backgroundColor: '#ff4d4f' }}
-                                        />
-                                    )}
-                                </Space>
-                            }
-                            style={{ borderRadius: 12, height: '100%' }}
-                            bodyStyle={{ padding: 0, maxHeight: 600, overflow: 'auto' }}
-                        >
-                            <FraudAlertsFeed />
-                        </Card>
-                    </motion.div>
-                </Col>
-            </Row>
-        </motion.div>
-    );
+        <Col xs={24} sm={12} lg={6}>
+          <Card className="acm-stats-card" bordered={false}>
+            <Statistic
+              title="Confirmed"
+              value={confirmedCount}
+              loading={countsLoading}
+              prefix={<CheckCircleOutlined style={{ color: VG_COLORS.error }} />}
+              valueStyle={{ color: VG_COLORS.error }}
+            />
+          </Card>
+        </Col>
+      </Row>
+
+      {/* Charts Row */}
+      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+        <Col xs={24} lg={16}>
+          <Card
+            title="Alert Trends (24h)"
+            bordered={false}
+            extra={
+              <Space>
+                <Badge color={VG_COLORS.critical} text="Critical" />
+                <Badge color={VG_COLORS.high} text="High" />
+                <Badge color={VG_COLORS.medium} text="Medium" />
+              </Space>
+            }
+          >
+            <AlertsTrendChart />
+          </Card>
+        </Col>
+
+        <Col xs={24} lg={8}>
+          <Card title="Alerts by Severity" bordered={false}>
+            <SeverityPieChart />
+          </Card>
+        </Col>
+      </Row>
+
+      {/* Traffic and Recent Alerts */}
+      <Row gutter={[16, 16]}>
+        <Col xs={24} lg={12}>
+          <Card title="Traffic Overview" bordered={false}>
+            <TrafficAreaChart />
+          </Card>
+        </Col>
+
+        <Col xs={24} lg={12}>
+          <Card
+            title="Recent Alerts"
+            bordered={false}
+            extra={
+              <Link to="/alerts">
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  View All &rarr;
+                </Text>
+              </Link>
+            }
+          >
+            <Table
+              dataSource={recentAlerts}
+              columns={alertColumns}
+              rowKey="id"
+              pagination={false}
+              size="small"
+              loading={alertsLoading}
+              scroll={{ x: true }}
+            />
+          </Card>
+        </Col>
+      </Row>
+    </div>
+  );
 };
 
-export default Dashboard;
+export default DashboardPage;

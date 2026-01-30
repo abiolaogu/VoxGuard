@@ -4,12 +4,12 @@ on:
   push:
     branches: [main, develop]
     paths:
-      - 'packages/flutter/**'
+      - 'packages/mobile/**'
       - 'packages/shared/**'
   pull_request:
     branches: [main, develop]
     paths:
-      - 'packages/flutter/**'
+      - 'packages/mobile/**'
       - 'packages/shared/**'
 
 jobs:
@@ -29,36 +29,36 @@ jobs:
           
       - name: Get dependencies
         run: |
-          cd packages/flutter
+          cd packages/mobile
           flutter pub get
           
       - name: Generate code
         run: |
-          cd packages/flutter
+          cd packages/mobile
           dart run build_runner build --delete-conflicting-outputs
           
       - name: Analyze
         run: |
-          cd packages/flutter
+          cd packages/mobile
           flutter analyze
           
       - name: Test
         run: |
-          cd packages/flutter
+          cd packages/mobile
           flutter test --coverage
           
       - name: Build Android APK
         run: |
-          cd packages/flutter
+          cd packages/mobile
           flutter build apk --release
           
       - name: Build iOS (no codesign)
         run: |
-          cd packages/flutter
+          cd packages/mobile
           flutter build ios --no-codesign
           
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: flutter-apk
-          path: packages/flutter/build/app/outputs/flutter-apk/app-release.apk
+          path: packages/mobile/build/app/outputs/flutter-apk/app-release.apk
