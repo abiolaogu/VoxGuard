@@ -1,4 +1,4 @@
-# Anti-Call Masking Platform Monorepo
+# VoxGuard Platform Monorepo
 
 .PHONY: help install dev build test lint clean docker codegen
 
@@ -9,7 +9,7 @@ BLUE   := \033[0;34m
 NC     := \033[0m
 
 help: ## Display this help
-	@echo "$(BLUE)Anti-Call Masking Platform - Monorepo Commands$(NC)"
+	@echo "$(BLUE)VoxGuard Platform - Monorepo Commands$(NC)"
 	@echo ""
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "$(GREEN)%-20s$(NC) %s\n", $$1, $$2}'
 
@@ -42,8 +42,8 @@ dev: ## Start all development servers
 dev-web: ## Start web development server
 	pnpm dev:web
 
-dev-flutter: ## Start Flutter development
-	cd packages/flutter && flutter run
+dev-mobile: ## Start mobile development
+	cd packages/mobile && flutter run
 
 dev-android: ## Start Android development
 	cd packages/android && ./gradlew run
@@ -61,8 +61,8 @@ build: ## Build all packages
 build-web: ## Build web package
 	pnpm build:web
 
-build-flutter: ## Build Flutter for all platforms
-	cd packages/flutter && flutter build apk && flutter build ios --no-codesign
+build-mobile: ## Build mobile for all platforms
+	cd packages/mobile && flutter build apk && flutter build ios --no-codesign
 
 build-android: ## Build Android release
 	cd packages/android && ./gradlew assembleRelease
@@ -78,10 +78,10 @@ test: ## Run all tests
 	pnpm test
 
 test-web: ## Run web tests
-	pnpm --filter @acm/web test
+	pnpm --filter @voxguard/web test
 
-test-flutter: ## Run Flutter tests
-	cd packages/flutter && flutter test
+test-mobile: ## Run mobile tests
+	cd packages/mobile && flutter test
 
 test-android: ## Run Android tests
 	cd packages/android && ./gradlew test
@@ -139,16 +139,16 @@ docker-clean: ## Remove all Docker volumes
 # ============================================================================
 
 hasura-console: ## Open Hasura console
-	cd backend/hasura && hasura console
+	cd hasura && hasura console
 
 hasura-migrate: ## Apply Hasura migrations
-	cd backend/hasura && hasura migrate apply --all-databases
+	cd hasura && hasura migrate apply --all-databases
 
 hasura-metadata: ## Apply Hasura metadata
-	cd backend/hasura && hasura metadata apply
+	cd hasura && hasura metadata apply
 
 hasura-seed: ## Seed Hasura database
-	cd backend/hasura && hasura seed apply
+	cd hasura && hasura seed apply
 
 # ============================================================================
 # Deployment
@@ -168,7 +168,7 @@ deploy-production: ## Deploy to production (all platforms)
 
 clean: ## Clean all build artifacts
 	pnpm clean
-	cd packages/flutter && flutter clean 2>/dev/null || true
+	cd packages/mobile && flutter clean 2>/dev/null || true
 	cd packages/android && ./gradlew clean 2>/dev/null || true
 	rm -rf node_modules .turbo
 

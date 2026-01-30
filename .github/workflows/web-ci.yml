@@ -45,16 +45,16 @@ jobs:
         run: pnpm install --frozen-lockfile
         
       - name: Lint
-        run: pnpm --filter @acm/web lint
+        run: pnpm --filter @voxguard/web lint
         
       - name: Type check
-        run: pnpm --filter @acm/web type-check
+        run: pnpm --filter @voxguard/web type-check
         
       - name: Test
-        run: pnpm --filter @acm/web test
+        run: pnpm --filter @voxguard/web test
         
       - name: Build
-        run: pnpm --filter @acm/web build
+        run: pnpm --filter @voxguard/web build
         
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4

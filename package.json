@@ -1,8 +1,8 @@
 {
-    "name": "anti-call-masking-platform",
+    "name": "voxguard-platform",
     "version": "1.0.0",
     "private": true,
-    "description": "Anti-Call Masking Platform - Enterprise DDD Monorepo",
+    "description": "VoxGuard Platform - Enterprise DDD Monorepo for Voice Network Fraud Detection",
     "repository": {
         "type": "git",
         "url": "https://github.com/abiolaogu/Anti_Call-Masking.git"
@@ -17,20 +17,20 @@
     "scripts": {
         "prepare": "husky install",
         "dev": "pnpm -r --parallel run dev",
-        "dev:web": "pnpm --filter @acm/web dev",
+        "dev:web": "pnpm --filter @voxguard/web dev",
         "build": "pnpm -r run build",
-        "build:web": "pnpm --filter @acm/web build",
+        "build:web": "pnpm --filter @voxguard/web build",
         "test": "pnpm -r run test",
         "test:coverage": "pnpm -r run test:coverage",
         "lint": "pnpm -r run lint",
         "lint:fix": "pnpm -r run lint:fix",
         "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
         "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\"",
-        "codegen": "pnpm --filter @acm/codegen generate",
-        "codegen:watch": "pnpm --filter @acm/codegen generate:watch",
-        "hasura:console": "cd backend/hasura && hasura console",
-        "hasura:migrate": "cd backend/hasura && hasura migrate apply",
-        "hasura:metadata": "cd backend/hasura && hasura metadata apply",
+        "codegen": "pnpm --filter @voxguard/codegen generate",
+        "codegen:watch": "pnpm --filter @voxguard/codegen generate:watch",
+        "hasura:console": "cd hasura && hasura console",
+        "hasura:migrate": "cd hasura && hasura migrate apply",
+        "hasura:metadata": "cd hasura && hasura metadata apply",
         "docker:up": "docker-compose -f infrastructure/docker/docker-compose.yml up -d",
         "docker:down": "docker-compose -f infrastructure/docker/docker-compose.yml down",
         "clean": "pnpm -r exec rm -rf node_modules dist .next .turbo"
