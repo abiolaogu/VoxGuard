@@ -25,7 +25,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "PBFA97CFB590B2093"
       },
       "fieldConfig": {
         "defaults": {
@@ -62,7 +62,7 @@
       "pluginVersion": "10.2.0",
       "targets": [
         {
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
           "expr": "sum(acm_alerts_total{severity=\"CRITICAL\"})",
           "legendFormat": "Critical Alerts",
           "refId": "A"
@@ -74,7 +74,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "PBFA97CFB590B2093"
       },
       "fieldConfig": {
         "defaults": {
@@ -109,7 +109,7 @@
       "pluginVersion": "10.2.0",
       "targets": [
         {
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
           "expr": "sum(acm_alerts_total)",
           "legendFormat": "Total Alerts",
           "refId": "A"
@@ -121,7 +121,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "PBFA97CFB590B2093"
       },
       "fieldConfig": {
         "defaults": {
@@ -154,7 +154,7 @@
       "pluginVersion": "10.2.0",
       "targets": [
         {
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
           "expr": "sum(rate(acm_calls_processed_total[5m]))",
           "legendFormat": "Calls/sec",
           "refId": "A"
@@ -166,7 +166,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "PBFA97CFB590B2093"
       },
       "fieldConfig": {
         "defaults": {
@@ -201,7 +201,7 @@
       "pluginVersion": "10.2.0",
       "targets": [
         {
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
           "expr": "acm_detection_accuracy",
           "legendFormat": "Accuracy",
           "refId": "A"
@@ -213,7 +213,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "PBFA97CFB590B2093"
       },
       "fieldConfig": {
         "defaults": {
@@ -270,19 +270,19 @@
       "pluginVersion": "10.2.0",
       "targets": [
         {
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
           "expr": "sum(rate(acm_alerts_total{severity=\"CRITICAL\"}[5m])) * 60",
           "legendFormat": "Critical",
           "refId": "A"
         },
         {
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
           "expr": "sum(rate(acm_alerts_total{severity=\"HIGH\"}[5m])) * 60",
           "legendFormat": "High",
           "refId": "B"
         },
         {
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
           "expr": "sum(rate(acm_alerts_total{severity=\"MEDIUM\"}[5m])) * 60",
           "legendFormat": "Medium",
           "refId": "C"
@@ -294,7 +294,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "PBFA97CFB590B2093"
       },
       "fieldConfig": {
         "defaults": {
@@ -317,7 +317,7 @@
       "pluginVersion": "10.2.0",
       "targets": [
         {
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
           "expr": "sum(acm_alerts_total) by (carrier)",
           "legendFormat": "{{carrier}}",
           "refId": "A"
@@ -329,7 +329,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "PBFA97CFB590B2093"
       },
       "fieldConfig": {
         "defaults": {
@@ -352,7 +352,7 @@
       "pluginVersion": "10.2.0",
       "targets": [
         {
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
           "expr": "sum(acm_alerts_total) by (detection_type)",
           "legendFormat": "{{detection_type}}",
           "refId": "A"
@@ -364,7 +364,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "PBFA97CFB590B2093"
       },
       "fieldConfig": {
         "defaults": {
@@ -395,7 +395,7 @@
       "pluginVersion": "10.2.0",
       "targets": [
         {
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
           "expr": "topk(10, sum(acm_alerts_total) by (b_number))",
           "format": "table",
           "legendFormat": "",
@@ -418,7 +418,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "PBFA97CFB590B2093"
       },
       "fieldConfig": {
         "defaults": {
@@ -462,7 +462,7 @@
       "pluginVersion": "10.2.0",
       "targets": [
         {
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
           "expr": "sum(increase(acm_calls_processed_total[1h])) by (hour)",
           "legendFormat": "Calls",
           "refId": "A"
@@ -479,7 +479,7 @@
     "list": [
       {
         "current": { "selected": false, "text": "All", "value": "$__all" },
-        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
         "definition": "label_values(acm_alerts_total, carrier)",
         "hide": 0,
         "includeAll": true,
