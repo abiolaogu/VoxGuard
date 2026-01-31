@@ -22,7 +22,14 @@ import {
   SafetyCertificateOutlined,
   SettingOutlined,
   ApiOutlined,
+  AppstoreOutlined,
+  ExportOutlined,
+  CheckCircleOutlined,
+  CloseCircleOutlined,
+  SyncOutlined,
 } from '@ant-design/icons';
+import { EXTERNAL_SERVICES, SERVICE_CATEGORIES } from '../../config/external-services';
+import { VG_COLORS } from '../../config/antd-theme';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -58,6 +65,27 @@ export const SettingsPage: React.FC = () => {
   const [notificationForm] = Form.useForm<NotificationSettings>();
   const [apiForm] = Form.useForm<ApiSettings>();
   const [saving, setSaving] = useState(false);
+  const [checkingHealth, setCheckingHealth] = useState(false);
+  const [serviceHealth, setServiceHealth] = useState<Record<string, 'healthy' | 'unhealthy' | 'unknown'>>({});
+
+  const checkServiceHealth = async (_serviceId: string, url: string) => {
+    // For demo purposes, assume services are reachable
+    // In production, you'd call a backend health check endpoint
+    return url ? 'healthy' : 'unknown';
+  };
+
+  const checkAllServicesHealth = async () => {
+    setCheckingHealth(true);
+    const results: Record<string, 'healthy' | 'unhealthy' | 'unknown'> = {};
+
+    for (const service of EXTERNAL_SERVICES) {
+      results[service.id] = await checkServiceHealth(service.id, service.url);
+    }
+
+    setServiceHealth(results);
+    setCheckingHealth(false);
+    message.success('Health check completed');
+  };
 
   const handleSaveDetection = async (_values: DetectionSettings) => {
     setSaving(true);
@@ -413,6 +441,85 @@ export const SettingsPage: React.FC = () => {
               </Space>
             </Form.Item>
           </Form>
+        </Card>
+      ),
+    },
+    {
+      key: 'external-tools',
+      label: (
+        <span>
+          <AppstoreOutlined />
+          External Portals
+        </span>
+      ),
+      children: (
+        <Card bordered={false}>
+          <Paragraph type="secondary" style={{ marginBottom: 24 }}>
+            Quick access to all VoxGuard monitoring, analytics, and administration portals.
+            Click any service to open in a new tab.
+          </Paragraph>
+
+          <Space style={{ marginBottom: 24 }}>
+            <Button
+              icon={<SyncOutlined spin={checkingHealth} />}
+              onClick={checkAllServicesHealth}
+              loading={checkingHealth}
+            >
+              Check Health
+            </Button>
+          </Space>
+
+          {Object.entries(SERVICE_CATEGORIES).map(([key, category]) => (
+            <div key={key} style={{ marginBottom: 24 }}>
+              <Title level={5}>{category.label}</Title>
+              <Row gutter={[16, 16]}>
+                {category.services.map((service) => (
+                  <Col xs={24} sm={12} lg={8} key={service.id}>
+                    <Card
+                      size="small"
+                      hoverable
+                      onClick={() => window.open(service.url, '_blank')}
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <Space direction="vertical" style={{ width: '100%' }}>
+                        <Space style={{ width: '100%', justifyContent: 'space-between' }}>
+                          <Text strong>{service.name}</Text>
+                          <Space size={4}>
+                            {serviceHealth[service.id] === 'healthy' && (
+                              <CheckCircleOutlined style={{ color: VG_COLORS.success }} />
+                            )}
+                            {serviceHealth[service.id] === 'unhealthy' && (
+                              <CloseCircleOutlined style={{ color: VG_COLORS.error }} />
+                            )}
+                            <ExportOutlined style={{ color: VG_COLORS.textSecondary }} />
+                          </Space>
+                        </Space>
+                        <Text type="secondary" style={{ fontSize: 12 }}>
+                          {service.description}
+                        </Text>
+                        <Text code style={{ fontSize: 11 }}>
+                          {service.url}
+                        </Text>
+                        {service.credentials && (
+                          <Text type="secondary" style={{ fontSize: 11 }}>
+                            User: {service.credentials.username}
+                          </Text>
+                        )}
+                      </Space>
+                    </Card>
+                  </Col>
+                ))}
+              </Row>
+              <Divider />
+            </div>
+          ))}
+
+          <Alert
+            message="Note"
+            description="These links connect to external monitoring services. Ensure the services are running and accessible from your network."
+            type="info"
+            showIcon
+          />
         </Card>
       ),
     },

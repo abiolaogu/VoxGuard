@@ -1,9 +1,14 @@
-import { Row, Col, Card, Statistic, Typography, Space, Table, Tag, Badge } from 'antd';
+import { Row, Col, Card, Statistic, Typography, Space, Table, Tag, Badge, Button, Tooltip } from 'antd';
 import {
   AlertOutlined,
   CheckCircleOutlined,
   ExclamationCircleOutlined,
   ClockCircleOutlined,
+  LineChartOutlined,
+  DatabaseOutlined,
+  PhoneOutlined,
+  AppstoreOutlined,
+  ExportOutlined,
 } from '@ant-design/icons';
 import { useSubscription, useQuery } from '@apollo/client';
 import { Link } from 'react-router-dom';
@@ -13,9 +18,42 @@ import relativeTime from 'dayjs/plugin/relativeTime';
 import { UNRESOLVED_ALERTS_COUNT_SUBSCRIPTION } from '../../graphql/subscriptions';
 import { GET_RECENT_ALERTS } from '../../graphql/queries';
 import { VG_COLORS, severityColors, statusColors } from '../../config/antd-theme';
+import { EXTERNAL_SERVICES, generateDeepLink } from '../../config/external-services';
 import { AlertsTrendChart } from './components/AlertsTrendChart';
 import { SeverityPieChart } from './components/SeverityPieChart';
 import { TrafficAreaChart } from './components/TrafficAreaChart';
+
+// Quick access external links for dashboard
+const quickLinks = [
+  {
+    key: 'grafana',
+    label: 'Grafana',
+    icon: <LineChartOutlined />,
+    url: EXTERNAL_SERVICES.find((s) => s.id === 'grafana')?.url || '#',
+    color: VG_COLORS.primary,
+  },
+  {
+    key: 'prometheus',
+    label: 'Alerts',
+    icon: <ExclamationCircleOutlined />,
+    url: generateDeepLink.prometheus.alerts(),
+    color: VG_COLORS.warning,
+  },
+  {
+    key: 'questdb',
+    label: 'Analytics',
+    icon: <DatabaseOutlined />,
+    url: EXTERNAL_SERVICES.find((s) => s.id === 'questdb')?.url || '#',
+    color: VG_COLORS.success,
+  },
+  {
+    key: 'homer',
+    label: 'SIP Traces',
+    icon: <PhoneOutlined />,
+    url: EXTERNAL_SERVICES.find((s) => s.id === 'homer')?.url || '#',
+    color: VG_COLORS.high,
+  },
+];
 
 dayjs.extend(relativeTime);
 
@@ -194,6 +232,32 @@ export const DashboardPage: React.FC = () => {
           </Card>
         </Col>
       </Row>
+
+      {/* Quick Access Links */}
+      <Card
+        size="small"
+        bordered={false}
+        style={{ marginBottom: 24 }}
+        bodyStyle={{ padding: '12px 16px' }}
+      >
+        <Space size="middle" wrap>
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            <AppstoreOutlined /> Quick Access:
+          </Text>
+          {quickLinks.map((link) => (
+            <Tooltip key={link.key} title={`Open ${link.label} in new tab`}>
+              <Button
+                size="small"
+                icon={link.icon}
+                onClick={() => window.open(link.url, '_blank')}
+                style={{ borderColor: link.color, color: link.color }}
+              >
+                {link.label} <ExportOutlined style={{ fontSize: 10 }} />
+              </Button>
+            </Tooltip>
+          ))}
+        </Space>
+      </Card>
 
       {/* Charts Row */}
       <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>

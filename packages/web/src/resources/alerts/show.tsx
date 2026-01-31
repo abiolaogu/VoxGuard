@@ -25,6 +25,7 @@ import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
 
 import { VG_COLORS, severityColors, statusColors } from '../../config/antd-theme';
+import { ExternalToolsLinks } from '../../components/common/ExternalToolsLinks';
 
 const { Text, Paragraph } = Typography;
 
@@ -273,6 +274,11 @@ export const AlertShow: React.FC = () => {
               )}
             </Space>
           </Card>
+
+          {/* External Analysis Tools */}
+          <div style={{ marginTop: 16 }}>
+            <ExternalToolsLinks alert={alert} />
+          </div>
         </Col>
       </Row>
     </Show>

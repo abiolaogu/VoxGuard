@@ -18,9 +18,11 @@ import {
   MoonOutlined,
 } from '@ant-design/icons';
 import { useSubscription } from '@apollo/client';
+import { useNavigate } from 'react-router-dom';
 import { UNRESOLVED_ALERTS_COUNT_SUBSCRIPTION } from '../../graphql/subscriptions';
 import { useThemeMode } from '../../hooks/useThemeMode';
 import { VG_COLORS } from '../../config/antd-theme';
+import { PortalHub } from './PortalHub';
 
 const { Text } = Typography;
 
@@ -36,6 +38,7 @@ export const Header: React.FC = () => {
   const { data: identity } = useGetIdentity<Identity>();
   const { mutate: logout } = useLogout();
   const { mode, toggleMode } = useThemeMode();
+  const navigate = useNavigate();
 
   // Subscribe to unresolved alerts count
   const { data: alertsData } = useSubscription(UNRESOLVED_ALERTS_COUNT_SUBSCRIPTION);
@@ -70,8 +73,16 @@ export const Header: React.FC = () => {
   ];
 
   const handleMenuClick = ({ key }: { key: string }) => {
-    if (key === 'logout') {
-      logout();
+    switch (key) {
+      case 'logout':
+        logout();
+        break;
+      case 'profile':
+        navigate('/settings');
+        break;
+      case 'settings':
+        navigate('/settings');
+        break;
     }
   };
 
@@ -97,6 +108,9 @@ export const Header: React.FC = () => {
             style={{ fontSize: 18 }}
           />
         </Tooltip>
+
+        {/* Portal Hub - External Tools */}
+        <PortalHub />
 
         {/* Notifications */}
         <Tooltip title={`${unresolvedCount} unresolved alerts`}>
