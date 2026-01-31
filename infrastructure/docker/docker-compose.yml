@@ -398,14 +398,15 @@ services:
     container_name: grafana
     restart: unless-stopped
     ports:
-      - "3001:3000"  # Changed to avoid conflict with VoxGuard frontend
+      - "3003:3000"  # Changed to avoid conflict with VoxGuard frontend and dev server
     environment:
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-acm_grafana_2026}
       GF_INSTALL_PLUGINS: grafana-clickhouse-datasource
     volumes:
       - grafana-data:/var/lib/grafana
-      - ../../monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ../../monitoring/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ../../monitoring/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
       - ../../monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
     depends_on:
       - prometheus
@@ -413,16 +414,16 @@ services:
     networks:
       - acm-network
 
-  # Homer SIP Capture
+  # Homer SIP Capture - HOMER 7 WebApp
   homer:
-    image: sipcapture/homer-webapp:latest
+    image: sipcapture/webapp:latest
     container_name: homer
     restart: unless-stopped
     ports:
-      - "9080:9080"
+      - "9080:80"
     environment:
       DB_HOST: homer-postgres
-      DB_USER: homer
+      DB_USER: homer_user
       DB_PASS: ${HOMER_DB_PASSWORD:-homer_secure_2026}
     depends_on:
       - homer-postgres
@@ -430,13 +431,13 @@ services:
       - acm-network
 
   homer-postgres:
-    image: postgres:15
+    image: postgres:15-alpine
     container_name: homer-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: homer
+      POSTGRES_USER: homer_user
       POSTGRES_PASSWORD: ${HOMER_DB_PASSWORD:-homer_secure_2026}
-      POSTGRES_DB: homer
+      POSTGRES_DB: homer_data
     volumes:
       - homer-pg-data:/var/lib/postgresql/data
     networks:

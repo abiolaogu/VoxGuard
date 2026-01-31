@@ -1,0 +1,116 @@
+groups:
+  - name: voxguard-critical
+    rules:
+      - alert: HighCriticalAlertRate
+        expr: sum(rate(acm_alerts_total{severity="CRITICAL"}[5m])) > 10
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High rate of critical call masking alerts"
+          description: "Critical alert rate is {{ $value | printf \"%.2f\" }} alerts/sec"
+
+      - alert: DetectionEngineDown
+        expr: up{job="acm-detection-engine"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "ACM Detection Engine is down"
+          description: "Detection engine has been unreachable for more than 1 minute"
+
+      - alert: HighCallMaskingRate
+        expr: sum(rate(acm_masked_calls_total[5m])) / sum(rate(acm_calls_processed_total[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High call masking rate detected"
+          description: "{{ $value | printf \"%.2f%%\" }} of calls are being flagged as masked"
+
+  - name: voxguard-warning
+    rules:
+      - alert: ElevatedAlertRate
+        expr: sum(rate(acm_alerts_total{severity=~"HIGH|MEDIUM"}[5m])) > 50
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Elevated alert rate"
+          description: "Alert rate is {{ $value | printf \"%.2f\" }} alerts/sec"
+
+      - alert: DatabaseConnectionIssues
+        expr: acm_db_connection_errors_total > 10
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Database connection errors detected"
+          description: "{{ $value }} connection errors in the last 2 minutes"
+
+      - alert: HighProcessingLatency
+        expr: histogram_quantile(0.95, rate(acm_detection_latency_seconds_bucket[5m])) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High detection processing latency"
+          description: "95th percentile latency is {{ $value | printf \"%.2f\" }}s"
+
+      - alert: CacheHitRateLow
+        expr: rate(acm_cache_hits_total[5m]) / (rate(acm_cache_hits_total[5m]) + rate(acm_cache_misses_total[5m])) < 0.8
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Cache hit rate is low"
+          description: "Cache hit rate is {{ $value | printf \"%.2f%%\" }}"
+
+  - name: voxguard-ncc-compliance
+    rules:
+      - alert: NCCReportingFailure
+        expr: acm_ncc_report_failures_total > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "NCC compliance reporting failures"
+          description: "{{ $value }} NCC report submissions have failed"
+
+      - alert: NCCReportPending
+        expr: time() - acm_ncc_last_report_timestamp > 86400
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "NCC daily report not submitted"
+          description: "Last NCC report was submitted {{ $value | humanizeDuration }} ago"
+
+  - name: voxguard-infrastructure
+    rules:
+      - alert: HighMemoryUsage
+        expr: process_resident_memory_bytes{job="acm-detection-engine"} / 1024 / 1024 / 1024 > 3
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Detection engine high memory usage"
+          description: "Memory usage is {{ $value | printf \"%.2f\" }}GB"
+
+      - alert: DragonflyHighMemory
+        expr: dragonfly_used_memory_bytes / 1024 / 1024 / 1024 > 4
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "DragonflyDB high memory usage"
+          description: "DragonflyDB memory usage is {{ $value | printf \"%.2f\" }}GB"
+
+      - alert: YugabyteReplicationLag
+        expr: yugabyte_replication_lag_seconds > 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "YugabyteDB replication lag"
+          description: "Replication lag is {{ $value | printf \"%.2f\" }}s"

@@ -29,7 +29,7 @@ export const EXTERNAL_SERVICES: ExternalService[] = [
     name: 'Grafana',
     description: 'Metrics dashboards, visualizations, and alerting',
     icon: 'LineChartOutlined',
-    url: getBaseUrl('VITE_GRAFANA_URL', 'http://localhost:3001'),
+    url: getBaseUrl('VITE_GRAFANA_URL', 'http://localhost:3003'),
     category: 'monitoring',
     healthEndpoint: '/api/health',
     credentials: {

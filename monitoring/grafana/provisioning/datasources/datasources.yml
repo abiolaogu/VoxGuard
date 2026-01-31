@@ -1,0 +1,48 @@
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false
+    jsonData:
+      timeInterval: "5s"
+
+  - name: ClickHouse
+    type: grafana-clickhouse-datasource
+    access: proxy
+    url: http://clickhouse:8123
+    editable: false
+    jsonData:
+      defaultDatabase: acm
+    secureJsonData:
+      password: acm_analytics_2026
+
+  - name: QuestDB
+    type: postgres
+    access: proxy
+    url: questdb:8812
+    user: admin
+    editable: false
+    jsonData:
+      sslmode: disable
+      maxOpenConns: 10
+      maxIdleConns: 10
+    secureJsonData:
+      password: quest
+
+  - name: YugabyteDB
+    type: postgres
+    access: proxy
+    url: yugabyte:5433
+    database: opensips
+    user: opensips
+    editable: false
+    jsonData:
+      sslmode: disable
+      maxOpenConns: 10
+      maxIdleConns: 10
+    secureJsonData:
+      password: acm_secure_2026
