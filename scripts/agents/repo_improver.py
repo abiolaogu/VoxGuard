@@ -136,7 +136,7 @@ class RepoImprover:
         }
 
         # Add explicit @claude trigger at the end
-        formatted_body = f"**Automated Analysis:**\n\n{body}\n\n---\n\nAction: @claude implement this fix"
+        formatted_body = f"**Automated Analysis:**\n\n{body}\n\n---\n\n**Action Required:**\n@claude implement this fix based on the analysis above."
 
         # Ensure auto-fix label is included
         issue_labels = labels or []

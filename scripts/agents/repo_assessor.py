@@ -13,6 +13,7 @@ import os
 import json
 import anthropic
 import datetime
+import time
 from pathlib import Path
 
 
@@ -326,7 +327,8 @@ class RepoAssessor:
             }
 
     def create_scope_gap_issue(self, gap):
-        """Create a GitHub issue for a scope gap detected by comparing PRD vs code."""
+        """Create a GitHub issue for a scope gap detected by comparing PRD vs code.
+        Uses 'double-tap' strategy: creates issue then posts comment to trigger workflow."""
         import requests
 
         if not self.github_token:
@@ -344,7 +346,7 @@ class RepoAssessor:
             "Accept": "application/vnd.github.v3+json"
         }
 
-        # Build issue body
+        # Build issue body (without @claude to avoid false triggers)
         issue_body = f"""**Automated PRD-Based Analysis:**
 
 ## Issue Type
@@ -364,17 +366,22 @@ class RepoAssessor:
 
 ---
 
-Action: @claude implement this fix based on the PRD requirements."""
+**Automated Request:**
+@claude please analyze this issue and implement the solution."""
 
         issue_title = f"⚠️ Scope Gap: {gap['feature_name']}"
+
+        # Determine label based on issue type
+        issue_type_label = "bug" if gap['issue_type'] == "BROKEN" else "enhancement"
 
         data = {
             "title": issue_title,
             "body": issue_body,
-            "labels": ["scope-gap", "prd-compliance", "auto-fix"]
+            "labels": ["claude", issue_type_label, "scope-gap", "prd-compliance", "auto-fix"]
         }
 
         try:
+            # Step 1: Create the issue
             response = requests.post(url, headers=headers, json=data)
             if response.status_code == 201:
                 issue_data = response.json()
@@ -390,9 +397,27 @@ Action: @claude implement this fix based on the PRD requirements."""
                     details=f"Created issue #{issue_number}: {issue_title}"
                 )
 
+                # Step 2: Wait 5 seconds (as requested)
+                print(f"⏳ Waiting 5 seconds before posting trigger comment...")
+                time.sleep(5)
+
+                # Step 3: Post a comment to trigger the workflow (double-tap strategy)
+                comment_url = f"https://api.github.com/repos/{github_repo}/issues/{issue_number}/comments"
+                comment_data = {
+                    "body": "@claude start"
+                }
+
+                comment_response = requests.post(comment_url, headers=headers, json=comment_data)
+                if comment_response.status_code == 201:
+                    print(f"✅ Posted trigger comment on issue #{issue_number}")
+                else:
+                    print(f"⚠️ Failed to post trigger comment: {comment_response.status_code}")
+                    print(f"   Response: {comment_response.text}")
+
                 return issue_number
             else:
                 print(f"⚠️ Failed to create issue: {response.status_code}")
+                print(f"   Response: {response.text}")
                 return None
         except Exception as e:
             print(f"❌ Error creating issue: {e}")
