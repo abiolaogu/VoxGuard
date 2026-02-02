@@ -1,0 +1,186 @@
+table:
+  name: acm_gateways
+  schema: public
+configuration:
+  column_config: {}
+  custom_column_names: {}
+  custom_name: gateways
+  custom_root_fields:
+    delete: deleteGateway
+    delete_by_pk: deleteGatewayByPk
+    insert: insertGateway
+    insert_one: insertGatewayOne
+    select: gateways
+    select_aggregate: gatewaysAggregate
+    select_by_pk: gateway
+    update: updateGateway
+    update_by_pk: updateGatewayByPk
+object_relationships:
+  - name: blacklisted_by_user
+    using:
+      foreign_key_constraint_on: blacklisted_by
+  - name: created_by_user
+    using:
+      foreign_key_constraint_on: created_by
+  - name: updated_by_user
+    using:
+      foreign_key_constraint_on: updated_by
+array_relationships:
+  - name: audit_logs
+    using:
+      foreign_key_constraint_on:
+        column: gateway_id
+        table:
+          name: acm_gateway_audit_logs
+          schema: public
+  - name: metrics
+    using:
+      foreign_key_constraint_on:
+        column: gateway_id
+        table:
+          name: acm_gateway_metrics
+          schema: public
+select_permissions:
+  - role: admin
+    permission:
+      columns: "*"
+      filter: {}
+      allow_aggregations: true
+  - role: analyst
+    permission:
+      columns:
+        - id
+        - name
+        - code
+        - ip_address
+        - port
+        - protocol
+        - carrier_name
+        - carrier_type
+        - country_code
+        - region
+        - gateway_type
+        - direction
+        - is_monitored
+        - fraud_threshold
+        - max_concurrent_calls
+        - max_calls_per_second
+        - status
+        - is_blacklisted
+        - blacklist_reason
+        - blacklisted_at
+        - health_status
+        - last_heartbeat
+        - total_calls_today
+        - failed_calls_today
+        - fraud_alerts_today
+        - avg_call_duration_seconds
+        - current_concurrent_calls
+        - peak_concurrent_calls
+        - current_cps
+        - peak_cps
+        - ncc_license_number
+        - license_expiry_date
+        - is_ncc_compliant
+        - technical_contact_name
+        - technical_contact_email
+        - technical_contact_phone
+        - description
+        - tags
+        - created_at
+        - updated_at
+      filter: {}
+      allow_aggregations: true
+  - role: viewer
+    permission:
+      columns:
+        - id
+        - name
+        - code
+        - carrier_name
+        - carrier_type
+        - region
+        - gateway_type
+        - status
+        - is_blacklisted
+        - health_status
+        - total_calls_today
+        - fraud_alerts_today
+        - created_at
+      filter: {}
+      allow_aggregations: true
+insert_permissions:
+  - role: admin
+    permission:
+      check: {}
+      columns:
+        - name
+        - code
+        - ip_address
+        - port
+        - protocol
+        - carrier_name
+        - carrier_type
+        - country_code
+        - region
+        - gateway_type
+        - direction
+        - is_monitored
+        - fraud_threshold
+        - max_concurrent_calls
+        - max_calls_per_second
+        - status
+        - ncc_license_number
+        - license_expiry_date
+        - is_ncc_compliant
+        - technical_contact_name
+        - technical_contact_email
+        - technical_contact_phone
+        - description
+        - configuration
+        - tags
+update_permissions:
+  - role: admin
+    permission:
+      columns:
+        - name
+        - ip_address
+        - port
+        - protocol
+        - carrier_name
+        - carrier_type
+        - region
+        - gateway_type
+        - direction
+        - is_monitored
+        - fraud_threshold
+        - max_concurrent_calls
+        - max_calls_per_second
+        - status
+        - is_blacklisted
+        - blacklist_reason
+        - health_status
+        - ncc_license_number
+        - license_expiry_date
+        - is_ncc_compliant
+        - technical_contact_name
+        - technical_contact_email
+        - technical_contact_phone
+        - description
+        - configuration
+        - tags
+        - updated_at
+      filter: {}
+  - role: analyst
+    permission:
+      columns:
+        - status
+        - is_blacklisted
+        - blacklist_reason
+        - description
+        - updated_at
+      filter: {}
+delete_permissions:
+  - role: admin
+    permission:
+      filter: {}
