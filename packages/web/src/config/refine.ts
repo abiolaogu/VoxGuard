@@ -6,6 +6,7 @@ import {
   UserOutlined,
   BarChartOutlined,
   SettingOutlined,
+  ApiOutlined,
 } from '@ant-design/icons';
 
 // Resource definitions for Refine
@@ -27,6 +28,17 @@ export const resources: ResourceProps[] = [
       label: 'Alerts',
       icon: React.createElement(AlertOutlined),
       canDelete: false,
+    },
+  },
+  {
+    name: 'acm_gateways',
+    list: '/gateways',
+    show: '/gateways/show/:id',
+    create: '/gateways/create',
+    edit: '/gateways/edit/:id',
+    meta: {
+      label: 'Gateways',
+      icon: React.createElement(ApiOutlined),
     },
   },
   {
@@ -73,6 +85,12 @@ export const menuItems = [
     label: 'Alerts',
     route: '/alerts',
     icon: 'AlertOutlined',
+  },
+  {
+    key: 'gateways',
+    label: 'Gateways',
+    route: '/gateways',
+    icon: 'ApiOutlined',
   },
   {
     key: 'users',

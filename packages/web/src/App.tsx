@@ -33,6 +33,7 @@ import { LoginPage } from './pages/login';
 
 // Resources
 import { AlertList, AlertShow, AlertEdit } from './resources/alerts';
+import { GatewayList, GatewayShow, GatewayCreate, GatewayEdit } from './resources/gateways';
 import { UserList, UserShow, UserCreate, UserEdit } from './resources/users';
 import { AnalyticsPage } from './resources/analytics';
 import { SettingsPage } from './resources/settings';
@@ -108,6 +109,14 @@ function AppContent() {
                   <Route index element={<AlertList />} />
                   <Route path="show/:id" element={<AlertShow />} />
                   <Route path="edit/:id" element={<AlertEdit />} />
+                </Route>
+
+                {/* Gateways */}
+                <Route path="/gateways">
+                  <Route index element={<GatewayList />} />
+                  <Route path="show/:id" element={<GatewayShow />} />
+                  <Route path="create" element={<GatewayCreate />} />
+                  <Route path="edit/:id" element={<GatewayEdit />} />
                 </Route>
 
                 {/* Users */}

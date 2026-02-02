@@ -1,0 +1,489 @@
+# VoxGuard - Product Requirements Document
+
+**Version:** 1.0
+**Date:** February 2, 2026
+**Status:** Active
+**Owner:** BillyRonks Global - Factory System
+
+---
+
+## 1. Executive Summary
+
+### 1.1 Product Vision
+VoxGuard is an enterprise-grade Anti-Call Masking (ACM) and SIM-Box Detection platform designed to protect Nigerian telecommunication networks from fraudulent call routing activities. The platform enables Interconnect Clearinghouses (ICLs) to detect, prevent, and report CLI spoofing and SIM-box fraud in real-time, ensuring NCC compliance while maintaining ultra-low latency (<1ms) at massive scale (150,000+ CPS).
+
+### 1.2 Business Objectives
+- **Revenue Protection:** Prevent revenue loss from bypassed interconnect charges
+- **Regulatory Compliance:** Meet NCC 2026 ICL framework requirements
+- **Network Integrity:** Maintain trust in Nigerian telecommunications infrastructure
+- **Operational Excellence:** Provide NOC teams with actionable fraud intelligence
+
+### 1.3 Success Metrics
+| Metric | Target | Priority |
+|--------|--------|----------|
+| Detection Accuracy | >99.5% | P0 |
+| False Positive Rate | <0.5% | P0 |
+| Detection Latency P99 | <1ms | P0 |
+| Throughput | 150,000+ CPS | P0 |
+| System Uptime | 99.99% | P0 |
+| MTTR (Mean Time to Repair) | <15 minutes | P1 |
+| NCC Report Generation | <24 hours | P0 |
+
+---
+
+## 2. Target Users
+
+### 2.1 Primary Users
+1. **Fraud Analysts**
+   - Review and triage fraud alerts
+   - Investigate suspicious patterns
+   - Make gateway blacklisting decisions
+   - Generate compliance reports
+
+2. **NOC Engineers**
+   - Monitor system health
+   - Respond to performance degradation
+   - Manage infrastructure scaling
+   - Configure detection thresholds
+
+3. **NCC Compliance Officers**
+   - Generate regulatory reports
+   - Submit ATRS data
+   - Audit trail verification
+   - Settlement dispute resolution
+
+### 2.2 Secondary Users
+1. **System Administrators** - Platform deployment and maintenance
+2. **Security Analysts** - Threat intelligence and pattern analysis
+3. **Executive Stakeholders** - Business intelligence and KPI dashboards
+
+---
+
+## 3. Core Features
+
+### 3.1 Real-Time Fraud Detection Engine (P0) ✅ IMPLEMENTED
+
+**Status:** Core engine implemented in Rust with DDD architecture
+
+**Current Capabilities:**
+- CLI vs IP validation
+- SIM-Box behavioral detection
+- Sliding window algorithm
+- Gateway blacklisting
+- <1ms P99 latency achieved
+
+**Components:**
+- `services/detection-engine/` - Rust detection engine
+- Domain layer with value objects and aggregates
+- DragonflyDB cache adapter
+- QuestDB time-series adapter
+- YugabyteDB relational adapter
+
+**Gaps:**
+- STIR/SHAKEN verification not implemented
+- ML-based detection models not integrated
+- Advanced behavioral analytics limited
+
+---
+
+### 3.2 Management API & Dashboard (P0) ⚠️ PARTIAL
+
+**Status:** Go API implemented with 4 bounded contexts, Dashboard missing
+
+**Implemented:**
+- Gateway management API (`services/management-api/`)
+- RESTful endpoints for CRUD operations
+- Repository pattern with interfaces
+- 4 bounded contexts: Gateway, Fraud, MNP, Compliance
+
+**Missing (CRITICAL):**
+- **Web Dashboard** - No frontend UI exists
+- Real-time alert visualization
+- Interactive fraud investigation tools
+- Gateway blacklist management UI
+- Compliance reporting interface
+- System health monitoring dashboards
+
+**Priority:** **P0 - CRITICAL GAP**
+
+---
+
+### 3.3 SIP Processing Pipeline (P0) ✅ IMPLEMENTED
+
+**Status:** Python-based SIP processor operational
+
+**Current Capabilities:**
+- SIP message parsing
+- CDR ingestion
+- Domain-driven design implementation
+- Event bus for cross-context communication
+- ML inference engine (XGBoost)
+
+**Location:** `services/sip-processor/`
+
+---
+
+### 3.4 NCC Compliance & Reporting (P0) ⚠️ PARTIAL
+
+**Status:** Backend API exists, automation incomplete
+
+**Implemented:**
+- Compliance bounded context in Go API
+- Database schema for NCC reports
+- Settlement dispute entities
+
+**Missing:**
+- ATRS API integration
+- Automated daily SFTP CDR uploads
+- Report generation automation
+- Dispute resolution workflow
+
+**Priority:** **P0 - High Regulatory Risk**
+
+---
+
+### 3.5 Multi-Region Deployment (P1) ❌ NOT IMPLEMENTED
+
+**Status:** Architecture designed, not deployed
+
+**Requirements:**
+- Lagos (Primary): 3x OpenSIPS, Primary databases
+- Abuja (Replica): 1x OpenSIPS, Read replicas
+- Asaba (Replica): 1x OpenSIPS, Read replicas
+- DragonflyDB replication
+- YugabyteDB distributed leaders
+
+**Priority:** **P1 - Required for Production**
+
+---
+
+### 3.6 Advanced ML Detection (P1) ⚠️ PARTIAL
+
+**Status:** XGBoost model exists, integration incomplete
+
+**Implemented:**
+- ML inference engine in Python (`app/inference/`)
+- Feature extraction pipeline
+- Model loading infrastructure
+
+**Missing:**
+- Real-time model integration with detection engine
+- Model retraining pipeline
+- A/B testing framework
+- Model performance monitoring
+
+**Priority:** **P1 - Accuracy Enhancement**
+
+---
+
+### 3.7 Observability & Monitoring (P0) ⚠️ PARTIAL
+
+**Status:** Basic metrics, comprehensive observability missing
+
+**Implemented:**
+- Prometheus metrics endpoints
+- Basic health checks
+- Log aggregation setup
+
+**Missing:**
+- **Grafana Dashboards** - No pre-configured dashboards
+- Distributed tracing (Jaeger/Tempo)
+- Alert rules and notification channels
+- SLA monitoring and reporting
+- Performance profiling tools
+
+**Priority:** **P0 - Operational Blindness**
+
+---
+
+### 3.8 Voice Switch Integration (P0) ⚠️ PARTIAL
+
+**Status:** Integration code exists, not production-ready
+
+**Implemented:**
+- OpenSIPS integration code (`integration/voice-switch-im/`)
+- Basic fraud handler in Go
+- Call routing logic
+
+**Missing:**
+- Production-grade OpenSIPS configuration
+- Failover and redundancy
+- Load balancing across detection engines
+- Rate limiting and backpressure handling
+
+**Priority:** **P0 - Cannot Process Real Traffic**
+
+---
+
+### 3.9 Security & Access Control (P1) ❌ NOT IMPLEMENTED
+
+**Requirements:**
+- Role-Based Access Control (RBAC)
+- API authentication (JWT)
+- Audit logging for sensitive operations
+- Encryption at rest and in transit
+- Secret management (Vault integration)
+
+**Priority:** **P1 - Security Risk**
+
+---
+
+### 3.10 Data Retention & Archival (P1) ❌ NOT IMPLEMENTED
+
+**Requirements:**
+- 7-year audit trail retention (NCC requirement)
+- Cold storage archival strategy
+- Data compression and partitioning
+- GDPR-compliant data deletion
+- Backup and disaster recovery
+
+**Priority:** **P1 - Compliance Risk**
+
+---
+
+## 4. Technical Architecture
+
+### 4.1 Technology Stack
+| Component | Technology | Status |
+|-----------|------------|--------|
+| Detection Engine | Rust 1.75+ | ✅ Implemented |
+| Management API | Go 1.22+ | ✅ Implemented |
+| SIP Processor | Python 3.11+ | ✅ Implemented |
+| Cache Layer | DragonflyDB | ✅ Configured |
+| Time-Series DB | QuestDB | ✅ Configured |
+| Relational DB | YugabyteDB | ✅ Configured |
+| Message Queue | (TBD) | ❌ Missing |
+| API Gateway | (TBD) | ❌ Missing |
+| Frontend | React/TypeScript | ❌ Missing |
+
+### 4.2 Architecture Principles
+- **Domain-Driven Design (DDD)** - Rich domain models
+- **Hexagonal Architecture** - Ports & adapters pattern
+- **Event-Driven Architecture** - Domain events for communication
+- **CQRS** - Separated command and query paths
+- **Test-Driven Development** - Comprehensive test coverage
+
+### 4.3 Performance Requirements
+- **Latency:** P99 < 1ms for fraud detection
+- **Throughput:** 150,000+ calls per second
+- **Time-Series Ingestion:** 1.5M rows/sec
+- **Cache Hit Rate:** >99%
+- **Database Write Latency:** <10ms
+
+---
+
+## 5. Feature Prioritization & Roadmap
+
+### 5.1 Immediate Priorities (Sprint 1-2)
+
+#### **P0-1: Web Dashboard Development** 🚨 HIGHEST PRIORITY
+**Why Critical:**
+- No way for fraud analysts to view alerts
+- No operational visibility into system health
+- Cannot demonstrate platform to stakeholders
+- Blocking user acceptance testing
+
+**Scope:**
+- React/TypeScript dashboard
+- Real-time fraud alert list
+- Gateway management interface
+- System health metrics
+- Basic user authentication
+
+**Estimated Effort:** 2-3 weeks
+
+---
+
+#### P0-2: NCC Compliance Automation
+**Why Critical:**
+- Regulatory requirement with legal penalties
+- Manual reporting is error-prone
+- ATRS API integration mandatory
+
+**Scope:**
+- ATRS API client implementation
+- Automated daily CDR SFTP uploads
+- Report generation scheduler
+- Audit trail verification
+
+**Estimated Effort:** 2 weeks
+
+---
+
+#### P0-3: Voice Switch Production Hardening
+**Why Critical:**
+- Cannot process production traffic
+- No failover or redundancy
+- Missing backpressure handling
+
+**Scope:**
+- Production OpenSIPS configuration
+- Load balancer setup
+- Health check endpoints
+- Circuit breaker implementation
+
+**Estimated Effort:** 1-2 weeks
+
+---
+
+### 5.2 Secondary Priorities (Sprint 3-4)
+
+#### P1-1: Observability & Monitoring
+- Pre-configured Grafana dashboards
+- Distributed tracing setup
+- Alert rule configuration
+- SLA monitoring
+
+#### P1-2: Multi-Region Deployment
+- Infrastructure as Code (Terraform)
+- DragonflyDB replication setup
+- YugabyteDB distributed configuration
+- Regional load balancing
+
+#### P1-3: Advanced ML Integration
+- Real-time model inference pipeline
+- Model retraining automation
+- A/B testing framework
+
+---
+
+### 5.3 Future Enhancements (Sprint 5+)
+
+#### P2-1: Security Hardening
+- RBAC implementation
+- Secret management (Vault)
+- Penetration testing
+- Security audit
+
+#### P2-2: Data Retention & Archival
+- 7-year retention strategy
+- Cold storage implementation
+- Backup automation
+
+#### P2-3: Advanced Analytics
+- Fraud trend analysis
+- Predictive threat modeling
+- Revenue impact dashboard
+
+---
+
+## 6. Non-Functional Requirements
+
+### 6.1 Performance
+- Sub-millisecond fraud detection
+- Linear scalability to 200K+ CPS
+- Zero-downtime deployments
+- <10ms database write latency
+
+### 6.2 Reliability
+- 99.99% uptime SLA
+- Automatic failover within 30 seconds
+- Data replication across 3 availability zones
+- <15 minute MTTR
+
+### 6.3 Security
+- TLS 1.3 for all external communication
+- API authentication via JWT
+- Role-based access control
+- Audit logging for compliance
+
+### 6.4 Compliance
+- NCC 2026 ICL Framework adherence
+- 7-year audit trail retention
+- GDPR data protection
+- ISO 27001 alignment
+
+### 6.5 Scalability
+- Horizontal scaling of detection engines
+- Database sharding support
+- Cache clustering
+- Microservices architecture
+
+---
+
+## 7. Dependencies & Constraints
+
+### 7.1 External Dependencies
+- NCC ATRS API availability
+- OpenSIPS integration partners
+- Nigerian operator MNP databases
+- Cloud infrastructure providers
+
+### 7.2 Technical Constraints
+- Rust 1.75+ for detection engine
+- Go 1.22+ for management API
+- Python 3.11+ for SIP processor
+- PostgreSQL-compatible database
+
+### 7.3 Regulatory Constraints
+- NCC compliance deadlines
+- Data residency requirements (Nigerian data centers)
+- Privacy regulations
+- Audit trail immutability
+
+---
+
+## 8. Success Criteria & Acceptance
+
+### 8.1 MVP Acceptance Criteria
+- [ ] Web dashboard operational with real-time alerts
+- [ ] 99%+ detection accuracy on test dataset
+- [ ] <1ms P99 detection latency
+- [ ] 150,000 CPS throughput demonstrated
+- [ ] NCC ATRS integration functional
+- [ ] Multi-region deployment operational
+- [ ] 99.9% uptime over 30-day period
+
+### 8.2 Production Readiness Checklist
+- [ ] Load testing passed (200K CPS peak)
+- [ ] Security audit completed
+- [ ] Disaster recovery tested
+- [ ] Runbooks documented
+- [ ] On-call rotation established
+- [ ] Compliance audit passed
+- [ ] User training completed
+
+---
+
+## 9. Open Questions & Risks
+
+### 9.1 Open Questions
+1. What is the deployment timeline for Lagos/Abuja/Asaba sites?
+2. Which cloud provider will host production infrastructure?
+3. What is the budget for Grafana Cloud vs self-hosted?
+4. How will model retraining be scheduled and approved?
+
+### 9.2 Known Risks
+| Risk | Impact | Mitigation |
+|------|--------|------------|
+| NCC ATRS API unavailable | High | Build SFTP fallback |
+| Database scaling bottleneck | Medium | Implement read replicas |
+| False positive alerts overwhelm analysts | High | ML model tuning + feedback loop |
+| OpenSIPS integration issues | High | Dedicated integration team |
+
+---
+
+## 10. Appendices
+
+### 10.1 Glossary
+- **ACM** - Anti-Call Masking
+- **CLI** - Calling Line Identification
+- **CPS** - Calls Per Second
+- **ICL** - Interconnect Clearinghouse
+- **MTTR** - Mean Time To Repair
+- **NCC** - Nigerian Communications Commission
+- **SIM-Box** - Hardware device for fraudulent call termination
+
+### 10.2 References
+- [NCC ICL Framework 2026](https://ncc.gov.ng)
+- [VoxGuard Technical Documentation](./VOXGUARD_TECHNICAL_DOCUMENTATION.md)
+- [Architecture Overview](./ARCHITECTURE.md)
+- [API Reference](./API_REFERENCE.md)
+
+---
+
+**Document Control:**
+- **Created:** February 2, 2026
+- **Last Updated:** February 2, 2026
+- **Next Review:** March 2, 2026
+- **Approval:** Factory System (Autonomous)
