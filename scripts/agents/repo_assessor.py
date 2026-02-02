@@ -120,6 +120,7 @@ Your task: Analyze this repository and determine:
 3. **Missing Docs**: What critical documentation is missing? (list)
 4. **Completion Percentage**: Estimate completion (0-100%)
 5. **Next Steps**: What should be done next? (IMPROVE/CONTINUE_DEVELOPMENT)
+6. **Technical Strategy**: For each identified gap or next step, provide a clear technical strategy explaining HOW to implement the fix. This helps the autonomous builder understand the approach.
 
 Repository Information:
 {REPO_INFO}
@@ -131,7 +132,8 @@ Respond ONLY with this JSON format:
   "missing_docs": ["doc1", "doc2", ...],
   "completion_percentage": 0-100,
   "next_steps": "IMPROVE|CONTINUE_DEVELOPMENT",
-  "reasoning": "Brief explanation"
+  "reasoning": "Brief explanation",
+  "technical_strategy": "Step-by-step implementation approach for the recommended next steps"
 }
 """
 

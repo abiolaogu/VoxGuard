@@ -44,7 +44,7 @@ jobs:
           python scripts/agents/repo_assessor.py
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.FACTORY_ADMIN_TOKEN }}
         continue-on-error: true
 
       - name: Run Repository Improvement
