@@ -1,0 +1,534 @@
+# ============================================================================
+# VoxGuard - Production Deployment Configuration
+# High Availability Voice Switch with Load Balancing and Circuit Breakers
+# Version: 3.0 | Date: 2026-02-03
+# ============================================================================
+
+services:
+  # ==========================================================================
+  # HAPROXY LOAD BALANCER - Entry point for all SIP traffic
+  # ==========================================================================
+  haproxy:
+    image: haproxy:2.9-alpine
+    container_name: voxguard-haproxy
+    restart: always
+    ports:
+      - "5060:5060"           # SIP UDP
+      - "5061:5061"           # SIP TCP
+      - "5062:5062"           # SIP TLS
+      - "8404:8404"           # HAProxy Stats
+      - "8405:8405"           # Health Check
+      - "9101:9101"           # Prometheus metrics
+    volumes:
+      - ../../services/voice-switch/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+      - haproxy-certs:/etc/haproxy/certs:ro
+      - ./haproxy-errors:/etc/haproxy/errors:ro
+    networks:
+      - voxguard-prod
+    healthcheck:
+      test: ["CMD", "haproxy", "-c", "-f", "/usr/local/etc/haproxy/haproxy.cfg"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 1G
+        reservations:
+          cpus: '1'
+          memory: 512M
+
+  # ==========================================================================
+  # OPENSIPS CLUSTER - 3 instances for high availability
+  # ==========================================================================
+  opensips-1:
+    image: opensips/opensips:3.4
+    container_name: opensips-1
+    restart: always
+    volumes:
+      - ../../services/voice-switch/opensips-production.cfg:/usr/local/etc/opensips/opensips.cfg:ro
+      - opensips-tls:/etc/opensips/tls:ro
+    environment:
+      DB_HOST: yugabyte
+      DB_PORT: 5433
+      DB_USER: opensips
+      DB_PASS: ${YUGABYTE_PASSWORD}
+      DB_NAME: opensips
+      REDIS_HOST: dragonfly
+      REDIS_PORT: 6379
+      ACM_ENGINE_HOST: haproxy
+      ACM_ENGINE_PORT: 8080
+    networks:
+      - voxguard-prod
+    depends_on:
+      - yugabyte
+      - dragonfly
+      - acm-engine-1
+    cap_add:
+      - NET_ADMIN
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    healthcheck:
+      test: ["CMD", "opensipsctl", "fifo", "get_statistics", "core:"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 4G
+        reservations:
+          cpus: '2'
+          memory: 2G
+
+  opensips-2:
+    image: opensips/opensips:3.4
+    container_name: opensips-2
+    restart: always
+    volumes:
+      - ../../services/voice-switch/opensips-production.cfg:/usr/local/etc/opensips/opensips.cfg:ro
+      - opensips-tls:/etc/opensips/tls:ro
+    environment:
+      DB_HOST: yugabyte
+      DB_PORT: 5433
+      DB_USER: opensips
+      DB_PASS: ${YUGABYTE_PASSWORD}
+      DB_NAME: opensips
+      REDIS_HOST: dragonfly
+      REDIS_PORT: 6379
+      ACM_ENGINE_HOST: haproxy
+      ACM_ENGINE_PORT: 8080
+    networks:
+      - voxguard-prod
+    depends_on:
+      - yugabyte
+      - dragonfly
+      - acm-engine-2
+    cap_add:
+      - NET_ADMIN
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    healthcheck:
+      test: ["CMD", "opensipsctl", "fifo", "get_statistics", "core:"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 4G
+        reservations:
+          cpus: '2'
+          memory: 2G
+
+  opensips-3:
+    image: opensips/opensips:3.4
+    container_name: opensips-3
+    restart: always
+    volumes:
+      - ../../services/voice-switch/opensips-production.cfg:/usr/local/etc/opensips/opensips.cfg:ro
+      - opensips-tls:/etc/opensips/tls:ro
+    environment:
+      DB_HOST: yugabyte
+      DB_PORT: 5433
+      DB_USER: opensips
+      DB_PASS: ${YUGABYTE_PASSWORD}
+      DB_NAME: opensips
+      REDIS_HOST: dragonfly
+      REDIS_PORT: 6379
+      ACM_ENGINE_HOST: haproxy
+      ACM_ENGINE_PORT: 8080
+    networks:
+      - voxguard-prod
+    depends_on:
+      - yugabyte
+      - dragonfly
+      - acm-engine-3
+    cap_add:
+      - NET_ADMIN
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    healthcheck:
+      test: ["CMD", "opensipsctl", "fifo", "get_statistics", "core:"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 4G
+        reservations:
+          cpus: '2'
+          memory: 2G
+
+  # ==========================================================================
+  # ACM DETECTION ENGINE CLUSTER - 3 instances + 1 backup
+  # ==========================================================================
+  acm-engine-1:
+    build:
+      context: ../../services/detection-engine
+      dockerfile: Dockerfile
+    image: voxguard/detection-engine:3.0
+    container_name: acm-engine-1
+    restart: always
+    environment:
+      RUST_LOG: info,acm_detection=debug
+      ACM_HOST: 0.0.0.0
+      ACM_PORT: 8080
+      ACM_REGION: ${REGION:-lagos}
+      ACM_NODE_ID: acm-engine-1
+      DRAGONFLY_URL: redis://dragonfly:6379
+      YUGABYTE_URL: postgres://opensips:${YUGABYTE_PASSWORD}@yugabyte:5433/opensips
+      CLICKHOUSE_URL: http://clickhouse:8123
+      NCC_ENABLED: ${NCC_ENABLED:-true}
+    networks:
+      - voxguard-prod
+    depends_on:
+      - yugabyte
+      - dragonfly
+      - clickhouse
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 4G
+        reservations:
+          cpus: '2'
+          memory: 2G
+
+  acm-engine-2:
+    build:
+      context: ../../services/detection-engine
+      dockerfile: Dockerfile
+    image: voxguard/detection-engine:3.0
+    container_name: acm-engine-2
+    restart: always
+    environment:
+      RUST_LOG: info,acm_detection=debug
+      ACM_HOST: 0.0.0.0
+      ACM_PORT: 8080
+      ACM_REGION: ${REGION:-lagos}
+      ACM_NODE_ID: acm-engine-2
+      DRAGONFLY_URL: redis://dragonfly:6379
+      YUGABYTE_URL: postgres://opensips:${YUGABYTE_PASSWORD}@yugabyte:5433/opensips
+      CLICKHOUSE_URL: http://clickhouse:8123
+      NCC_ENABLED: ${NCC_ENABLED:-true}
+    networks:
+      - voxguard-prod
+    depends_on:
+      - yugabyte
+      - dragonfly
+      - clickhouse
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 4G
+        reservations:
+          cpus: '2'
+          memory: 2G
+
+  acm-engine-3:
+    build:
+      context: ../../services/detection-engine
+      dockerfile: Dockerfile
+    image: voxguard/detection-engine:3.0
+    container_name: acm-engine-3
+    restart: always
+    environment:
+      RUST_LOG: info,acm_detection=debug
+      ACM_HOST: 0.0.0.0
+      ACM_PORT: 8080
+      ACM_REGION: ${REGION:-lagos}
+      ACM_NODE_ID: acm-engine-3
+      DRAGONFLY_URL: redis://dragonfly:6379
+      YUGABYTE_URL: postgres://opensips:${YUGABYTE_PASSWORD}@yugabyte:5433/opensips
+      CLICKHOUSE_URL: http://clickhouse:8123
+      NCC_ENABLED: ${NCC_ENABLED:-true}
+    networks:
+      - voxguard-prod
+    depends_on:
+      - yugabyte
+      - dragonfly
+      - clickhouse
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 4G
+        reservations:
+          cpus: '2'
+          memory: 2G
+
+  acm-engine-backup:
+    build:
+      context: ../../services/detection-engine
+      dockerfile: Dockerfile
+    image: voxguard/detection-engine:3.0
+    container_name: acm-engine-backup
+    restart: always
+    environment:
+      RUST_LOG: info,acm_detection=debug
+      ACM_HOST: 0.0.0.0
+      ACM_PORT: 8080
+      ACM_REGION: ${REGION:-lagos}
+      ACM_NODE_ID: acm-engine-backup
+      DRAGONFLY_URL: redis://dragonfly:6379
+      YUGABYTE_URL: postgres://opensips:${YUGABYTE_PASSWORD}@yugabyte:5433/opensips
+      CLICKHOUSE_URL: http://clickhouse:8123
+      NCC_ENABLED: ${NCC_ENABLED:-true}
+    networks:
+      - voxguard-prod
+    depends_on:
+      - yugabyte
+      - dragonfly
+      - clickhouse
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '1'
+          memory: 1G
+
+  # ==========================================================================
+  # DRAGONFLYDB CLUSTER (Redis-compatible cache)
+  # ==========================================================================
+  dragonfly:
+    image: docker.dragonflydb.io/dragonflydb/dragonfly:v1.14.0
+    container_name: dragonfly-primary
+    restart: always
+    ports:
+      - "6379:6379"
+    command: >
+      --maxmemory=8gb
+      --proactor_threads=8
+      --cache_mode=true
+      --hz=100
+      --tcp_keepalive=60
+      --snapshot_cron="0 */6 * * *"
+      --dir=/data
+      --dbfilename=voxguard_cache
+      --requirepass=${REDIS_PASSWORD}
+    volumes:
+      - dragonfly-data:/data
+    networks:
+      - voxguard-prod
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '8'
+          memory: 10G
+        reservations:
+          cpus: '4'
+          memory: 8G
+
+  # ==========================================================================
+  # YUGABYTEDB CLUSTER (Distributed PostgreSQL)
+  # ==========================================================================
+  yugabyte:
+    image: yugabytedb/yugabyte:2.20.1.0-b97
+    container_name: yugabyte-master
+    restart: always
+    ports:
+      - "5433:5433"
+      - "7000:7000"
+      - "9000:9000"
+    command: >
+      bin/yugabyted start
+      --base_dir=/home/yugabyte/yb_data
+      --daemon=false
+      --ui=true
+      --tserver_flags="yb_enable_read_committed_isolation=true,ysql_enable_packed_row=true,ysql_max_connections=500"
+    environment:
+      YSQL_USER: opensips
+      YSQL_PASSWORD: ${YUGABYTE_PASSWORD}
+      YSQL_DB: opensips
+    volumes:
+      - yugabyte-data:/home/yugabyte/yb_data
+    networks:
+      - voxguard-prod
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -x yb-tserver > /dev/null && pgrep -x postgres > /dev/null"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 90s
+    deploy:
+      resources:
+        limits:
+          cpus: '8'
+          memory: 16G
+        reservations:
+          cpus: '4'
+          memory: 8G
+
+  # ==========================================================================
+  # CLICKHOUSE (Analytics Database)
+  # ==========================================================================
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.1
+    container_name: clickhouse
+    restart: always
+    ports:
+      - "8123:8123"
+      - "9001:9001"
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+      - clickhouse-logs:/var/log/clickhouse-server
+    environment:
+      CLICKHOUSE_USER: acm
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    networks:
+      - voxguard-prod
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8123/ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '8'
+          memory: 16G
+        reservations:
+          cpus: '4'
+          memory: 8G
+
+  # ==========================================================================
+  # PROMETHEUS (Metrics Collection)
+  # ==========================================================================
+  prometheus:
+    image: prom/prometheus:v2.48.0
+    container_name: prometheus
+    restart: always
+    ports:
+      - "9090:9090"
+    volumes:
+      - ../../monitoring/prometheus/prometheus-prod.yml:/etc/prometheus/prometheus.yml:ro
+      - ../../monitoring/prometheus/alerts:/etc/prometheus/alerts:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.enable-lifecycle'
+      - '--storage.tsdb.max-block-duration=2h'
+      - '--storage.tsdb.min-block-duration=2h'
+    networks:
+      - voxguard-prod
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 8G
+        reservations:
+          cpus: '2'
+          memory: 4G
+
+  # ==========================================================================
+  # GRAFANA (Monitoring Dashboards)
+  # ==========================================================================
+  grafana:
+    image: grafana/grafana:10.2.0
+    container_name: grafana
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD}
+      GF_INSTALL_PLUGINS: grafana-clickhouse-datasource
+      GF_SERVER_ROOT_URL: https://monitoring.voxguard.${DOMAIN}
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ../../monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - prometheus
+      - clickhouse
+    networks:
+      - voxguard-prod
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '1'
+          memory: 1G
+
+# ==========================================================================
+# NETWORKS
+# ==========================================================================
+networks:
+  voxguard-prod:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.31.0.0/16
+
+# ==========================================================================
+# VOLUMES
+# ==========================================================================
+volumes:
+  haproxy-certs:
+    driver: local
+  opensips-tls:
+    driver: local
+  dragonfly-data:
+    driver: local
+  yugabyte-data:
+    driver: local
+  clickhouse-data:
+    driver: local
+  clickhouse-logs:
+    driver: local
+  prometheus-data:
+    driver: local
+  grafana-data:
+    driver: local
