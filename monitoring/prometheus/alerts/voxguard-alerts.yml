@@ -114,3 +114,144 @@ groups:
         annotations:
           summary: "YugabyteDB replication lag"
           description: "Replication lag is {{ $value | printf \"%.2f\" }}s"
+
+  - name: voxguard-circuit-breaker
+    rules:
+      - alert: CircuitBreakerOpen
+        expr: opensips_circuit_breaker_state{service="acm_engine"} == 1
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Circuit breaker is OPEN for ACM engine"
+          description: "Circuit breaker has been in OPEN state for more than 1 minute. Fraud detection is bypassed!"
+
+      - alert: CircuitBreakerHalfOpen
+        expr: opensips_circuit_breaker_state{service="acm_engine"} == 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Circuit breaker is HALF_OPEN for ACM engine"
+          description: "Circuit breaker has been in HALF_OPEN state for more than 5 minutes. System is attempting recovery."
+
+      - alert: HighCircuitBreakerFailureRate
+        expr: rate(opensips_circuit_breaker_failure_requests{service="acm_engine"}[5m]) / rate(opensips_circuit_breaker_total_requests{service="acm_engine"}[5m]) > 0.1
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High failure rate in circuit breaker"
+          description: "Failure rate is {{ $value | printf \"%.2f%%\" }} for ACM engine calls"
+
+      - alert: CircuitBreakerRejectingRequests
+        expr: rate(opensips_circuit_breaker_rejected_requests{service="acm_engine"}[5m]) > 10
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Circuit breaker is rejecting requests"
+          description: "{{ $value | printf \"%.2f\" }} requests/sec are being rejected due to circuit breaker OPEN state"
+
+  - name: voxguard-sla
+    rules:
+      - alert: SLAAvailabilityViolation
+        expr: avg_over_time(up{job=~"opensips|acm-detection-engine|management-api"}[1h]) < 0.9999
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "SLA availability violation detected"
+          description: "System availability is {{ $value | printf \"%.4f%%\" }} (Target: 99.99%)"
+
+      - alert: SLALatencyViolation
+        expr: histogram_quantile(0.95, rate(acm_detection_latency_seconds_bucket[5m])) > 0.001
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "SLA latency violation - Detection engine"
+          description: "P95 detection latency is {{ $value | printf \"%.4f\" }}s (Target: <1ms)"
+
+      - alert: SLAErrorRateViolation
+        expr: rate(opensips_failed_calls_total[5m]) / rate(opensips_calls_processed_total[5m]) > 0.01
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "SLA error rate violation - Voice Switch"
+          description: "Call failure rate is {{ $value | printf \"%.2f%%\" }} (Target: <1%)"
+
+      - alert: MonthlyDowntimeBudgetExceeded
+        expr: (1 - avg_over_time(up{job=~"opensips|acm-detection-engine|management-api"}[30d])) * 30 * 24 * 60 > 52.56
+        for: 1h
+        labels:
+          severity: critical
+        annotations:
+          summary: "Monthly downtime budget exceeded"
+          description: "Monthly downtime is {{ $value | printf \"%.2f\" }} minutes (Budget: 52.56 min for 99.99% SLA)"
+
+      - alert: DailyDowntimeBudgetWarning
+        expr: (1 - avg_over_time(up{job=~"opensips|acm-detection-engine|management-api"}[24h])) * 24 * 60 > 1.44
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Daily downtime budget warning"
+          description: "24h downtime is {{ $value | printf \"%.2f\" }} minutes (Budget: 1.44 min for 99.99% SLA)"
+
+  - name: voxguard-voice-switch
+    rules:
+      - alert: OpenSIPSDown
+        expr: up{job="opensips"} == 0
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "OpenSIPS instance is down"
+          description: "OpenSIPS instance {{ $labels.instance }} has been unreachable for more than 30 seconds"
+
+      - alert: HAProxyBackendDown
+        expr: haproxy_backend_up{backend=~"opensips.*"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "HAProxy backend is down"
+          description: "HAProxy backend {{ $labels.backend }} is marked as DOWN"
+
+      - alert: HAProxyNoHealthyServers
+        expr: sum by (backend) (haproxy_server_up{backend=~"opensips.*"}) == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "HAProxy has no healthy servers"
+          description: "All servers in HAProxy backend {{ $labels.backend }} are DOWN"
+
+      - alert: HighSIPLatency
+        expr: histogram_quantile(0.95, rate(opensips_sip_latency_seconds_bucket[5m])) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High SIP processing latency"
+          description: "P95 SIP latency is {{ $value | printf \"%.2f\" }}s (Target: <100ms)"
+
+      - alert: HighCallFailureRate
+        expr: rate(opensips_failed_calls_total[5m]) / rate(opensips_calls_processed_total[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High call failure rate"
+          description: "Call failure rate is {{ $value | printf \"%.2f%%\" }}"
+
+      - alert: DialogCapacityHigh
+        expr: opensips_active_dialogs / opensips_max_dialogs > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "OpenSIPS dialog capacity high"
+          description: "Active dialogs are {{ $value | printf \"%.2f%%\" }} of maximum capacity"
