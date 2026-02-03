@@ -1,0 +1,1 @@
+"""NCC Integration Service Tests."""
