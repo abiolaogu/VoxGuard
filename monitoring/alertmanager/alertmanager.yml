@@ -1,0 +1,156 @@
+# ============================================================================
+# AlertManager Configuration - VoxGuard Anti-Call Masking Platform
+# Version: 1.0 | Date: 2026-02-05
+# ============================================================================
+
+global:
+  resolve_timeout: 5m
+  # SMTP configuration (customize for your email provider)
+  smtp_smarthost: 'smtp.gmail.com:587'
+  smtp_from: 'voxguard-alerts@example.com'
+  smtp_auth_username: '${SMTP_USERNAME}'
+  smtp_auth_password: '${SMTP_PASSWORD}'
+  smtp_require_tls: true
+
+# Templates for notification formatting
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'
+
+# Route tree for alert distribution
+route:
+  # Default receiver for all alerts
+  receiver: 'voxguard-default'
+
+  # Group alerts to avoid notification storms
+  group_by: ['alertname', 'cluster', 'service']
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 12h
+
+  # Route specific alerts to specialized receivers
+  routes:
+    # Critical alerts - immediate notification
+    - match:
+        severity: critical
+      receiver: 'voxguard-critical'
+      group_wait: 0s
+      group_interval: 5m
+      repeat_interval: 4h
+      continue: true
+
+    # NCC compliance alerts - notify compliance team
+    - match_re:
+        alertname: 'NCC.*'
+      receiver: 'ncc-compliance'
+      group_wait: 30s
+      repeat_interval: 24h
+
+    # Infrastructure alerts - notify DevOps
+    - match_re:
+        component: '.*engine|opensips|yugabyte|dragonfly'
+      receiver: 'devops-team'
+      group_wait: 30s
+      repeat_interval: 6h
+
+    # Warning alerts - standard notification
+    - match:
+        severity: warning
+      receiver: 'voxguard-warnings'
+      group_wait: 5m
+      repeat_interval: 12h
+
+# Inhibition rules to prevent alert fatigue
+inhibit_rules:
+  # Suppress warning alerts if critical alert is firing for same service
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'service', 'instance']
+
+  # Suppress service-specific alerts if entire service is down
+  - source_match:
+      alertname: 'DetectionEngineDown'
+    target_match_re:
+      alertname: '.*Detection.*'
+    equal: ['service']
+
+  # Suppress individual instance alerts if multiple instances are down
+  - source_match:
+      alertname: 'SentinelMultipleInstancesDown'
+    target_match:
+      alertname: 'SentinelServiceDown'
+
+# Notification receivers
+receivers:
+  # Default receiver - logs to console
+  - name: 'voxguard-default'
+    webhook_configs:
+      - url: 'http://localhost:9093/webhook'
+        send_resolved: true
+
+  # Critical alerts - multiple channels
+  - name: 'voxguard-critical'
+    email_configs:
+      - to: 'voxguard-oncall@example.com'
+        headers:
+          Subject: '[CRITICAL] VoxGuard Alert: {{ .GroupLabels.alertname }}'
+        html: |
+          <h2>Critical Alert: {{ .GroupLabels.alertname }}</h2>
+          <p><strong>Severity:</strong> {{ .CommonLabels.severity }}</p>
+          <p><strong>Summary:</strong> {{ .CommonAnnotations.summary }}</p>
+          <p><strong>Description:</strong> {{ .CommonAnnotations.description }}</p>
+          <p><strong>Time:</strong> {{ .StartsAt }}</p>
+    webhook_configs:
+      - url: 'http://localhost:9093/webhook/critical'
+        send_resolved: true
+    # Uncomment and configure for PagerDuty integration
+    # pagerduty_configs:
+    #   - service_key: '${PAGERDUTY_SERVICE_KEY}'
+    #     description: '{{ .CommonAnnotations.summary }}'
+
+    # Uncomment and configure for Slack integration
+    # slack_configs:
+    #   - api_url: '${SLACK_WEBHOOK_URL}'
+    #     channel: '#voxguard-critical'
+    #     title: '{{ .CommonLabels.alertname }}'
+    #     text: '{{ .CommonAnnotations.description }}'
+    #     color: 'danger'
+
+  # NCC compliance alerts
+  - name: 'ncc-compliance'
+    email_configs:
+      - to: 'ncc-compliance@example.com'
+        headers:
+          Subject: '[NCC] VoxGuard Compliance Alert: {{ .GroupLabels.alertname }}'
+        html: |
+          <h2>NCC Compliance Alert: {{ .GroupLabels.alertname }}</h2>
+          <p><strong>Description:</strong> {{ .CommonAnnotations.description }}</p>
+          <p><strong>Time:</strong> {{ .StartsAt }}</p>
+          <p><em>Action required to maintain NCC regulatory compliance.</em></p>
+    webhook_configs:
+      - url: 'http://localhost:9093/webhook/ncc'
+        send_resolved: true
+
+  # DevOps team alerts
+  - name: 'devops-team'
+    email_configs:
+      - to: 'devops@example.com'
+        headers:
+          Subject: '[INFRA] VoxGuard Infrastructure Alert: {{ .GroupLabels.alertname }}'
+        html: |
+          <h2>Infrastructure Alert: {{ .GroupLabels.alertname }}</h2>
+          <p><strong>Component:</strong> {{ .CommonLabels.component }}</p>
+          <p><strong>Description:</strong> {{ .CommonAnnotations.description }}</p>
+          <p><strong>Time:</strong> {{ .StartsAt }}</p>
+
+  # Warning alerts
+  - name: 'voxguard-warnings'
+    email_configs:
+      - to: 'voxguard-team@example.com'
+        headers:
+          Subject: '[WARNING] VoxGuard Alert: {{ .GroupLabels.alertname }}'
+        html: |
+          <h2>Warning: {{ .GroupLabels.alertname }}</h2>
+          <p><strong>Description:</strong> {{ .CommonAnnotations.description }}</p>
+          <p><strong>Time:</strong> {{ .StartsAt }}</p>
