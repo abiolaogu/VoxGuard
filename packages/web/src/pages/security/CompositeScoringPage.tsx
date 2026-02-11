@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Table, Tag, Typography, Space } from 'antd';
+import { Card, Table, Tag, Button, Typography, Space, message } from 'antd';
+import { FilterOutlined } from '@ant-design/icons';
 import { voxguardApi, type CompositeDecision } from '../../api/voxguard';
+import { AIDDTierBadge } from '../../components/common';
 
 const { Title, Text } = Typography;
 
@@ -91,7 +93,21 @@ export const CompositeScoringPage: React.FC = () => {
       <Title level={3}>Composite Scoring</Title>
       <Text type="secondary">Combined VoxGuard and RVS scoring decisions</Text>
       <div style={{ marginTop: 24 }}>
-        <Card title={`Composite Decisions (${decisions.length})`}>
+        <Card
+          title={`Composite Decisions (${decisions.length})`}
+          extra={
+            <Space>
+              <Button
+                type="primary"
+                icon={<FilterOutlined />}
+                onClick={() => message.info('Threshold configuration would open here')}
+              >
+                Apply Threshold
+              </Button>
+              <AIDDTierBadge tier={1} compact />
+            </Space>
+          }
+        >
           <Table
             columns={columns}
             dataSource={decisions}

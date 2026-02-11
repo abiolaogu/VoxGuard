@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Row, Col, Statistic, Table, Tag, Badge, Tabs, Switch, Typography, Space, Button } from 'antd';
+import { Card, Row, Col, Statistic, Table, Tag, Tabs, Switch, Typography, Space } from 'antd';
 import { CheckCircleOutlined, ClockCircleOutlined, ThunderboltOutlined, SafetyCertificateOutlined } from '@ant-design/icons';
 import { voxguardApi, type RVSHealth, type VerificationRequest, type FeatureFlag, type MLModelStatus, type DetectionEngineHealth } from '../../api/voxguard';
+import { AIDDTierBadge } from '../../components/common';
 
 const { Title, Text } = Typography;
 
@@ -81,6 +82,7 @@ export const RVSDashboardPage: React.FC = () => {
                 <Space>
                   <Tag>{flag.phase}</Tag>
                   <Switch checked={flag.enabled} onChange={(checked) => voxguardApi.updateFeatureFlag(flag.id, checked)} />
+                  <AIDDTierBadge tier={1} compact />
                 </Space>
               </div>
             ))}

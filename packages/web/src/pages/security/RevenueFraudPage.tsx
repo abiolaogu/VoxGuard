@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Table, Tag, Button, Tabs, Typography, message } from 'antd';
+import { Card, Table, Tag, Button, Tabs, Typography, Space, message } from 'antd';
 import { StopOutlined } from '@ant-design/icons';
 import { voxguardApi, type WangiriIncident, type IrsfIncident } from '../../api/voxguard';
+import { AIDDTierBadge } from '../../components/common';
 
 const { Title, Text } = Typography;
 
@@ -67,15 +68,18 @@ export const RevenueFraudPage: React.FC = () => {
       key: 'actions',
       render: (_: unknown, record: WangiriIncident) =>
         record.status === 'active' ? (
-          <Button
-            type="primary"
-            danger
-            size="small"
-            icon={<StopOutlined />}
-            onClick={() => handleBlockWangiri(record.id)}
-          >
-            Block
-          </Button>
+          <Space>
+            <Button
+              type="primary"
+              danger
+              size="small"
+              icon={<StopOutlined />}
+              onClick={() => handleBlockWangiri(record.id)}
+            >
+              Block
+            </Button>
+            <AIDDTierBadge tier={1} compact />
+          </Space>
         ) : null,
     },
   ];

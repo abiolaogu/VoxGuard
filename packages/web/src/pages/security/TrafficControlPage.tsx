@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, Table, Tag, Button, Switch, Typography, Space, Modal, Input, message } from 'antd';
 import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 import { voxguardApi, type TrafficRule } from '../../api/voxguard';
+import { AIDDTierBadge } from '../../components/common';
 
 const { Title, Text } = Typography;
 
@@ -93,14 +94,17 @@ export const TrafficControlPage: React.FC = () => {
       title: 'Actions',
       key: 'actions',
       render: (_: unknown, record: TrafficRule) => (
-        <Button
-          type="link"
-          danger
-          icon={<DeleteOutlined />}
-          onClick={() => handleDelete(record.id)}
-        >
-          Delete
-        </Button>
+        <Space>
+          <Button
+            type="link"
+            danger
+            icon={<DeleteOutlined />}
+            onClick={() => handleDelete(record.id)}
+          >
+            Delete
+          </Button>
+          <AIDDTierBadge tier={1} compact />
+        </Space>
       ),
     },
   ];
@@ -113,9 +117,12 @@ export const TrafficControlPage: React.FC = () => {
         <Card
           title={`Traffic Rules (${rules.length})`}
           extra={
-            <Button type="primary" icon={<PlusOutlined />} onClick={() => setModalOpen(true)}>
-              Create Rule
-            </Button>
+            <Space>
+              <Button type="primary" icon={<PlusOutlined />} onClick={() => setModalOpen(true)}>
+                Create Rule
+              </Button>
+              <AIDDTierBadge tier={1} compact />
+            </Space>
           }
         >
           <Table
