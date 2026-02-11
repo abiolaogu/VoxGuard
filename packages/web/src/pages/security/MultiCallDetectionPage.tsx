@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, Table, Tag, Button, Typography, Space, message } from 'antd';
 import { StopOutlined, CheckCircleOutlined } from '@ant-design/icons';
 import { voxguardApi, type MultiCallPattern } from '../../api/voxguard';
+import { AIDDTierBadge } from '../../components/common';
 
 const { Title, Text } = Typography;
 
@@ -92,6 +93,7 @@ export const MultiCallDetectionPage: React.FC = () => {
               >
                 Block
               </Button>
+              <AIDDTierBadge tier={1} compact />
               <Button
                 size="small"
                 icon={<CheckCircleOutlined />}

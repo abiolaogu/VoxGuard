@@ -1,7 +1,7 @@
 /* ACM Admin Dashboard - Global Styles */
 
 /* Font imports */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 /* CSS Variables for ACM Brand */
 :root {
@@ -38,6 +38,17 @@
   --acm-text-primary: #212529;
   --acm-text-secondary: #6C757D;
   --acm-border: #DEE2E6;
+
+  /* Product brand colors */
+  --color-voxguard:        #7C3AED;
+  --color-voxguard-bg:     #f5f0ff;
+  --color-voxguard-border: #c4b5fd;
+
+  --color-graphql:         #E535AB;
+  --color-graphql-bg:      #fdf2f8;
+
+  --color-im:              #06B6D4;
+  --color-im-bg:           #ecfeff;
 }
 
 /* Dark mode variables */
@@ -47,6 +58,16 @@
   --acm-text-primary: #FFFFFF;
   --acm-text-secondary: #A0A0A0;
   --acm-border: #303030;
+
+  --color-voxguard:        #a78bfa;
+  --color-voxguard-bg:     #1e1533;
+  --color-voxguard-border: #4c1d95;
+
+  --color-graphql:         #f472b6;
+  --color-graphql-bg:      #2d1326;
+
+  --color-im:              #22d3ee;
+  --color-im-bg:           #0c2a30;
 }
 
 /* Global resets and base styles */

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, Table, Tag, Button, Tabs, Typography, Space, Modal, Input, message } from 'antd';
 import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 import { voxguardApi, type ListEntry } from '../../api/voxguard';
+import { AIDDTierBadge } from '../../components/common';
 
 const { Title, Text } = Typography;
 
@@ -83,14 +84,17 @@ export const ListsManagePage: React.FC = () => {
       title: 'Actions',
       key: 'actions',
       render: (_: unknown, record: ListEntry) => (
-        <Button
-          type="link"
-          danger
-          icon={<DeleteOutlined />}
-          onClick={() => handleDelete(record.id)}
-        >
-          Delete
-        </Button>
+        <Space>
+          <Button
+            type="link"
+            danger
+            icon={<DeleteOutlined />}
+            onClick={() => handleDelete(record.id)}
+          >
+            Delete
+          </Button>
+          <AIDDTierBadge tier={1} compact />
+        </Space>
       ),
     },
   ];
@@ -103,9 +107,12 @@ export const ListsManagePage: React.FC = () => {
         <Card
           title="Blacklist Entries"
           extra={
-            <Button type="primary" icon={<PlusOutlined />} onClick={() => setModalOpen(true)}>
-              Add Entry
-            </Button>
+            <Space>
+              <Button type="primary" icon={<PlusOutlined />} onClick={() => setModalOpen(true)}>
+                Add Entry
+              </Button>
+              <AIDDTierBadge tier={1} compact />
+            </Space>
           }
         >
           <Table
@@ -125,9 +132,12 @@ export const ListsManagePage: React.FC = () => {
         <Card
           title="Whitelist Entries"
           extra={
-            <Button type="primary" icon={<PlusOutlined />} onClick={() => setModalOpen(true)}>
-              Add Entry
-            </Button>
+            <Space>
+              <Button type="primary" icon={<PlusOutlined />} onClick={() => setModalOpen(true)}>
+                Add Entry
+              </Button>
+              <AIDDTierBadge tier={1} compact />
+            </Space>
           }
         >
           <Table

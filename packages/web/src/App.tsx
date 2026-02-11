@@ -49,6 +49,8 @@ import {
   FalsePositivesPage,
 } from './pages/security';
 
+// NCC Compliance Pages
+import { NCCCompliancePage, MNPLookupPage } from './pages/ncc';
 
 // Hooks
 import { useThemeMode } from './hooks/useThemeMode';
@@ -153,6 +155,10 @@ function AppContent() {
                 <Route path="/security/revenue-fraud" element={<RevenueFraudPage />} />
                 <Route path="/security/traffic-control" element={<TrafficControlPage />} />
                 <Route path="/security/false-positives" element={<FalsePositivesPage />} />
+
+                {/* NCC Compliance Pages */}
+                <Route path="/ncc/compliance" element={<NCCCompliancePage />} />
+                <Route path="/ncc/mnp-lookup" element={<MNPLookupPage />} />
 
                 {/* Catch All */}
                 <Route path="*" element={<ErrorComponent />} />

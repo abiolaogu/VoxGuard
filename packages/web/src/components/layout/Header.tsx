@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useGetIdentity, useLogout } from '@refinedev/core';
 import {
   Layout,
@@ -8,6 +9,7 @@ import {
   Badge,
   Button,
   Tooltip,
+  Tag,
 } from 'antd';
 import {
   BellOutlined,
@@ -16,6 +18,10 @@ import {
   LogoutOutlined,
   SunOutlined,
   MoonOutlined,
+  WarningOutlined,
+  FileTextOutlined,
+  SyncOutlined,
+  RightOutlined,
 } from '@ant-design/icons';
 import { useSubscription } from '@apollo/client';
 import { useNavigate } from 'react-router-dom';
@@ -49,6 +55,95 @@ export const Header: React.FC = () => {
     (alertsData?.confirmed_count?.aggregate?.count || 0);
 
   const criticalCount = alertsData?.critical_count?.aggregate?.count || 0;
+
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+
+  const mockNotifications = [
+    {
+      key: 'n1',
+      icon: <WarningOutlined style={{ color: VG_COLORS.error }} />,
+      title: 'Fraud Alert: Call Masking Detected',
+      description: 'Suspicious CLI spoofing from +234-prefix routes',
+      time: '2 min ago',
+      unread: true,
+    },
+    {
+      key: 'n2',
+      icon: <FileTextOutlined style={{ color: VG_COLORS.info }} />,
+      title: 'NCC Compliance Report Ready',
+      description: 'Monthly NCC submission report generated',
+      time: '15 min ago',
+      unread: true,
+    },
+    {
+      key: 'n3',
+      icon: <SyncOutlined style={{ color: VG_COLORS.success }} />,
+      title: 'System Update Complete',
+      description: 'VoxGuard engine v2.4.1 deployed successfully',
+      time: '1 hr ago',
+      unread: false,
+    },
+    {
+      key: 'n4',
+      icon: <WarningOutlined style={{ color: VG_COLORS.warning }} />,
+      title: 'Wangiri Spike Detected',
+      description: '12 new wangiri incidents from Sierra Leone range',
+      time: '3 hr ago',
+      unread: false,
+    },
+  ];
+
+  const unreadNotifCount = mockNotifications.filter((n) => n.unread).length;
+
+  const notificationMenuItems = [
+    {
+      key: 'notif-header',
+      type: 'group' as const,
+      label: (
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0' }}>
+          <Text strong style={{ fontSize: 14 }}>Notifications</Text>
+          {unreadNotifCount > 0 && <Tag color="blue">{unreadNotifCount} new</Tag>}
+        </div>
+      ),
+    },
+    { key: 'notif-divider-top', type: 'divider' as const },
+    ...mockNotifications.map((notif) => ({
+      key: notif.key,
+      label: (
+        <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '4px 0', maxWidth: 300 }}>
+          <div style={{ fontSize: 16, marginTop: 2 }}>{notif.icon}</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Text strong style={{ fontSize: 13 }}>{notif.title}</Text>
+              {notif.unread && (
+                <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: VG_COLORS.info, display: 'inline-block', flexShrink: 0 }} />
+              )}
+            </div>
+            <Text type="secondary" style={{ fontSize: 11, display: 'block' }}>{notif.description}</Text>
+            <Text type="secondary" style={{ fontSize: 10 }}>{notif.time}</Text>
+          </div>
+        </div>
+      ),
+    })),
+    { key: 'notif-divider-bottom', type: 'divider' as const },
+    {
+      key: 'view-all',
+      label: (
+        <div style={{ textAlign: 'center' }}>
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            View all notifications <RightOutlined style={{ fontSize: 10 }} />
+          </Text>
+        </div>
+      ),
+    },
+  ];
+
+  const handleNotificationClick = ({ key }: { key: string }) => {
+    if (key === 'view-all') {
+      navigate('/alerts');
+      setNotificationsOpen(false);
+    }
+  };
 
   const userMenuItems = [
     {
@@ -113,9 +208,16 @@ export const Header: React.FC = () => {
         <PortalHub />
 
         {/* Notifications */}
-        <Tooltip title={`${unresolvedCount} unresolved alerts`}>
+        <Dropdown
+          menu={{ items: notificationMenuItems, onClick: handleNotificationClick }}
+          trigger={['click']}
+          open={notificationsOpen}
+          onOpenChange={setNotificationsOpen}
+          placement="bottomRight"
+          overlayStyle={{ minWidth: 340 }}
+        >
           <Badge
-            count={unresolvedCount}
+            count={unresolvedCount || unreadNotifCount}
             overflowCount={99}
             style={{
               backgroundColor: criticalCount > 0 ? VG_COLORS.critical : VG_COLORS.warning,
@@ -126,7 +228,7 @@ export const Header: React.FC = () => {
               icon={<BellOutlined style={{ fontSize: 18 }} />}
             />
           </Badge>
-        </Tooltip>
+        </Dropdown>
 
         {/* User Menu */}
         <Dropdown
