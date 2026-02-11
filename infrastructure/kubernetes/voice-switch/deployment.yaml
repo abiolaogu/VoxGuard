@@ -1,0 +1,247 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: voxguard-prod
+  labels:
+    app.kubernetes.io/name: voxguard
+    app.kubernetes.io/part-of: voice-switch
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: opensips
+  namespace: voxguard-prod
+  labels:
+    app: opensips
+    component: voice-switch
+    version: v3.0
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0  # Zero downtime
+  selector:
+    matchLabels:
+      app: opensips
+  template:
+    metadata:
+      labels:
+        app: opensips
+        component: voice-switch
+        version: v3.0
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8888"
+        prometheus.io/path: "/mi/get_statistics"
+    spec:
+      serviceAccountName: opensips
+      securityContext:
+        runAsNonRoot: false  # OpenSIPS requires root for network operations
+        fsGroup: 1000
+      affinity:
+        # Spread pods across nodes
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: app
+                    operator: In
+                    values:
+                      - opensips
+              topologyKey: kubernetes.io/hostname
+      containers:
+        - name: opensips
+          image: opensips/opensips:3.4
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: sip-udp
+              containerPort: 5060
+              protocol: UDP
+            - name: sip-tcp
+              containerPort: 5060
+              protocol: TCP
+            - name: sip-tls
+              containerPort: 5061
+              protocol: TCP
+            - name: mi-http
+              containerPort: 8888
+              protocol: TCP
+          env:
+            - name: DB_HOST
+              value: "yugabyte.voxguard-prod.svc.cluster.local"
+            - name: DB_PORT
+              value: "5433"
+            - name: DB_USER
+              value: "opensips"
+            - name: DB_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: voxguard-secrets
+                  key: yugabyte-password
+            - name: DB_NAME
+              value: "opensips"
+            - name: REDIS_HOST
+              value: "dragonfly.voxguard-prod.svc.cluster.local"
+            - name: REDIS_PORT
+              value: "6379"
+            - name: ACM_ENGINE_HOST
+              value: "acm-engine.voxguard-prod.svc.cluster.local"
+            - name: ACM_ENGINE_PORT
+              value: "8080"
+          volumeMounts:
+            - name: config
+              mountPath: /usr/local/etc/opensips/opensips.cfg
+              subPath: opensips.cfg
+              readOnly: true
+            - name: tls-certs
+              mountPath: /etc/opensips/tls
+              readOnly: true
+          resources:
+            requests:
+              cpu: 2000m
+              memory: 2Gi
+            limits:
+              cpu: 4000m
+              memory: 4Gi
+          livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - opensipsctl fifo get_statistics core:
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            tcpSocket:
+              port: 5060
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 2
+          securityContext:
+            capabilities:
+              add:
+                - NET_ADMIN
+                - NET_RAW
+      volumes:
+        - name: config
+          configMap:
+            name: opensips-config
+        - name: tls-certs
+          secret:
+            secretName: opensips-tls
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: opensips
+  namespace: voxguard-prod
+  labels:
+    app: opensips
+spec:
+  type: LoadBalancer
+  externalTrafficPolicy: Local  # Preserve source IP
+  ports:
+    - name: sip-udp
+      port: 5060
+      targetPort: 5060
+      protocol: UDP
+    - name: sip-tcp
+      port: 5060
+      targetPort: 5060
+      protocol: TCP
+    - name: sip-tls
+      port: 5061
+      targetPort: 5061
+      protocol: TCP
+    - name: mi-http
+      port: 8888
+      targetPort: 8888
+      protocol: TCP
+  selector:
+    app: opensips
+  sessionAffinity: ClientIP  # SIP dialog affinity
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 3600
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: opensips
+  namespace: voxguard-prod
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: opensips-config
+  namespace: voxguard-prod
+data:
+  opensips.cfg: |
+    # OpenSIPS production configuration will be loaded here
+    # In production, mount the actual config from services/voice-switch/opensips-production.cfg
+
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: opensips-pdb
+  namespace: voxguard-prod
+spec:
+  minAvailable: 2  # Always keep at least 2 pods running
+  selector:
+    matchLabels:
+      app: opensips
+
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: opensips-hpa
+  namespace: voxguard-prod
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: opensips
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Percent
+          value: 25
+          periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      policies:
+        - type: Percent
+          value: 50
+          periodSeconds: 30
+        - type: Pods
+          value: 2
+          periodSeconds: 30
+      selectPolicy: Max

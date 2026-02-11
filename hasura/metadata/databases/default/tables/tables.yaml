@@ -1,6 +1,9 @@
 # ACM Tables for Hasura tracking
 # These tables should be tracked in Hasura console
 
+# Gateways table
+- "!include acm_gateways.yaml"
+
 # Alerts table
 - table:
     name: acm_alerts

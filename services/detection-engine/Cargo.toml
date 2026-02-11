@@ -70,6 +70,11 @@ mockall = "0.12"
 tokio-test = "0.4"
 fake = { version = "2.9", features = ["derive", "chrono"] }
 rstest = "0.18"
+# Property-based testing
+quickcheck = "1.0"
+quickcheck_macros = "1.0"
+# Coverage (for documentation, actual coverage via cargo-tarpaulin)
+# Run: cargo tarpaulin --out Html --output-dir coverage
 
 [profile.release]
 lto = true
