@@ -37,6 +37,18 @@ import { UserList, UserShow, UserCreate, UserEdit } from './resources/users';
 import { AnalyticsPage } from './resources/analytics';
 import { SettingsPage } from './resources/settings';
 
+// VoxGuard Security Pages (from VoxSwitch-IM)
+import {
+  RVSDashboardPage,
+  CompositeScoringPage,
+  ListsManagePage,
+  MultiCallDetectionPage,
+  RevenueFraudPage,
+  TrafficControlPage,
+  FalsePositivesPage,
+} from './pages/security';
+
+
 // Hooks
 import { useThemeMode } from './hooks/useThemeMode';
 
@@ -123,6 +135,15 @@ function AppContent() {
 
                 {/* Settings */}
                 <Route path="/settings" element={<SettingsPage />} />
+
+                {/* VoxGuard Security Pages */}
+                <Route path="/security/rvs-dashboard" element={<RVSDashboardPage />} />
+                <Route path="/security/composite-scoring" element={<CompositeScoringPage />} />
+                <Route path="/security/lists-manage" element={<ListsManagePage />} />
+                <Route path="/security/multicall-detection" element={<MultiCallDetectionPage />} />
+                <Route path="/security/revenue-fraud" element={<RevenueFraudPage />} />
+                <Route path="/security/traffic-control" element={<TrafficControlPage />} />
+                <Route path="/security/false-positives" element={<FalsePositivesPage />} />
 
                 {/* Catch All */}
                 <Route path="*" element={<ErrorComponent />} />
