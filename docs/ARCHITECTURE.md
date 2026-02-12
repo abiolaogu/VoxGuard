@@ -1,5 +1,7 @@
 # Architecture Overview
 
+> **See Also:** For the comprehensive architecture document, refer to [`docs/technical/SAD.md`](technical/SAD.md) (Solution Architecture Document, 1,450+ lines). This file provides a high-level conceptual overview.
+
 ## Design Principles
 
 The Anti-Call Masking Platform is built on these architectural principles:

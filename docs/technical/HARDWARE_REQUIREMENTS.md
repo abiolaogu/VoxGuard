@@ -1,6 +1,8 @@
 # Hardware Requirements
 ## Anti-Call Masking System
 
+> **See Also:** For comprehensive system requirements including detailed per-component hardware specs, software dependencies, network topology, and capacity planning, refer to [`SYSTEM_REQUIREMENTS.md`](SYSTEM_REQUIREMENTS.md) (634 lines). This file provides a quick-reference summary.
+
 ### 1. General Guidelines
 The system is designed for horizontal scalability. Performance depends heavily on **CPU speed** (for Rust logic) and **Memory bandwidth** (for DragonflyDB/ClickHouse).
 

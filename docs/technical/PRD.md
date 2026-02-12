@@ -1,6 +1,8 @@
 # Product Requirements Document (PRD)
 ## Anti-Call Masking Detection System
 
+> **See Also:** For the consolidated PRD with full implementation status tracking, refer to [`../PRD.md`](../PRD.md) (1,046 lines). This file is the clean requirements-focused PRD.
+
 **Version:** 2.0
 **Last Updated:** January 2026
 **Status:** Production

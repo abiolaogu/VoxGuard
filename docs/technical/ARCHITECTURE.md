@@ -1,6 +1,8 @@
 # Architecture Specification
 ## Anti-Call Masking System
 
+> **See Also:** For the comprehensive architecture document, refer to [`SAD.md`](SAD.md) (Solution Architecture Document, 1,450+ lines). For the DDD conceptual overview, see [`../ARCHITECTURE.md`](../ARCHITECTURE.md). This file covers the stream processing architecture.
+
 ### 1. High-Level Overview
 The system follows a **Stream Processing Architecture** optimized for zero-latency decision making. It decouples the "Decision Path" (Hot Path) from the "Storage Path" (Cold Path).
 
