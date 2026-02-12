@@ -29,6 +29,8 @@ import { UNRESOLVED_ALERTS_COUNT_SUBSCRIPTION } from '../../graphql/subscription
 import { useThemeMode } from '../../hooks/useThemeMode';
 import { VG_COLORS } from '../../config/antd-theme';
 import { PortalHub } from './PortalHub';
+import { LanguageSwitcher } from '../common/LanguageSwitcher';
+import { CurrencySwitcher } from '../common/CurrencySwitcher';
 
 const { Text } = Typography;
 
@@ -194,6 +196,12 @@ export const Header: React.FC = () => {
       }}
     >
       <Space size="middle">
+        {/* Language Switcher */}
+        <LanguageSwitcher />
+
+        {/* Currency Switcher */}
+        <CurrencySwitcher />
+
         {/* Theme Toggle */}
         <Tooltip title={mode === 'dark' ? 'Light Mode' : 'Dark Mode'}>
           <Button

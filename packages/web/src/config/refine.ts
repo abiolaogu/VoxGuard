@@ -16,6 +16,12 @@ import {
   CheckCircleOutlined,
   FileTextOutlined,
   SwapOutlined,
+  FolderOpenOutlined,
+  DatabaseOutlined,
+  LineChartOutlined,
+  AuditOutlined,
+  RobotOutlined,
+  FileSearchOutlined,
 } from '@ant-design/icons';
 
 // Resource definitions for Refine
@@ -161,6 +167,63 @@ export const resources: ResourceProps[] = [
       icon: React.createElement(SwapOutlined),
     },
   },
+  // Case Management (under Security parent)
+  {
+    name: 'fraud_cases',
+    list: '/cases',
+    show: '/cases/:id',
+    create: '/cases/create',
+    meta: {
+      label: 'Cases',
+      icon: React.createElement(FolderOpenOutlined),
+      parent: 'security',
+    },
+  },
+  // CDR Browser
+  {
+    name: 'cdr_browser',
+    list: '/cdr',
+    meta: {
+      label: 'CDR Browser',
+      icon: React.createElement(DatabaseOutlined),
+    },
+  },
+  // KPI Scorecard
+  {
+    name: 'kpi_scorecard',
+    list: '/kpi',
+    meta: {
+      label: 'KPI Scorecard',
+      icon: React.createElement(LineChartOutlined),
+    },
+  },
+  // Audit Log
+  {
+    name: 'audit_log',
+    list: '/audit',
+    meta: {
+      label: 'Audit Log',
+      icon: React.createElement(AuditOutlined),
+    },
+  },
+  // ML Dashboard
+  {
+    name: 'ml_dashboard',
+    list: '/ml',
+    meta: {
+      label: 'ML Dashboard',
+      icon: React.createElement(RobotOutlined),
+    },
+  },
+  // Reports
+  {
+    name: 'report_builder',
+    list: '/reports',
+    meta: {
+      label: 'Reports',
+      icon: React.createElement(FileSearchOutlined),
+    },
+  },
 ];
 
 // Navigation items for the sidebar
@@ -195,7 +258,20 @@ export const menuItems = [
       { key: 'revenue-fraud', label: 'Revenue Fraud', route: '/security/revenue-fraud' },
       { key: 'traffic-control', label: 'Traffic Control', route: '/security/traffic-control' },
       { key: 'false-positives', label: 'False Positives', route: '/security/false-positives' },
+      { key: 'cases', label: 'Cases', route: '/cases' },
     ],
+  },
+  {
+    key: 'cdr',
+    label: 'CDR Browser',
+    route: '/cdr',
+    icon: 'DatabaseOutlined',
+  },
+  {
+    key: 'kpi',
+    label: 'KPI Scorecard',
+    route: '/kpi',
+    icon: 'LineChartOutlined',
   },
   {
     key: 'ncc',
@@ -208,6 +284,24 @@ export const menuItems = [
     label: 'MNP Lookup',
     route: '/mnp/lookup',
     icon: 'SwapOutlined',
+  },
+  {
+    key: 'audit',
+    label: 'Audit Log',
+    route: '/audit',
+    icon: 'AuditOutlined',
+  },
+  {
+    key: 'ml',
+    label: 'ML Dashboard',
+    route: '/ml',
+    icon: 'RobotOutlined',
+  },
+  {
+    key: 'reports',
+    label: 'Reports',
+    route: '/reports',
+    icon: 'FileSearchOutlined',
   },
   {
     key: 'users',

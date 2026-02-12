@@ -3,6 +3,9 @@
 /* Font imports */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
+/* Page-level shared styles */
+@import './pages.css';
+
 /* CSS Variables for ACM Brand */
 :root {
   /* Primary Colors */

@@ -130,3 +130,31 @@ export const statusColors: Record<string, { color: string; background: string }>
   RESOLVED: { color: '#FFFFFF', background: VG_COLORS.success },
   FALSE_POSITIVE: { color: '#FFFFFF', background: VG_COLORS.textSecondary },
 };
+
+// Composite Decision Colors
+export const decisionColors: Record<string, string> = {
+  allow: VG_COLORS.success,
+  block: VG_COLORS.error,
+  review: VG_COLORS.warning,
+};
+
+// Fraud Type Colors
+export const fraudTypeColors: Record<string, string> = {
+  'CLI Spoofing': '#722ED1',
+  'Wangiri': '#E67E22',
+  'IRSF': '#DC3545',
+  'SIM Box': '#17A2B8',
+  'Traffic Anomaly': '#6C757D',
+};
+
+// Risk Level Colors (for numeric thresholds)
+export const riskColors = {
+  high: VG_COLORS.error,
+  medium: VG_COLORS.warning,
+  low: VG_COLORS.success,
+  getRiskColor: (value: number, highThreshold = 80, mediumThreshold = 50): string => {
+    if (value >= highThreshold) return VG_COLORS.error;
+    if (value >= mediumThreshold) return VG_COLORS.warning;
+    return VG_COLORS.success;
+  },
+};

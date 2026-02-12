@@ -1,12 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Table, Tag, Button, Tabs, Typography, Space, message } from 'antd';
 import { StopOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import { voxguardApi, type WangiriIncident, type IrsfIncident } from '../../api/voxguard';
 import { AIDDTierBadge } from '../../components/common';
+import { useLocale } from '../../hooks/useLocale';
 
 const { Title, Text } = Typography;
 
 export const RevenueFraudPage: React.FC = () => {
+  const { t } = useTranslation();
+  const { formatCurrency } = useLocale();
   const [wangiri, setWangiri] = useState<WangiriIncident[]>([]);
   const [irsf, setIrsf] = useState<IrsfIncident[]>([]);
   const [loading, setLoading] = useState(false);
@@ -26,35 +30,35 @@ export const RevenueFraudPage: React.FC = () => {
   const handleBlockWangiri = async (id: string) => {
     try {
       await voxguardApi.blockWangiri(id);
-      message.success('Wangiri number blocked successfully');
+      message.success(t('security.blockedSuccess'));
       loadData();
     } catch {
-      message.error('Failed to block number');
+      message.error(t('security.blockFailed'));
     }
   };
 
   const wangiriColumns = [
-    { title: 'Calling Number', dataIndex: 'calling_number', key: 'calling_number' },
-    { title: 'Country', dataIndex: 'country', key: 'country' },
+    { title: t('alerts.callingNumber'), dataIndex: 'calling_number', key: 'calling_number' },
+    { title: t('cdr.country'), dataIndex: 'country', key: 'country' },
     {
-      title: 'Ring Duration',
+      title: t('security.ringDuration'),
       dataIndex: 'ring_duration_sec',
       key: 'ring_duration_sec',
       render: (sec: number) => `${sec}s`,
     },
-    { title: 'Callback Count', dataIndex: 'callback_count', key: 'callback_count' },
+    { title: t('security.callbackCount'), dataIndex: 'callback_count', key: 'callback_count' },
     {
-      title: 'Revenue Risk',
+      title: t('security.revenueRisk'),
       dataIndex: 'revenue_risk',
       key: 'revenue_risk',
       render: (risk: number) => (
         <Tag color={risk >= 100 ? 'red' : risk >= 50 ? 'orange' : 'green'}>
-          ${risk.toFixed(2)}
+          {formatCurrency(risk)}
         </Tag>
       ),
     },
     {
-      title: 'Status',
+      title: t('common.status'),
       dataIndex: 'status',
       key: 'status',
       render: (status: string) => {
@@ -64,7 +68,7 @@ export const RevenueFraudPage: React.FC = () => {
       },
     },
     {
-      title: 'Actions',
+      title: t('common.actions'),
       key: 'actions',
       render: (_: unknown, record: WangiriIncident) =>
         record.status === 'active' ? (
@@ -76,7 +80,7 @@ export const RevenueFraudPage: React.FC = () => {
               icon={<StopOutlined />}
               onClick={() => handleBlockWangiri(record.id)}
             >
-              Block
+              {t('security.blockNumber')}
             </Button>
             <AIDDTierBadge tier={1} compact />
           </Space>
@@ -85,32 +89,32 @@ export const RevenueFraudPage: React.FC = () => {
   ];
 
   const irsfColumns = [
-    { title: 'Destination', dataIndex: 'destination', key: 'destination' },
-    { title: 'Country', dataIndex: 'country', key: 'country' },
+    { title: t('cdr.bNumber'), dataIndex: 'destination', key: 'destination' },
+    { title: t('cdr.country'), dataIndex: 'country', key: 'country' },
     {
-      title: 'Total Minutes',
+      title: t('security.totalMinutes'),
       dataIndex: 'total_minutes',
       key: 'total_minutes',
       render: (mins: number) => `${mins.toFixed(1)} min`,
     },
     {
-      title: 'Total Cost',
+      title: t('security.totalCost'),
       dataIndex: 'total_cost',
       key: 'total_cost',
       render: (cost: number) => (
         <Tag color={cost >= 500 ? 'red' : cost >= 100 ? 'orange' : 'green'}>
-          ${cost.toFixed(2)}
+          {formatCurrency(cost)}
         </Tag>
       ),
     },
     {
-      title: 'Pump Pattern',
+      title: t('security.pumpPattern'),
       dataIndex: 'pump_pattern',
       key: 'pump_pattern',
       render: (pattern: string) => <Tag color="purple">{pattern}</Tag>,
     },
     {
-      title: 'Status',
+      title: t('common.status'),
       dataIndex: 'status',
       key: 'status',
       render: (status: string) => {
@@ -124,9 +128,9 @@ export const RevenueFraudPage: React.FC = () => {
   const tabItems = [
     {
       key: 'wangiri',
-      label: `Wangiri (${wangiri.length})`,
+      label: `${t('security.wangiri')} (${wangiri.length})`,
       children: (
-        <Card title="Wangiri Fraud Incidents">
+        <Card title={t('security.wangiri')}>
           <Table
             columns={wangiriColumns}
             dataSource={wangiri}
@@ -139,9 +143,9 @@ export const RevenueFraudPage: React.FC = () => {
     },
     {
       key: 'irsf',
-      label: `IRSF (${irsf.length})`,
+      label: `${t('security.irsf')} (${irsf.length})`,
       children: (
-        <Card title="IRSF Fraud Incidents">
+        <Card title={t('security.irsf')}>
           <Table
             columns={irsfColumns}
             dataSource={irsf}
@@ -155,10 +159,10 @@ export const RevenueFraudPage: React.FC = () => {
   ];
 
   return (
-    <div style={{ padding: 24 }}>
-      <Title level={3}>Revenue Fraud Detection</Title>
-      <Text type="secondary">Wangiri and IRSF fraud monitoring</Text>
-      <div style={{ marginTop: 24 }}>
+    <div className="vg-page-wrapper">
+      <Title level={3}>{t('security.revenueFraudDetection')}</Title>
+      <Text type="secondary">{t('security.wangiriAndIrsf')}</Text>
+      <div className="vg-section">
         <Tabs items={tabItems} />
       </div>
     </div>

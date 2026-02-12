@@ -1,0 +1,96 @@
+/* VoxGuard Page-level Shared Styles */
+
+.vg-page-wrapper {
+  padding: 24px;
+}
+
+.vg-card-header {
+  margin-bottom: 24px;
+}
+
+.vg-stat-row {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+
+.vg-stat-row > * {
+  flex: 1;
+  min-width: 200px;
+}
+
+.vg-table-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.vg-section {
+  margin-top: 24px;
+}
+
+.vg-page-title {
+  margin-bottom: 4px;
+}
+
+.vg-page-subtitle {
+  margin-bottom: 24px;
+}
+
+.vg-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.vg-kpi-card {
+  text-align: center;
+}
+
+.vg-kpi-card .vg-kpi-value {
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.vg-kpi-card .vg-kpi-trend {
+  font-size: 14px;
+  margin-top: 4px;
+}
+
+.vg-kpi-card .vg-kpi-trend.up {
+  color: #28A745;
+}
+
+.vg-kpi-card .vg-kpi-trend.down {
+  color: #DC3545;
+}
+
+.vg-timeline-item {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--acm-border);
+}
+
+.vg-timeline-item:last-child {
+  border-bottom: none;
+}
+
+.vg-filter-bar {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.vg-model-card {
+  position: relative;
+}
+
+.vg-model-card .vg-model-metric {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+}

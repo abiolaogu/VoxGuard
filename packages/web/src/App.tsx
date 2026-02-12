@@ -16,6 +16,10 @@ import { BrowserRouter, Routes, Route, Outlet } from 'react-router-dom';
 import { ApolloProvider } from '@apollo/client';
 import { App as AntdApp, ConfigProvider } from 'antd';
 
+// i18n
+import './i18n';
+import { i18nProvider } from './i18n/refine-i18n-provider';
+
 // Providers
 import { authProvider, acmDataProvider, liveProvider, accessControlProvider, apolloClient } from './providers';
 
@@ -26,6 +30,7 @@ import { lightTheme, darkTheme } from './config/antd-theme';
 // Layout Components
 import { Header } from './components/layout/Header';
 import { Title } from './components/layout/Title';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
 
 // Pages
 import { DashboardPage } from './pages/dashboard';
@@ -52,6 +57,14 @@ import {
 // NCC Compliance Pages
 import { NCCCompliancePage, MNPLookupPage } from './pages/ncc';
 
+// New Feature Pages
+import { CaseListPage, CaseDetailPage } from './pages/cases';
+import { CDRBrowserPage } from './pages/cdr';
+import { KPIScorecardPage } from './pages/kpi';
+import { AuditLogPage } from './pages/audit';
+import { MLDashboardPage } from './pages/ml';
+import { ReportBuilderPage } from './pages/reports';
+
 // Hooks
 import { useThemeMode } from './hooks/useThemeMode';
 
@@ -73,6 +86,7 @@ function AppContent() {
             accessControlProvider={accessControlProvider}
             routerProvider={routerBindings}
             notificationProvider={useNotificationProvider}
+            i18nProvider={i18nProvider}
             resources={resources}
             options={refineOptions}
           >
@@ -109,7 +123,9 @@ function AppContent() {
                         />
                       )}
                     >
-                      <Outlet />
+                      <ErrorBoundary>
+                        <Outlet />
+                      </ErrorBoundary>
                     </ThemedLayoutV2>
                   </Authenticated>
                 }
@@ -159,6 +175,25 @@ function AppContent() {
                 {/* NCC Compliance Pages */}
                 <Route path="/ncc/compliance" element={<NCCCompliancePage />} />
                 <Route path="/ncc/mnp-lookup" element={<MNPLookupPage />} />
+
+                {/* Case Management */}
+                <Route path="/cases" element={<CaseListPage />} />
+                <Route path="/cases/:id" element={<CaseDetailPage />} />
+
+                {/* CDR Browser */}
+                <Route path="/cdr" element={<CDRBrowserPage />} />
+
+                {/* KPI Scorecard */}
+                <Route path="/kpi" element={<KPIScorecardPage />} />
+
+                {/* Audit Log */}
+                <Route path="/audit" element={<AuditLogPage />} />
+
+                {/* ML Dashboard */}
+                <Route path="/ml" element={<MLDashboardPage />} />
+
+                {/* Report Builder */}
+                <Route path="/reports" element={<ReportBuilderPage />} />
 
                 {/* Catch All */}
                 <Route path="*" element={<ErrorComponent />} />
