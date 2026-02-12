@@ -157,6 +157,50 @@ export interface DetectionEngineHealth {
   uptime_pct: number;
 }
 
+// Case Management
+export interface CaseNote {
+  id: string;
+  author: string;
+  content: string;
+  created_at: string;
+}
+
+export interface FraudCase {
+  id: string;
+  title: string;
+  description: string;
+  status: 'open' | 'investigating' | 'escalated' | 'resolved' | 'closed';
+  severity: 'critical' | 'high' | 'medium' | 'low';
+  assignee: string;
+  fraud_type: string;
+  linked_alert_ids: string[];
+  created_at: string;
+  updated_at: string;
+  resolution?: string;
+  estimated_loss: number;
+  currency: string;
+  notes: CaseNote[];
+}
+
+// Audit Log
+export interface AuditEntry {
+  id: string;
+  timestamp: string;
+  user: string;
+  action: string;
+  resource: string;
+  details: string;
+  ip_address: string;
+}
+
+// Report
+export interface ReportRequest {
+  report_type: string;
+  date_range: { start: string; end: string };
+  format: 'pdf' | 'csv' | 'excel';
+  schedule: 'one_time' | 'daily' | 'weekly' | 'monthly';
+}
+
 // API Client
 export const voxguardApi = {
   // RVS
@@ -196,4 +240,19 @@ export const voxguardApi = {
   getMLModelStatus: () => fetchJSON<MLModelStatus[]>(`${API_BASE_URL}/ml/status`),
   getDetectionHealth: () => fetchJSON<DetectionEngineHealth>(`${API_BASE_URL}/detection/health`),
   getDashboardSummary: () => fetchJSON<unknown>(`${API_BASE_URL}/dashboard/summary`),
+
+  // Cases
+  getCases: () => fetchJSON<FraudCase[]>(`${API_BASE_URL}/cases`),
+  getCase: (id: string) => fetchJSON<FraudCase>(`${API_BASE_URL}/cases/${id}`),
+  createCase: (data: Partial<FraudCase>) => fetchJSON<FraudCase>(`${API_BASE_URL}/cases`, { method: 'POST', body: JSON.stringify(data) }),
+  updateCase: (id: string, data: Partial<FraudCase>) => fetchJSON<FraudCase>(`${API_BASE_URL}/cases/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+
+  // Audit
+  getAuditLog: (params?: { user?: string; action?: string; from?: string; to?: string }) => {
+    const query = new URLSearchParams(params as Record<string, string>).toString();
+    return fetchJSON<AuditEntry[]>(`${API_BASE_URL}/audit?${query}`);
+  },
+
+  // Reports
+  generateReport: (req: ReportRequest) => fetchJSON<{ id: string }>(`${API_BASE_URL}/reports/generate`, { method: 'POST', body: JSON.stringify(req) }),
 };

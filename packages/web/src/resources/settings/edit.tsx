@@ -30,6 +30,8 @@ import {
 } from '@ant-design/icons';
 import { EXTERNAL_SERVICES, SERVICE_CATEGORIES } from '../../config/external-services';
 import { VG_COLORS } from '../../config/antd-theme';
+import { LanguageSettings } from './LanguageSettings';
+import { GlobalOutlined } from '@ant-design/icons';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -443,6 +445,16 @@ export const SettingsPage: React.FC = () => {
           </Form>
         </Card>
       ),
+    },
+    {
+      key: 'language',
+      label: (
+        <span>
+          <GlobalOutlined />
+          Language & Region
+        </span>
+      ),
+      children: <LanguageSettings />,
     },
     {
       key: 'external-tools',

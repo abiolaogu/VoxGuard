@@ -1,0 +1,1 @@
+export { KPIScorecardPage } from './KPIScorecardPage';

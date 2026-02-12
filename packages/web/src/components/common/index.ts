@@ -4,3 +4,6 @@ export { StatusBadge } from './StatusBadge';
 export { LoadingOverlay } from './LoadingOverlay';
 export { ExternalToolsLinks } from './ExternalToolsLinks';
 export { AIDDTierBadge } from './AIDDTierBadge';
+export { ErrorBoundary } from './ErrorBoundary';
+export { LanguageSwitcher } from './LanguageSwitcher';
+export { CurrencySwitcher } from './CurrencySwitcher';

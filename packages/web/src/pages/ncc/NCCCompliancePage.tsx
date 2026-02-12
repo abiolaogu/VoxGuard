@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { Card, Table, Tag, Button, Typography, Space, message } from 'antd';
 import { SendOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import { AIDDTierBadge } from '../../components/common';
+import { useLocale } from '../../hooks/useLocale';
 
 const { Title, Text } = Typography;
 
@@ -38,15 +40,17 @@ const mockDisputes: Dispute[] = [
 ];
 
 export const NCCCompliancePage: React.FC = () => {
+  const { t } = useTranslation();
+  const { formatCurrency } = useLocale();
   const [reports] = useState<ComplianceReport[]>(mockReports);
   const [disputes] = useState<Dispute[]>(mockDisputes);
 
-  const handleSubmit = (id: string) => {
-    message.success(`Report ${id} submitted to NCC`);
+  const handleSubmit = (_id: string) => {
+    message.success(t('ncc.submitted'));
   };
 
-  const handleEscalate = (id: string) => {
-    message.success(`Dispute ${id} escalated`);
+  const handleEscalate = (_id: string) => {
+    message.success(t('ncc.escalated'));
   };
 
   const statusColor: Record<string, string> = {
@@ -60,18 +64,18 @@ export const NCCCompliancePage: React.FC = () => {
   };
 
   const reportColumns = [
-    { title: 'Report Type', dataIndex: 'report_type', key: 'report_type' },
-    { title: 'Period', dataIndex: 'period', key: 'period' },
+    { title: t('ncc.reportType'), dataIndex: 'report_type', key: 'report_type' },
+    { title: t('ncc.period'), dataIndex: 'period', key: 'period' },
     {
-      title: 'Status',
+      title: t('common.status'),
       dataIndex: 'status',
       key: 'status',
       render: (status: string) => <Tag color={statusColor[status]}>{status.toUpperCase()}</Tag>,
     },
-    { title: 'Incidents', dataIndex: 'incidents_count', key: 'incidents_count' },
-    { title: 'Due Date', dataIndex: 'due_date', key: 'due_date' },
+    { title: t('ncc.incidentsCount'), dataIndex: 'incidents_count', key: 'incidents_count' },
+    { title: t('ncc.dueDate'), dataIndex: 'due_date', key: 'due_date' },
     {
-      title: 'Actions',
+      title: t('common.actions'),
       key: 'actions',
       render: (_: unknown, record: ComplianceReport) =>
         record.status === 'draft' ? (
@@ -82,7 +86,7 @@ export const NCCCompliancePage: React.FC = () => {
               icon={<SendOutlined />}
               onClick={() => handleSubmit(record.id)}
             >
-              Submit to NCC
+              {t('ncc.submitToNcc')}
             </Button>
             <AIDDTierBadge tier={2} compact />
           </Space>
@@ -91,23 +95,23 @@ export const NCCCompliancePage: React.FC = () => {
   ];
 
   const disputeColumns = [
-    { title: 'Reference', dataIndex: 'reference', key: 'reference' },
-    { title: 'Operator', dataIndex: 'operator', key: 'operator' },
-    { title: 'Type', dataIndex: 'type', key: 'type' },
+    { title: t('ncc.reference'), dataIndex: 'reference', key: 'reference' },
+    { title: t('ncc.operator'), dataIndex: 'operator', key: 'operator' },
+    { title: t('common.type'), dataIndex: 'type', key: 'type' },
     {
-      title: 'Status',
+      title: t('common.status'),
       dataIndex: 'status',
       key: 'status',
       render: (status: string) => <Tag color={statusColor[status]}>{status.toUpperCase()}</Tag>,
     },
     {
-      title: 'Amount',
+      title: t('ncc.amount'),
       dataIndex: 'amount',
       key: 'amount',
-      render: (amount: number) => `$${amount.toLocaleString()}`,
+      render: (amount: number) => formatCurrency(amount),
     },
     {
-      title: 'Actions',
+      title: t('common.actions'),
       key: 'actions',
       render: (_: unknown, record: Dispute) =>
         record.status !== 'resolved' ? (
@@ -119,7 +123,7 @@ export const NCCCompliancePage: React.FC = () => {
               icon={<ExclamationCircleOutlined />}
               onClick={() => handleEscalate(record.id)}
             >
-              Escalate
+              {t('ncc.escalate')}
             </Button>
             <AIDDTierBadge tier={2} compact />
           </Space>
@@ -128,14 +132,14 @@ export const NCCCompliancePage: React.FC = () => {
   ];
 
   return (
-    <div style={{ padding: 24 }}>
-      <Title level={3}>NCC Compliance</Title>
-      <Text type="secondary">Nigerian Communications Commission reporting and dispute management</Text>
-      <Space direction="vertical" style={{ width: '100%', marginTop: 24 }} size="large">
-        <Card title={`Compliance Reports (${reports.length})`}>
+    <div className="vg-page-wrapper">
+      <Title level={3}>{t('ncc.title')}</Title>
+      <Text type="secondary">{t('ncc.subtitle')}</Text>
+      <Space direction="vertical" style={{ width: '100%' }} size="large" className="vg-section">
+        <Card title={`${t('ncc.complianceReports')} (${reports.length})`}>
           <Table columns={reportColumns} dataSource={reports} rowKey="id" size="small" />
         </Card>
-        <Card title={`Disputes (${disputes.length})`}>
+        <Card title={`${t('ncc.disputes')} (${disputes.length})`}>
           <Table columns={disputeColumns} dataSource={disputes} rowKey="id" size="small" />
         </Card>
       </Space>
