@@ -1,0 +1,103 @@
+name: AIDD Tier Guardrails
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  validate-aidd-tier:
+    name: Validate AIDD Tier
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Prepare PR Inputs
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          git diff --name-only "${{ github.event.pull_request.base.sha }}...${{ github.event.pull_request.head.sha }}" > /tmp/changed_files.txt
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          Path("/tmp/pr_body.md").write_text(os.environ.get("PR_BODY", ""), encoding="utf-8")
+          Path("/tmp/aidd_result.json").write_text(
+              '{"required_tier":"T1","declared_tier":null,"errors":["AIDD checker did not run"],"warnings":[]}\n',
+              encoding="utf-8",
+          )
+          PY
+
+      - name: Run AIDD Tier Checker
+        id: checker
+        continue-on-error: true
+        run: |
+          python scripts/ci/aidd_guardrail_check.py \
+            --changed-files /tmp/changed_files.txt \
+            --pr-body /tmp/pr_body.md \
+            --out /tmp/aidd_result.json
+
+      - name: Apply AIDD Label
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const result = JSON.parse(fs.readFileSync('/tmp/aidd_result.json', 'utf8'));
+            const desiredLabel = `aidd:${String(result.required_tier || 'T1').toLowerCase()}`;
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+
+            const existingLabels = await github.paginate(
+              github.rest.issues.listLabelsOnIssue,
+              { owner, repo, issue_number }
+            );
+
+            for (const label of existingLabels.map(l => l.name)) {
+              if (/^aidd:t[0-2]$/.test(label) && label !== desiredLabel) {
+                await github.rest.issues.removeLabel({ owner, repo, issue_number, name: label }).catch(() => {});
+              }
+            }
+
+            if (!existingLabels.some(l => l.name === desiredLabel)) {
+              await github.rest.issues.addLabels({
+                owner,
+                repo,
+                issue_number,
+                labels: [desiredLabel]
+              });
+            }
+
+      - name: Enforce AIDD Guardrails
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          result = json.loads(Path("/tmp/aidd_result.json").read_text(encoding="utf-8"))
+          errors = result.get("errors", [])
+          warnings = result.get("warnings", [])
+
+          print(f"Required tier: {result.get('required_tier')}")
+          print(f"Declared tier: {result.get('declared_tier')}")
+
+          if warnings:
+            print("Warnings:")
+            for warning in warnings:
+              print(f"  - {warning}")
+
+          if errors:
+            print("Errors:")
+            for error in errors:
+              print(f"  - {error}")
+            sys.exit(1)
+
+          print("AIDD tier guardrails passed.")
+          PY

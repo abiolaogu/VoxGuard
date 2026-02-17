@@ -4,7 +4,6 @@
 //! between services (detection-engine ↔ management-api ↔ sip-processor).
 
 use serde_json::json;
-use actix_web::{test, web, App};
 
 /// Test data structures matching API contracts
 

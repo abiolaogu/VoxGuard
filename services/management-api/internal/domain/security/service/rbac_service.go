@@ -17,14 +17,14 @@ import (
 // RBACService handles role-based access control
 type RBACService struct {
 	repo         repository.SecurityRepository
-	auditService *AuditService
+	auditService AuditLogger
 	logger       *zap.Logger
 }
 
 // NewRBACService creates a new RBAC service
 func NewRBACService(
 	repo repository.SecurityRepository,
-	auditService *AuditService,
+	auditService AuditLogger,
 	logger *zap.Logger,
 ) *RBACService {
 	return &RBACService{

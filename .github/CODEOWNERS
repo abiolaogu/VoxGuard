@@ -1,0 +1,19 @@
+# Default ownership
+* @abiolaogu
+
+# Core services
+/services/detection-engine/ @abiolaogu
+/services/management-api/ @abiolaogu
+/services/sip-processor/ @abiolaogu
+/services/ml-pipeline/ @abiolaogu
+
+# Platform and data plane
+/infrastructure/ @abiolaogu
+/database/ @abiolaogu
+/hasura/ @abiolaogu
+/monitoring/ @abiolaogu
+/security/ @abiolaogu
+
+# Governance and delivery
+/.github/workflows/ @abiolaogu
+/docs/ @abiolaogu

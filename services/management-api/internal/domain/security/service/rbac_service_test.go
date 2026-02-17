@@ -17,6 +17,37 @@ type MockSecurityRepository struct {
 	mock.Mock
 }
 
+func (m *MockSecurityRepository) CreateUser(ctx context.Context, user *entity.User) error {
+	args := m.Called(ctx, user)
+	return args.Error(0)
+}
+
+func (m *MockSecurityRepository) GetUserByEmail(ctx context.Context, email string) (*entity.User, error) {
+	args := m.Called(ctx, email)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*entity.User), args.Error(1)
+}
+
+func (m *MockSecurityRepository) UpdateUser(ctx context.Context, user *entity.User) error {
+	args := m.Called(ctx, user)
+	return args.Error(0)
+}
+
+func (m *MockSecurityRepository) DeleteUser(ctx context.Context, userID string) error {
+	args := m.Called(ctx, userID)
+	return args.Error(0)
+}
+
+func (m *MockSecurityRepository) ListUsers(ctx context.Context, page, pageSize int) ([]*entity.User, int, error) {
+	args := m.Called(ctx, page, pageSize)
+	if args.Get(0) == nil {
+		return nil, args.Int(1), args.Error(2)
+	}
+	return args.Get(0).([]*entity.User), args.Int(1), args.Error(2)
+}
+
 func (m *MockSecurityRepository) GetUserRoles(ctx context.Context, userID string) ([]string, error) {
 	args := m.Called(ctx, userID)
 	return args.Get(0).([]string), args.Error(1)
@@ -71,9 +102,12 @@ func (m *MockSecurityRepository) AssignPermissionToRole(ctx context.Context, rol
 	return args.Error(0)
 }
 
-func (m *MockSecurityRepository) GetUsersWithRole(ctx context.Context, roleID string) ([]string, error) {
+func (m *MockSecurityRepository) GetUsersWithRole(ctx context.Context, roleID string) ([]*entity.User, error) {
 	args := m.Called(ctx, roleID)
-	return args.Get(0).([]string), args.Error(1)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*entity.User), args.Error(1)
 }
 
 func (m *MockSecurityRepository) GetUserByID(ctx context.Context, userID string) (*entity.User, error) {
@@ -117,6 +151,16 @@ func (m *MockSecurityRepository) RevokePermissionFromRole(ctx context.Context, r
 
 func (m *MockSecurityRepository) CreateResourcePolicy(ctx context.Context, policy *entity.ResourcePolicy) error {
 	args := m.Called(ctx, policy)
+	return args.Error(0)
+}
+
+func (m *MockSecurityRepository) UpdateResourcePolicy(ctx context.Context, policy *entity.ResourcePolicy) error {
+	args := m.Called(ctx, policy)
+	return args.Error(0)
+}
+
+func (m *MockSecurityRepository) DeleteResourcePolicy(ctx context.Context, policyID string) error {
+	args := m.Called(ctx, policyID)
 	return args.Error(0)
 }
 
@@ -207,6 +251,11 @@ func (m *MockSecurityRepository) RevokeAllUserTokens(ctx context.Context, userID
 	return args.Error(0)
 }
 
+func (m *MockSecurityRepository) CleanupExpiredTokens(ctx context.Context) error {
+	args := m.Called(ctx)
+	return args.Error(0)
+}
+
 func (m *MockSecurityRepository) UpdatePassword(ctx context.Context, userID, passwordHash string) error {
 	args := m.Called(ctx, userID, passwordHash)
 	return args.Error(0)
@@ -261,6 +310,45 @@ func (m *MockSecurityRepository) GetSecurityEventByID(ctx context.Context, event
 
 func (m *MockSecurityRepository) UpdateSecurityEvent(ctx context.Context, event *entity.SecurityEvent) error {
 	args := m.Called(ctx, event)
+	return args.Error(0)
+}
+
+func (m *MockSecurityRepository) CreateAPIKey(ctx context.Context, apiKey *entity.APIKey) error {
+	args := m.Called(ctx, apiKey)
+	return args.Error(0)
+}
+
+func (m *MockSecurityRepository) GetAPIKeyByHash(ctx context.Context, keyHash string) (*entity.APIKey, error) {
+	args := m.Called(ctx, keyHash)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*entity.APIKey), args.Error(1)
+}
+
+func (m *MockSecurityRepository) GetAPIKeyByID(ctx context.Context, keyID string) (*entity.APIKey, error) {
+	args := m.Called(ctx, keyID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*entity.APIKey), args.Error(1)
+}
+
+func (m *MockSecurityRepository) ListUserAPIKeys(ctx context.Context, userID string) ([]*entity.APIKey, error) {
+	args := m.Called(ctx, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*entity.APIKey), args.Error(1)
+}
+
+func (m *MockSecurityRepository) UpdateAPIKeyLastUsed(ctx context.Context, keyID, ipAddress string) error {
+	args := m.Called(ctx, keyID, ipAddress)
+	return args.Error(0)
+}
+
+func (m *MockSecurityRepository) RevokeAPIKey(ctx context.Context, keyID string) error {
+	args := m.Called(ctx, keyID)
 	return args.Error(0)
 }
 
@@ -456,7 +544,7 @@ func TestDeleteRole_AssignedToUsers(t *testing.T) {
 	}
 
 	mockRepo.On("GetRoleByID", ctx, roleID).Return(customRole, nil)
-	mockRepo.On("GetUsersWithRole", ctx, roleID).Return([]string{"user-1", "user-2"}, nil)
+	mockRepo.On("GetUsersWithRole", ctx, roleID).Return([]*entity.User{{ID: "user-1"}, {ID: "user-2"}}, nil)
 
 	err := service.DeleteRole(ctx, roleID, "admin-123")
 

@@ -61,9 +61,6 @@ func NewVaultClient(config VaultConfig, logger *zap.Logger) (*HashiCorpVaultClie
 	}
 
 	// Verify connection
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
 	if _, err := client.Sys().Health(); err != nil {
 		logger.Warn("Vault health check failed", zap.Error(err))
 		// Don't fail initialization, as Vault might be temporarily unavailable

@@ -11,12 +11,12 @@ import (
 
 // ThreatPrediction represents a predicted threat
 type ThreatPrediction struct {
-	PredictedDate    time.Time
-	ThreatType       string
-	Probability      float64
-	ExpectedCount    int64
-	RiskLevel        string
-	ConfidenceLevel  string
+	PredictedDate       time.Time
+	ThreatType          string
+	Probability         float64
+	ExpectedCount       int64
+	RiskLevel           string
+	ConfidenceLevel     string
 	ContributingFactors []string
 }
 
@@ -279,7 +279,8 @@ func (tp *ThreatPredictor) calculateProbability(historical []int64, expectedCoun
 
 	// Adjust based on expected count
 	if expectedCount > 10 {
-		baseProbability = math.Min(0.95, baseProbability*1.2)
+		boosted := math.Min(0.95, baseProbability*1.2)
+		baseProbability = math.Max(baseProbability, boosted)
 	}
 
 	return baseProbability

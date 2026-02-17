@@ -24,7 +24,7 @@ import (
 // AuthService handles authentication and token management
 type AuthService struct {
 	repo          repository.SecurityRepository
-	auditService  *AuditService
+	auditService  AuditLogger
 	vaultClient   VaultClient
 	logger        *zap.Logger
 	privateKey    *rsa.PrivateKey
@@ -53,7 +53,7 @@ type AuthServiceConfig struct {
 // NewAuthService creates a new authentication service
 func NewAuthService(
 	repo repository.SecurityRepository,
-	auditService *AuditService,
+	auditService AuditLogger,
 	vaultClient VaultClient,
 	logger *zap.Logger,
 	config AuthServiceConfig,
@@ -188,7 +188,7 @@ func (s *AuthService) Login(ctx context.Context, req entity.LoginRequest, ipAddr
 	}
 
 	// Generate refresh token
-	refreshToken, refreshExp, err := s.generateRefreshToken(ctx, user.ID, ipAddress, userAgent)
+	refreshToken, _, err := s.generateRefreshToken(ctx, user.ID, ipAddress, userAgent)
 	if err != nil {
 		s.logger.Error("Failed to generate refresh token", zap.Error(err))
 		return nil, errors.New("failed to generate token")

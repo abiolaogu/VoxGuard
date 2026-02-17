@@ -10,31 +10,31 @@ import (
 
 // RevenueImpact represents financial impact of fraud detection
 type RevenueImpact struct {
-	Period            string
-	StartDate         time.Time
-	EndDate           time.Time
+	Period    string
+	StartDate time.Time
+	EndDate   time.Time
 
 	// Fraud metrics
-	TotalFraudCallsDetected    int64
-	TotalFraudMinutesBlocked   float64
+	TotalFraudCallsDetected  int64
+	TotalFraudMinutesBlocked float64
 
 	// Revenue protection
-	RevenueProtected           float64 // NGN
-	PotentialRevenueLoss       float64 // NGN
-	ActualRevenueLoss          float64 // NGN (false negatives)
+	RevenueProtected     float64 // NGN
+	PotentialRevenueLoss float64 // NGN
+	ActualRevenueLoss    float64 // NGN (false negatives)
 
 	// Cost metrics
-	OperationalCost            float64 // NGN
-	NetBenefit                 float64 // NGN
-	ROI                        float64 // Percentage
+	OperationalCost float64 // NGN
+	NetBenefit      float64 // NGN
+	ROI             float64 // Percentage
 
 	// Performance metrics
-	DetectionAccuracy          float64 // Percentage
-	FalsePositiveRate          float64 // Percentage
-	FalseNegativeRate          float64 // Percentage
+	DetectionAccuracy float64 // Percentage
+	FalsePositiveRate float64 // Percentage
+	FalseNegativeRate float64 // Percentage
 
 	// Breakdown by fraud type
-	RevenueByFraudType         map[string]float64
+	RevenueByFraudType map[string]float64
 }
 
 // RevenueCalculator calculates financial impact of fraud detection

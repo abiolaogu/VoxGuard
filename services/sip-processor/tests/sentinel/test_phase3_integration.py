@@ -12,6 +12,15 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import asyncpg
 
 
+@pytest.fixture
+def mock_db_pool():
+    """Shared mock database pool for integration suites."""
+    pool = AsyncMock(spec=asyncpg.Pool)
+    conn = AsyncMock()
+    pool.acquire.return_value.__aenter__.return_value = conn
+    return pool
+
+
 class TestRealTimeEventReceiver:
     """Test real-time call event endpoint"""
 
@@ -362,15 +371,22 @@ class TestEndToEndIntegration:
         mock_db_pool.acquire.return_value.__aenter__.return_value = mock_conn
 
         # Step 1: Create alerts via SDHF detection
-        mock_conn.fetch.return_value = [
-            {
-                'caller_number': '+2348012345678',
-                'call_count': 100,
-                'unique_destinations': 85,
-                'avg_duration': 1.8,
-                'first_call': datetime.utcnow() - timedelta(hours=20),
-                'last_call': datetime.utcnow()
-            }
+        mock_conn.fetch.side_effect = [
+            [
+                {
+                    'caller_number': '+2348012345678',
+                    'call_count': 100,
+                    'unique_destinations': 85,
+                    'avg_duration': 1.8,
+                    'first_call': datetime.utcnow() - timedelta(hours=20),
+                    'last_call': datetime.utcnow()
+                }
+            ],
+            [
+                {
+                    'suspect_number': '+2348012345678'
+                }
+            ],
         ]
         mock_conn.fetchrow.return_value = {'id': 789, 'created_at': datetime.utcnow()}
         mock_conn.fetchval.return_value = 789

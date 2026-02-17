@@ -5,9 +5,9 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 
-	"github.com/billyronks/acm-management-api/internal/domain/fraud/entity"
 	"github.com/billyronks/acm-management-api/internal/domain/fraud/repository"
 )
 
@@ -212,19 +212,13 @@ func (r *FraudAnalyticsRepository) GetHotspots(ctx context.Context, hours int) (
 	var hotspots []*repository.FraudHotspot
 	for rows.Next() {
 		var hotspot repository.FraudHotspot
-		var patterns []sql.NullString
-		err := rows.Scan(&hotspot.Region, &hotspot.AlertCount, &hotspot.RiskLevel, &patterns)
+		var patternsRaw string
+		err := rows.Scan(&hotspot.Region, &hotspot.AlertCount, &hotspot.RiskLevel, &patternsRaw)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan hotspot: %w", err)
 		}
 
-		// Convert NullString array to string array
-		hotspot.TopPatterns = make([]string, 0, len(patterns))
-		for _, p := range patterns {
-			if p.Valid {
-				hotspot.TopPatterns = append(hotspot.TopPatterns, p.String)
-			}
-		}
+		hotspot.TopPatterns = parsePGTextArray(patternsRaw)
 
 		hotspots = append(hotspots, &hotspot)
 	}
@@ -268,25 +262,19 @@ func (r *FraudAnalyticsRepository) GetPatternAnalysis(ctx context.Context) ([]*r
 	var patterns []*repository.PatternSummary
 	for rows.Next() {
 		var pattern repository.PatternSummary
-		var examples []sql.NullString
+		var examplesRaw string
 		err := rows.Scan(
 			&pattern.PatternID,
 			&pattern.Name,
 			&pattern.Occurrences,
 			&pattern.Confidence,
-			&examples,
+			&examplesRaw,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan pattern: %w", err)
 		}
 
-		// Convert NullString array to string array
-		pattern.Examples = make([]string, 0, len(examples))
-		for _, e := range examples {
-			if e.Valid {
-				pattern.Examples = append(pattern.Examples, e.String)
-			}
-		}
+		pattern.Examples = parsePGTextArray(examplesRaw)
 
 		patterns = append(patterns, &pattern)
 	}
@@ -296,4 +284,28 @@ func (r *FraudAnalyticsRepository) GetPatternAnalysis(ctx context.Context) ([]*r
 	}
 
 	return patterns, nil
+}
+
+func parsePGTextArray(raw string) []string {
+	cleaned := strings.TrimSpace(raw)
+	if cleaned == "" || cleaned == "{}" {
+		return []string{}
+	}
+
+	cleaned = strings.TrimPrefix(cleaned, "{")
+	cleaned = strings.TrimSuffix(cleaned, "}")
+	if cleaned == "" {
+		return []string{}
+	}
+
+	parts := strings.Split(cleaned, ",")
+	values := make([]string, 0, len(parts))
+	for _, part := range parts {
+		item := strings.Trim(strings.TrimSpace(part), `"`)
+		if item != "" {
+			values = append(values, item)
+		}
+	}
+
+	return values
 }

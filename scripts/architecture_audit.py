@@ -14,13 +14,16 @@ from github import Github
 CRITICAL_FILES = [
     'CLAUDE.md',
     '.github/CODEOWNERS',
-    '.github/workflows/market_scan.yml',
-    '.coderabbit.yaml'
+    '.github/pull_request_template.md',
+    '.github/workflows/aidd-tier-guardrails.yml',
+    'docs/AIDD_APPROVAL_TIERS.md',
+    '.coderabbit.yaml',
 ]
 
 # Critical directories that must not be empty
 CRITICAL_DIRS = {
-    'docs/architecture/': 'must contain architecture documentation'
+    'docs/technical/': 'must contain architecture and implementation documentation',
+    'infrastructure/': 'must contain deployment and operations assets',
 }
 
 

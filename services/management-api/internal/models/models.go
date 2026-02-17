@@ -330,10 +330,10 @@ type FraudTrend struct {
 
 // ExportRequest represents a data export request
 type ExportRequest struct {
-	ReportType string    `json:"report_type" binding:"required,oneof=cdr fraud alerts settlement"`
-	StartDate  time.Time `json:"start_date" binding:"required"`
-	EndDate    time.Time `json:"end_date" binding:"required"`
-	Format     string    `json:"format" binding:"required,oneof=csv xlsx pdf"`
+	ReportType string            `json:"report_type" binding:"required,oneof=cdr fraud alerts settlement"`
+	StartDate  time.Time         `json:"start_date" binding:"required"`
+	EndDate    time.Time         `json:"end_date" binding:"required"`
+	Format     string            `json:"format" binding:"required,oneof=csv xlsx pdf"`
 	Filters    map[string]string `json:"filters,omitempty"`
 }
 

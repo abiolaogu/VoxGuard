@@ -24,15 +24,10 @@ terraform {
     }
   }
 
-  # Backend configuration for state management
-  # Uncomment and configure for production use
-  # backend "s3" {
-  #   bucket = "voxguard-terraform-state"
-  #   key    = "multi-region/terraform.tfstate"
-  #   region = "af-south-1"
-  #   encrypt = true
-  #   dynamodb_table = "voxguard-terraform-locks"
-  # }
+  # Remote backend with DynamoDB state locking.
+  # Use `terraform init -backend-config=backend.hcl` where backend.hcl
+  # provides bucket/key/region/dynamodb_table values per environment.
+  backend "s3" {}
 }
 
 # Local variables

@@ -457,7 +457,8 @@ class TestPhase4Integration:
         # Check performance was monitored
         stats = get_performance_monitor().get_stats("cached_monitored_op")
         assert stats is not None
-        assert stats["count"] == 2
+        # The cached second call bypasses the monitored function body.
+        assert stats["count"] == 1
 
         # Check cache was used
         cache_stats = get_cache().get_stats()

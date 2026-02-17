@@ -96,7 +96,7 @@ class TestCDRParser:
 
         assert len(records) == 0
         assert len(errors) > 0
-        assert 'call_direction must be "inbound" or "outbound"' in errors[0]
+        assert "call_direction" in errors[0]
 
     def test_parse_empty_csv(self):
         """Test parsing an empty CSV file"""

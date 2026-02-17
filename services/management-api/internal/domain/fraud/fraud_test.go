@@ -293,9 +293,11 @@ func TestFraudServiceAcknowledge(t *testing.T) {
 	alertRepo.Save(context.Background(), alert)
 
 	// Acknowledge
-	result, err := svc.AcknowledgeAlert(context.Background(), alert.ID(), "analyst-1")
+	err := svc.AcknowledgeAlert(context.Background(), alert.ID(), "analyst-1")
 	require.NoError(t, err)
-	assert.Equal(t, entity.AlertStatusAcknowledged, result.Status())
+	updated, err := svc.GetAlert(context.Background(), alert.ID())
+	require.NoError(t, err)
+	assert.Equal(t, entity.AlertStatusAcknowledged, updated.Status())
 }
 
 func TestFraudServiceGetDashboard(t *testing.T) {

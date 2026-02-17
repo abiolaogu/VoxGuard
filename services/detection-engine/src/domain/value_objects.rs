@@ -162,7 +162,13 @@ impl IPAddress {
     pub fn is_private(&self) -> bool {
         match self.0 {
             IpAddr::V4(ip) => ip.is_private() || ip.is_loopback(),
-            IpAddr::V6(ip) => ip.is_loopback(),
+            IpAddr::V6(ip) => {
+                ip.is_loopback()
+                    || ip
+                        .to_ipv4()
+                        .map(|mapped| mapped.is_private() || mapped.is_loopback())
+                        .unwrap_or(false)
+            }
         }
     }
 
@@ -191,6 +197,12 @@ pub struct FraudScore(f64);
 impl FraudScore {
     /// Creates a new FraudScore, clamping to valid range
     pub fn new(score: f64) -> Self {
+        if score.is_nan() {
+            return Self(0.0);
+        }
+        if score.is_infinite() {
+            return Self(if score.is_sign_positive() { 1.0 } else { 0.0 });
+        }
         Self(score.clamp(0.0, 1.0))
     }
 

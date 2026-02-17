@@ -389,9 +389,6 @@ func (s *FraudService) ListAlerts(ctx context.Context, filter models.AlertFilter
 
 	// Count total
 	var total int
-	countArgs := make([]interface{}, len(args))
-	copy(countArgs, args)
-	countQuery := "SELECT COUNT(*) FROM fraud_alerts WHERE 1=1"
 	// Would need to rebuild WHERE clause for count - simplified here
 	if err := s.db.Pool().QueryRow(ctx, "SELECT COUNT(*) FROM fraud_alerts").Scan(&total); err != nil {
 		return nil, 0, err

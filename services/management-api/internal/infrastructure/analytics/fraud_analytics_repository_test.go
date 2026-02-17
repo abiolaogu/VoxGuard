@@ -2,7 +2,6 @@ package analytics
 
 import (
 	"context"
-	"database/sql"
 	"testing"
 	"time"
 
@@ -134,17 +133,9 @@ func TestGetHotspots(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("successful hotspot retrieval", func(t *testing.T) {
-		patterns1 := []interface{}{
-			sql.NullString{String: "CLI_MISMATCH", Valid: true},
-			sql.NullString{String: "SIMBOX_DETECTED", Valid: true},
-		}
-		patterns2 := []interface{}{
-			sql.NullString{String: "HIGH_VOLUME", Valid: true},
-		}
-
 		rows := sqlmock.NewRows([]string{"region", "alert_count", "risk_level", "patterns"}).
-			AddRow("Lagos", 125, "CRITICAL", patterns1).
-			AddRow("Kano", 45, "HIGH", patterns2)
+			AddRow("Lagos", 125, "CRITICAL", "{CLI_MISMATCH,SIMBOX_DETECTED}").
+			AddRow("Kano", 45, "HIGH", "{HIGH_VOLUME}")
 
 		mock.ExpectQuery("WITH regional_stats AS").WillReturnRows(rows)
 
@@ -161,12 +152,8 @@ func TestGetHotspots(t *testing.T) {
 	})
 
 	t.Run("handles null patterns", func(t *testing.T) {
-		patterns := []interface{}{
-			sql.NullString{Valid: false},
-		}
-
 		rows := sqlmock.NewRows([]string{"region", "alert_count", "risk_level", "patterns"}).
-			AddRow("Abuja", 30, "MEDIUM", patterns)
+			AddRow("Abuja", 30, "MEDIUM", "{}")
 
 		mock.ExpectQuery("WITH regional_stats AS").WillReturnRows(rows)
 
@@ -188,14 +175,9 @@ func TestGetPatternAnalysis(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("successful pattern analysis", func(t *testing.T) {
-		examples1 := []interface{}{
-			sql.NullString{String: "+2348012345678", Valid: true},
-			sql.NullString{String: "+2348087654321", Valid: true},
-		}
-
 		rows := sqlmock.NewRows([]string{"pattern_id", "pattern_name", "occurrences", "avg_confidence", "examples"}).
-			AddRow("CLI_MISMATCH", "CLI_MISMATCH", 234, 0.87, examples1).
-			AddRow("SIMBOX_DETECTED", "SIMBOX_DETECTED", 156, 0.92, examples1)
+			AddRow("CLI_MISMATCH", "CLI_MISMATCH", 234, 0.87, "{+2348012345678,+2348087654321}").
+			AddRow("SIMBOX_DETECTED", "SIMBOX_DETECTED", 156, 0.92, "{+2348012345678,+2348087654321}")
 
 		mock.ExpectQuery("WITH pattern_stats AS").WillReturnRows(rows)
 
@@ -213,7 +195,7 @@ func TestGetPatternAnalysis(t *testing.T) {
 
 	t.Run("handles empty examples", func(t *testing.T) {
 		rows := sqlmock.NewRows([]string{"pattern_id", "pattern_name", "occurrences", "avg_confidence", "examples"}).
-			AddRow("RARE_PATTERN", "RARE_PATTERN", 5, 0.65, []interface{}{})
+			AddRow("RARE_PATTERN", "RARE_PATTERN", 5, 0.65, "{}")
 
 		mock.ExpectQuery("WITH pattern_stats AS").WillReturnRows(rows)
 

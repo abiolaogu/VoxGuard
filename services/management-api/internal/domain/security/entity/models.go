@@ -9,33 +9,33 @@ import (
 
 // User represents a system user with authentication and authorization
 type User struct {
-	ID           string    `json:"id" db:"id"`
-	Username     string    `json:"username" db:"username"`
-	Email        string    `json:"email" db:"email"`
-	PasswordHash string    `json:"-" db:"password_hash"`
-	FirstName    string    `json:"first_name" db:"first_name"`
-	LastName     string    `json:"last_name" db:"last_name"`
-	IsActive     bool      `json:"is_active" db:"is_active"`
-	IsLocked     bool      `json:"is_locked" db:"is_locked"`
-	LockedUntil  *time.Time `json:"locked_until,omitempty" db:"locked_until"`
-	LastLogin    *time.Time `json:"last_login,omitempty" db:"last_login"`
-	LoginAttempts int      `json:"-" db:"login_attempts"`
+	ID                string     `json:"id" db:"id"`
+	Username          string     `json:"username" db:"username"`
+	Email             string     `json:"email" db:"email"`
+	PasswordHash      string     `json:"-" db:"password_hash"`
+	FirstName         string     `json:"first_name" db:"first_name"`
+	LastName          string     `json:"last_name" db:"last_name"`
+	IsActive          bool       `json:"is_active" db:"is_active"`
+	IsLocked          bool       `json:"is_locked" db:"is_locked"`
+	LockedUntil       *time.Time `json:"locked_until,omitempty" db:"locked_until"`
+	LastLogin         *time.Time `json:"last_login,omitempty" db:"last_login"`
+	LoginAttempts     int        `json:"-" db:"login_attempts"`
 	PasswordChangedAt *time.Time `json:"password_changed_at,omitempty" db:"password_changed_at"`
-	MFAEnabled   bool      `json:"mfa_enabled" db:"mfa_enabled"`
-	MFASecret    string    `json:"-" db:"mfa_secret"`
-	CreatedAt    time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at" db:"updated_at"`
-	CreatedBy    string    `json:"created_by" db:"created_by"`
-	UpdatedBy    string    `json:"updated_by" db:"updated_by"`
+	MFAEnabled        bool       `json:"mfa_enabled" db:"mfa_enabled"`
+	MFASecret         string     `json:"-" db:"mfa_secret"`
+	CreatedAt         time.Time  `json:"created_at" db:"created_at"`
+	UpdatedAt         time.Time  `json:"updated_at" db:"updated_at"`
+	CreatedBy         string     `json:"created_by" db:"created_by"`
+	UpdatedBy         string     `json:"updated_by" db:"updated_by"`
 }
 
 // UserRole represents the association between users and roles
 type UserRole struct {
-	UserID     string    `json:"user_id" db:"user_id"`
-	RoleID     string    `json:"role_id" db:"role_id"`
-	GrantedBy  string    `json:"granted_by" db:"granted_by"`
-	GrantedAt  time.Time `json:"granted_at" db:"granted_at"`
-	ExpiresAt  *time.Time `json:"expires_at,omitempty" db:"expires_at"`
+	UserID    string     `json:"user_id" db:"user_id"`
+	RoleID    string     `json:"role_id" db:"role_id"`
+	GrantedBy string     `json:"granted_by" db:"granted_by"`
+	GrantedAt time.Time  `json:"granted_at" db:"granted_at"`
+	ExpiresAt *time.Time `json:"expires_at,omitempty" db:"expires_at"`
 }
 
 // LoginRequest represents authentication credentials
@@ -56,12 +56,12 @@ type LoginResponse struct {
 
 // UserInfo represents public user information
 type UserInfo struct {
-	ID        string   `json:"id"`
-	Username  string   `json:"username"`
-	Email     string   `json:"email"`
-	FirstName string   `json:"first_name"`
-	LastName  string   `json:"last_name"`
-	Roles     []string `json:"roles"`
+	ID          string   `json:"id"`
+	Username    string   `json:"username"`
+	Email       string   `json:"email"`
+	FirstName   string   `json:"first_name"`
+	LastName    string   `json:"last_name"`
+	Roles       []string `json:"roles"`
 	Permissions []string `json:"permissions"`
 }
 
@@ -88,16 +88,16 @@ type JWTClaims struct {
 
 // RefreshToken represents a stored refresh token
 type RefreshToken struct {
-	ID          string    `json:"id" db:"id"`
-	UserID      string    `json:"user_id" db:"user_id"`
-	TokenHash   string    `json:"-" db:"token_hash"`
-	ExpiresAt   time.Time `json:"expires_at" db:"expires_at"`
-	IsRevoked   bool      `json:"is_revoked" db:"is_revoked"`
-	RevokedAt   *time.Time `json:"revoked_at,omitempty" db:"revoked_at"`
-	CreatedAt   time.Time `json:"created_at" db:"created_at"`
-	LastUsedAt  *time.Time `json:"last_used_at,omitempty" db:"last_used_at"`
-	IPAddress   string    `json:"ip_address" db:"ip_address"`
-	UserAgent   string    `json:"user_agent" db:"user_agent"`
+	ID         string     `json:"id" db:"id"`
+	UserID     string     `json:"user_id" db:"user_id"`
+	TokenHash  string     `json:"-" db:"token_hash"`
+	ExpiresAt  time.Time  `json:"expires_at" db:"expires_at"`
+	IsRevoked  bool       `json:"is_revoked" db:"is_revoked"`
+	RevokedAt  *time.Time `json:"revoked_at,omitempty" db:"revoked_at"`
+	CreatedAt  time.Time  `json:"created_at" db:"created_at"`
+	LastUsedAt *time.Time `json:"last_used_at,omitempty" db:"last_used_at"`
+	IPAddress  string     `json:"ip_address" db:"ip_address"`
+	UserAgent  string     `json:"user_agent" db:"user_agent"`
 }
 
 // ================== RBAC Models ==================
@@ -119,8 +119,8 @@ type Role struct {
 // Permission represents a fine-grained permission
 type Permission struct {
 	ID          string    `json:"id" db:"id"`
-	Resource    string    `json:"resource" db:"resource"`     // e.g., "gateway", "fraud_alert", "user"
-	Action      string    `json:"action" db:"action"`         // e.g., "read", "write", "delete", "approve"
+	Resource    string    `json:"resource" db:"resource"` // e.g., "gateway", "fraud_alert", "user"
+	Action      string    `json:"action" db:"action"`     // e.g., "read", "write", "delete", "approve"
 	DisplayName string    `json:"display_name" db:"display_name"`
 	Description string    `json:"description" db:"description"`
 	IsSystem    bool      `json:"is_system" db:"is_system"`
@@ -140,7 +140,7 @@ type ResourcePolicy struct {
 	ID          string    `json:"id" db:"id"`
 	Resource    string    `json:"resource" db:"resource"`
 	Action      string    `json:"action" db:"action"`
-	Effect      string    `json:"effect" db:"effect"` // allow or deny
+	Effect      string    `json:"effect" db:"effect"`         // allow or deny
 	Conditions  string    `json:"conditions" db:"conditions"` // JSON conditions
 	Priority    int       `json:"priority" db:"priority"`
 	IsActive    bool      `json:"is_active" db:"is_active"`
@@ -152,9 +152,9 @@ type ResourcePolicy struct {
 
 // AccessCheck represents an authorization check request
 type AccessCheck struct {
-	UserID   string            `json:"user_id"`
-	Resource string            `json:"resource"`
-	Action   string            `json:"action"`
+	UserID   string                 `json:"user_id"`
+	Resource string                 `json:"resource"`
+	Action   string                 `json:"action"`
 	Context  map[string]interface{} `json:"context,omitempty"`
 }
 
@@ -173,19 +173,19 @@ type AuditEvent struct {
 	Timestamp       time.Time `json:"timestamp" db:"timestamp"`
 	UserID          string    `json:"user_id" db:"user_id"`
 	Username        string    `json:"username" db:"username"`
-	Action          string    `json:"action" db:"action"`           // login, create, update, delete, etc.
+	Action          string    `json:"action" db:"action"` // login, create, update, delete, etc.
 	ResourceType    string    `json:"resource_type" db:"resource_type"`
 	ResourceID      string    `json:"resource_id" db:"resource_id"`
 	ResourceName    string    `json:"resource_name" db:"resource_name"`
 	OldValues       string    `json:"old_values,omitempty" db:"old_values"` // JSON
 	NewValues       string    `json:"new_values,omitempty" db:"new_values"` // JSON
-	Status          string    `json:"status" db:"status"` // success, failure
-	Severity        string    `json:"severity" db:"severity"` // low, medium, high, critical
+	Status          string    `json:"status" db:"status"`                   // success, failure
+	Severity        string    `json:"severity" db:"severity"`               // low, medium, high, critical
 	IPAddress       string    `json:"ip_address" db:"ip_address"`
 	UserAgent       string    `json:"user_agent" db:"user_agent"`
 	RequestID       string    `json:"request_id" db:"request_id"`
 	ErrorMessage    string    `json:"error_message,omitempty" db:"error_message"`
-	Metadata        string    `json:"metadata,omitempty" db:"metadata"` // JSON
+	Metadata        string    `json:"metadata,omitempty" db:"metadata"`       // JSON
 	ComplianceFlags string    `json:"compliance_flags" db:"compliance_flags"` // For NCC compliance tagging
 }
 
@@ -216,34 +216,34 @@ type AuditStats struct {
 
 // SecurityEvent represents a security-relevant event
 type SecurityEvent struct {
-	ID             string    `json:"id" db:"id"`
-	EventType      string    `json:"event_type" db:"event_type"` // login_failure, password_change, mfa_enabled, etc.
-	UserID         string    `json:"user_id" db:"user_id"`
-	Severity       string    `json:"severity" db:"severity"`
-	Description    string    `json:"description" db:"description"`
-	IPAddress      string    `json:"ip_address" db:"ip_address"`
-	UserAgent      string    `json:"user_agent" db:"user_agent"`
-	IsResolved     bool      `json:"is_resolved" db:"is_resolved"`
-	ResolvedBy     *string   `json:"resolved_by,omitempty" db:"resolved_by"`
+	ID             string     `json:"id" db:"id"`
+	EventType      string     `json:"event_type" db:"event_type"` // login_failure, password_change, mfa_enabled, etc.
+	UserID         string     `json:"user_id" db:"user_id"`
+	Severity       string     `json:"severity" db:"severity"`
+	Description    string     `json:"description" db:"description"`
+	IPAddress      string     `json:"ip_address" db:"ip_address"`
+	UserAgent      string     `json:"user_agent" db:"user_agent"`
+	IsResolved     bool       `json:"is_resolved" db:"is_resolved"`
+	ResolvedBy     *string    `json:"resolved_by,omitempty" db:"resolved_by"`
 	ResolvedAt     *time.Time `json:"resolved_at,omitempty" db:"resolved_at"`
-	ResolutionNote *string   `json:"resolution_note,omitempty" db:"resolution_note"`
-	Metadata       string    `json:"metadata,omitempty" db:"metadata"`
-	CreatedAt      time.Time `json:"created_at" db:"created_at"`
+	ResolutionNote *string    `json:"resolution_note,omitempty" db:"resolution_note"`
+	Metadata       string     `json:"metadata,omitempty" db:"metadata"`
+	CreatedAt      time.Time  `json:"created_at" db:"created_at"`
 }
 
 // ================== Password Policy Models ==================
 
 // PasswordPolicy represents password requirements
 type PasswordPolicy struct {
-	MinLength          int  `json:"min_length"`
-	RequireUppercase   bool `json:"require_uppercase"`
-	RequireLowercase   bool `json:"require_lowercase"`
-	RequireNumber      bool `json:"require_number"`
-	RequireSpecial     bool `json:"require_special"`
-	MaxAge             int  `json:"max_age_days"`
-	HistoryCount       int  `json:"history_count"`
-	LockoutThreshold   int  `json:"lockout_threshold"`
-	LockoutDuration    int  `json:"lockout_duration_minutes"`
+	MinLength        int  `json:"min_length"`
+	RequireUppercase bool `json:"require_uppercase"`
+	RequireLowercase bool `json:"require_lowercase"`
+	RequireNumber    bool `json:"require_number"`
+	RequireSpecial   bool `json:"require_special"`
+	MaxAge           int  `json:"max_age_days"`
+	HistoryCount     int  `json:"history_count"`
+	LockoutThreshold int  `json:"lockout_threshold"`
+	LockoutDuration  int  `json:"lockout_duration_minutes"`
 }
 
 // PasswordHistory tracks previous passwords
@@ -258,34 +258,34 @@ type PasswordHistory struct {
 
 // APIKey represents a service account API key
 type APIKey struct {
-	ID          string    `json:"id" db:"id"`
-	Name        string    `json:"name" db:"name"`
-	KeyHash     string    `json:"-" db:"key_hash"`
-	Prefix      string    `json:"prefix" db:"prefix"` // First 8 chars for identification
-	UserID      string    `json:"user_id" db:"user_id"`
-	Scopes      string    `json:"scopes" db:"scopes"` // JSON array of scopes
-	ExpiresAt   *time.Time `json:"expires_at,omitempty" db:"expires_at"`
-	IsActive    bool      `json:"is_active" db:"is_active"`
-	LastUsedAt  *time.Time `json:"last_used_at,omitempty" db:"last_used_at"`
-	LastUsedIP  string    `json:"last_used_ip" db:"last_used_ip"`
-	CreatedAt   time.Time `json:"created_at" db:"created_at"`
-	CreatedBy   string    `json:"created_by" db:"created_by"`
+	ID         string     `json:"id" db:"id"`
+	Name       string     `json:"name" db:"name"`
+	KeyHash    string     `json:"-" db:"key_hash"`
+	Prefix     string     `json:"prefix" db:"prefix"` // First 8 chars for identification
+	UserID     string     `json:"user_id" db:"user_id"`
+	Scopes     string     `json:"scopes" db:"scopes"` // JSON array of scopes
+	ExpiresAt  *time.Time `json:"expires_at,omitempty" db:"expires_at"`
+	IsActive   bool       `json:"is_active" db:"is_active"`
+	LastUsedAt *time.Time `json:"last_used_at,omitempty" db:"last_used_at"`
+	LastUsedIP string     `json:"last_used_ip" db:"last_used_ip"`
+	CreatedAt  time.Time  `json:"created_at" db:"created_at"`
+	CreatedBy  string     `json:"created_by" db:"created_by"`
 }
 
 // CreateAPIKeyRequest represents a new API key request
 type CreateAPIKeyRequest struct {
-	Name      string   `json:"name" binding:"required"`
-	Scopes    []string `json:"scopes" binding:"required"`
+	Name      string     `json:"name" binding:"required"`
+	Scopes    []string   `json:"scopes" binding:"required"`
 	ExpiresAt *time.Time `json:"expires_at,omitempty"`
 }
 
 // CreateAPIKeyResponse contains the generated API key (only shown once)
 type CreateAPIKeyResponse struct {
-	ID        string    `json:"id"`
-	Name      string    `json:"name"`
-	APIKey    string    `json:"api_key"` // Only returned on creation
+	ID        string     `json:"id"`
+	Name      string     `json:"name"`
+	APIKey    string     `json:"api_key"` // Only returned on creation
 	ExpiresAt *time.Time `json:"expires_at,omitempty"`
-	CreatedAt time.Time `json:"created_at"`
+	CreatedAt time.Time  `json:"created_at"`
 }
 
 // ================== Request/Response Models ==================

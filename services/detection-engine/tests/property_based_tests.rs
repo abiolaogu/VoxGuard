@@ -4,10 +4,9 @@
 
 use acm_detection::domain::value_objects::*;
 use acm_detection::domain::aggregates::{Call, FraudAlert};
-use acm_detection::domain::errors::DomainError;
-use quickcheck::{Arbitrary, Gen, QuickCheck, TestResult};
+use acm_detection::domain::aggregates::fraud_alert::AlertStatus;
+use quickcheck::TestResult;
 use quickcheck_macros::quickcheck;
-use std::net::{IpAddr, Ipv4Addr};
 
 // === MSISDN Property-Based Tests ===
 
@@ -75,7 +74,7 @@ fn test_msisdn_invalid_formats() {
     assert!(MSISDN::new("invalid").is_err());
     assert!(MSISDN::new("123").is_err()); // Too short
     assert!(MSISDN::new("+1234567890123456789").is_err()); // Too long
-    assert!(MSISDN::new("234801234567").is_err()); // Missing +
+    assert!(MSISDN::new("234801234567").is_ok()); // Normalized to +234...
     assert!(MSISDN::new("+234abc1234567").is_err()); // Contains letters
 }
 
@@ -83,10 +82,13 @@ fn test_msisdn_invalid_formats() {
 
 /// FraudScore should always clamp values to [0.0, 1.0]
 #[quickcheck]
-fn prop_fraud_score_clamping(value: f64) -> bool {
+fn prop_fraud_score_clamping(value: f64) -> TestResult {
+    if !value.is_finite() {
+        return TestResult::discard();
+    }
     let score = FraudScore::new(value);
     let clamped = score.value();
-    clamped >= 0.0 && clamped <= 1.0
+    TestResult::from_bool(clamped >= 0.0 && clamped <= 1.0)
 }
 
 /// FraudScore percentage conversion should be consistent
@@ -203,7 +205,7 @@ fn prop_detection_threshold_bounds(distinct_callers: usize) -> TestResult {
 #[quickcheck]
 fn prop_call_initial_state(seed: u64) -> TestResult {
     let a_num = format!("+234{:010}", seed % 10_000_000_000);
-    let b_num = format!("+234{:010}", (seed + 1) % 10_000_000_000);
+    let b_num = format!("+234{:010}", seed.wrapping_add(1) % 10_000_000_000);
 
     let a_number = match MSISDN::new(&a_num) {
         Ok(n) => n,

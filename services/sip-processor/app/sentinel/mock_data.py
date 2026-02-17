@@ -43,7 +43,9 @@ class MockCDRGenerator:
         Args:
             seed: Random seed for reproducible data generation
         """
-        random.seed(seed)
+        self._rng = random.Random(seed)
+        # Fixed anchor time keeps generated datasets reproducible across runs.
+        self._base_time = datetime(2026, 1, 1, 0, 0, 0)
 
     def generate_phone_number(self, prefix: str = None) -> str:
         """
@@ -56,10 +58,10 @@ class MockCDRGenerator:
             Phone number in E.164 format
         """
         if prefix is None:
-            prefix = random.choice(self.NIGERIAN_PREFIXES)
+            prefix = self._rng.choice(self.NIGERIAN_PREFIXES)
 
         # Generate 7 remaining digits
-        suffix = ''.join([str(random.randint(0, 9)) for _ in range(7)])
+        suffix = ''.join([str(self._rng.randint(0, 9)) for _ in range(7)])
         return f"{prefix}{suffix}"
 
     def generate_normal_call(self, base_time: datetime) -> dict:
@@ -73,7 +75,7 @@ class MockCDRGenerator:
             Dictionary with call record fields
         """
         # Normal calls: 30 seconds to 30 minutes duration
-        duration = random.randint(30, 1800)
+        duration = self._rng.randint(30, 1800)
 
         return {
             'call_date': base_time.strftime('%Y-%m-%d'),
@@ -81,8 +83,8 @@ class MockCDRGenerator:
             'caller_number': self.generate_phone_number(),
             'callee_number': self.generate_phone_number(),
             'duration_seconds': duration,
-            'call_direction': random.choice(self.CALL_DIRECTIONS),
-            'termination_cause': random.choice(self.TERMINATION_CAUSES)
+            'call_direction': self._rng.choice(self.CALL_DIRECTIONS),
+            'termination_cause': self._rng.choice(self.TERMINATION_CAUSES)
         }
 
     def generate_simbox_call(self, caller: str, base_time: datetime) -> dict:
@@ -97,7 +99,7 @@ class MockCDRGenerator:
             Dictionary with call record fields
         """
         # SIM Box calls: Very short duration (1-5 seconds)
-        duration = random.randint(1, 5)
+        duration = self._rng.randint(1, 5)
 
         return {
             'call_date': base_time.strftime('%Y-%m-%d'),
@@ -127,7 +129,7 @@ class MockCDRGenerator:
             Tuple of (list of call records, list of SIM Box caller numbers)
         """
         records = []
-        base_time = datetime.utcnow() - timedelta(hours=23)  # Start 23 hours ago
+        base_time = self._base_time
 
         # Generate SIM Box fraudulent calls
         simbox_numbers = [self.generate_phone_number() for _ in range(simbox_callers)]
@@ -136,7 +138,7 @@ class MockCDRGenerator:
             for i in range(simbox_calls_per_caller):
                 # Spread calls across the time window
                 call_time = base_time + timedelta(
-                    minutes=random.randint(0, 23 * 60)
+                    minutes=self._rng.randint(0, 23 * 60)
                 )
                 record = self.generate_simbox_call(simbox_number, call_time)
                 records.append(record)
@@ -147,13 +149,13 @@ class MockCDRGenerator:
         for i in range(normal_calls_needed):
             # Random time within the window
             call_time = base_time + timedelta(
-                minutes=random.randint(0, 23 * 60)
+                    minutes=self._rng.randint(0, 23 * 60)
             )
             record = self.generate_normal_call(call_time)
             records.append(record)
 
         # Shuffle records to mix normal and fraudulent calls
-        random.shuffle(records)
+        self._rng.shuffle(records)
 
         return records, simbox_numbers
 

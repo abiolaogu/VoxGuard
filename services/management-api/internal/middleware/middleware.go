@@ -200,8 +200,8 @@ func RateLimiter(redis *database.RedisClient, maxRequests int, window time.Durat
 
 		if count > int64(maxRequests) {
 			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{
-				"error":      "rate_limit_exceeded",
-				"message":    "Too many requests",
+				"error":       "rate_limit_exceeded",
+				"message":     "Too many requests",
 				"retry_after": int(ttl.Seconds()),
 			})
 			return

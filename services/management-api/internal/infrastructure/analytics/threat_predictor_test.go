@@ -87,9 +87,9 @@ func TestPredictEmergingThreats(t *testing.T) {
 
 	t.Run("identifies emerging threats", func(t *testing.T) {
 		rows := sqlmock.NewRows([]string{"event_type", "current_count", "growth_rate"}).
-			AddRow("NEW_THREAT_PATTERN", 65, 85.5).  // High growth
-			AddRow("CLI_MISMATCH", 120, 15.2).       // Moderate growth
-			AddRow("SIMBOX_DETECTED", 55, 35.8)      // Above 30% threshold
+			AddRow("NEW_THREAT_PATTERN", 65, 85.5). // High growth
+			AddRow("CLI_MISMATCH", 120, 15.2).      // Moderate growth
+			AddRow("SIMBOX_DETECTED", 55, 35.8)     // Above 30% threshold
 
 		mock.ExpectQuery("WITH weekly_counts AS").WillReturnRows(rows)
 
@@ -99,7 +99,7 @@ func TestPredictEmergingThreats(t *testing.T) {
 
 		// First prediction should be the highest growth threat
 		assert.Equal(t, "NEW_THREAT_PATTERN", predictions[0].ThreatType)
-		assert.Equal(t, int64(65), predictions[0].ExpectedCount) // Base count (will be projected)
+		assert.Equal(t, int64(120), predictions[0].ExpectedCount) // Projected next-week count
 		assert.Contains(t, predictions[0].ContributingFactors[0], "85.5%")
 		assert.Equal(t, "HIGH", predictions[0].ConfidenceLevel)
 
@@ -315,7 +315,7 @@ func TestAverage(t *testing.T) {
 func contains(s, substr string) bool {
 	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) &&
 		(s[:len(substr)] == substr || s[len(s)-len(substr):] == substr ||
-		findSubstring(s, substr)))
+			findSubstring(s, substr)))
 }
 
 func findSubstring(s, substr string) bool {

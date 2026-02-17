@@ -37,21 +37,21 @@ func (t GatewayType) IsValid() bool {
 
 // Gateway is the aggregate root for gateway management
 type Gateway struct {
-	id                string
-	name              string
-	ipAddress         net.IP
-	carrierName       string
-	gatewayType       GatewayType
-	fraudThreshold    float64
-	cpmLimit          int
-	acdThreshold      float64
-	isActive          bool
-	isBlacklisted     bool
-	blacklistReason   string
+	id                 string
+	name               string
+	ipAddress          net.IP
+	carrierName        string
+	gatewayType        GatewayType
+	fraudThreshold     float64
+	cpmLimit           int
+	acdThreshold       float64
+	isActive           bool
+	isBlacklisted      bool
+	blacklistReason    string
 	blacklistExpiresAt *time.Time
-	createdAt         time.Time
-	updatedAt         time.Time
-	
+	createdAt          time.Time
+	updatedAt          time.Time
+
 	// Read-only statistics (populated when needed)
 	callsToday int
 	fraudCount int
@@ -63,15 +63,15 @@ func NewGateway(id, name, ipAddress, carrierName string, gatewayType GatewayType
 	if ip == nil {
 		return nil, ErrInvalidIPAddress
 	}
-	
+
 	if !gatewayType.IsValid() {
 		return nil, ErrInvalidGatewayType
 	}
-	
+
 	if carrierName == "" {
 		return nil, ErrInvalidCarrierName
 	}
-	
+
 	now := time.Now()
 	return &Gateway{
 		id:             id,

@@ -198,13 +198,11 @@ func TestGetAuditStats_Success(t *testing.T) {
 	endTime := time.Now()
 
 	expectedStats := &entity.AuditStats{
-		TotalEvents:     1000,
-		SuccessEvents:   950,
-		FailureEvents:   50,
-		UniqueUsers:     25,
-		TopActions:      map[string]int{"login_success": 500, "create": 300},
-		TopResources:    map[string]int{"gateway": 400, "fraud_alert": 350},
-		SeverityBreakup: map[string]int{"low": 800, "medium": 150, "high": 50},
+		TotalEvents:      1000,
+		EventsByAction:   map[string]int64{"login_success": 500, "create": 300},
+		EventsByResource: map[string]int64{"gateway": 400, "fraud_alert": 350},
+		EventsBySeverity: map[string]int64{"low": 800, "medium": 150, "high": 50},
+		FailureRate:      5.0,
 	}
 
 	mockRepo.On("GetAuditStats", ctx, startTime, endTime).Return(expectedStats, nil)
@@ -213,8 +211,8 @@ func TestGetAuditStats_Success(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.NotNil(t, stats)
-	assert.Equal(t, 1000, stats.TotalEvents)
-	assert.Equal(t, 950, stats.SuccessEvents)
+	assert.Equal(t, int64(1000), stats.TotalEvents)
+	assert.Equal(t, 5.0, stats.FailureRate)
 	assert.NotEmpty(t, stats.Period)
 	assert.NotZero(t, stats.GeneratedAt)
 	mockRepo.AssertExpectations(t)
@@ -485,9 +483,8 @@ func TestGenerateComplianceReport_Success(t *testing.T) {
 	endDate := time.Now()
 
 	stats := &entity.AuditStats{
-		TotalEvents:   1000,
-		SuccessEvents: 950,
-		FailureEvents: 50,
+		TotalEvents: 1000,
+		FailureRate: 5.0,
 	}
 
 	mockRepo.On("GetAuditStats", ctx, startDate, endDate).Return(stats, nil)

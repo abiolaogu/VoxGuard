@@ -39,7 +39,7 @@ class TestSDHFDetector:
                 'last_call': datetime.utcnow()
             }
         ]
-        mock_conn.fetch.return_value = [MagicMock(**row) for row in mock_rows]
+        mock_conn.fetch.return_value = mock_rows
         mock_pool.acquire.return_value.__aenter__.return_value = mock_conn
 
         # Run detection
@@ -103,10 +103,11 @@ class TestSDHFDetector:
         ]
 
         # Mock fetch for detection query
-        mock_conn.fetch.return_value = [MagicMock(**row) for row in mock_detections]
-
-        # Mock fetchval for alert insertion
-        mock_conn.fetchval.return_value = 123  # Mock alert ID
+        mock_conn.fetch.return_value = mock_detections
+        mock_conn.fetchrow.return_value = {
+            "id": 123,
+            "created_at": datetime.utcnow(),
+        }
 
         mock_pool.acquire.return_value.__aenter__.return_value = mock_conn
 
@@ -181,7 +182,10 @@ class TestSDHFDetector:
         """Test alert creation in database"""
         # Mock database connection
         mock_conn = AsyncMock()
-        mock_conn.fetchval.return_value = 456  # Mock alert ID
+        mock_conn.fetchrow.return_value = {
+            "id": 456,
+            "created_at": datetime.utcnow(),
+        }
         mock_pool.acquire.return_value.__aenter__.return_value = mock_conn
 
         # Create alert
@@ -200,7 +204,7 @@ class TestSDHFDetector:
 
         # Verify alert was inserted
         assert alert_id == 456
-        mock_conn.fetchval.assert_called_once()
+        mock_conn.fetchrow.assert_called_once()
 
 
 class TestFraudDetectionEngine:
@@ -241,8 +245,11 @@ class TestFraudDetectionEngine:
                 'last_call': datetime.utcnow()
             }
         ]
-        mock_conn.fetch.return_value = [MagicMock(**row) for row in mock_detections]
-        mock_conn.fetchval.return_value = 999
+        mock_conn.fetch.return_value = mock_detections
+        mock_conn.fetchrow.return_value = {
+            "id": 999,
+            "created_at": datetime.utcnow(),
+        }
         mock_pool.acquire.return_value.__aenter__.return_value = mock_conn
 
         # Run all detections
@@ -272,10 +279,13 @@ class TestSDHFDetectorIntegration:
             'first_call': datetime.utcnow() - timedelta(hours=12),
             'last_call': datetime.utcnow()
         }
-        mock_conn.fetch.return_value = [MagicMock(**mock_detection)]
+        mock_conn.fetch.return_value = [mock_detection]
 
         # Mock alert insertion
-        mock_conn.fetchval.return_value = 111
+        mock_conn.fetchrow.return_value = {
+            "id": 111,
+            "created_at": datetime.utcnow(),
+        }
 
         mock_pool.acquire.return_value.__aenter__.return_value = mock_conn
 
@@ -292,7 +302,7 @@ class TestSDHFDetectorIntegration:
 
         # Verify both queries were executed
         assert mock_conn.fetch.call_count == 1
-        assert mock_conn.fetchval.call_count == 1
+        assert mock_conn.fetchrow.call_count == 1
 
     @pytest.mark.asyncio
     async def test_multiple_detections(self, mock_pool):
@@ -319,11 +329,14 @@ class TestSDHFDetectorIntegration:
                 'last_call': datetime.utcnow()
             }
         ]
-        mock_conn.fetch.return_value = [MagicMock(**row) for row in mock_detections]
+        mock_conn.fetch.return_value = mock_detections
 
         # Mock alert insertions
         alert_ids = [222, 333]
-        mock_conn.fetchval.side_effect = alert_ids
+        mock_conn.fetchrow.side_effect = [
+            {"id": 222, "created_at": datetime.utcnow()},
+            {"id": 333, "created_at": datetime.utcnow()},
+        ]
 
         mock_pool.acquire.return_value.__aenter__.return_value = mock_conn
 

@@ -108,7 +108,7 @@ async def ingest_cdr(
 
 @router.get("/alerts")
 async def get_alerts(
-    severity: Optional[str] = Query(None, regex="^(LOW|MEDIUM|HIGH|CRITICAL)$"),
+    severity: Optional[str] = Query(None, pattern="^(LOW|MEDIUM|HIGH|CRITICAL)$"),
     reviewed: Optional[bool] = Query(None),
     limit: int = Query(50, ge=1, le=1000),
     db_pool: asyncpg.Pool = Depends(get_db_pool)
@@ -257,7 +257,7 @@ class RealTimeCallEvent(BaseModel):
     caller_number: str = Field(..., description="Caller phone number in E.164 format")
     callee_number: str = Field(..., description="Callee phone number in E.164 format")
     duration_seconds: int = Field(..., ge=0, description="Call duration in seconds")
-    call_direction: Optional[str] = Field(None, regex="^(inbound|outbound)$", description="Call direction")
+    call_direction: Optional[str] = Field(None, pattern="^(inbound|outbound)$", description="Call direction")
     timestamp: str = Field(..., description="ISO 8601 timestamp (e.g., 2024-01-15T14:32:15Z)")
 
 
