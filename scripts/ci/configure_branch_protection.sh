@@ -22,10 +22,10 @@ cat <<JSON | gh api \
   "required_status_checks": {
     "strict": true,
     "contexts": [
-      "AIDD Tier Guardrails / Validate AIDD Tier",
-      "Service CI Required Checks / Rust Unit Tests",
-      "Service CI Required Checks / Go Unit Tests",
-      "Service CI Required Checks / Python Unit Tests"
+      "Validate AIDD Tier",
+      "Rust Unit Tests",
+      "Go Unit Tests",
+      "Python Unit Tests"
     ]
   },
   "enforce_admins": true,
