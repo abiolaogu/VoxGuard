@@ -42,3 +42,9 @@ node_modules/
 coverage/
 htmlcov/
 .coverage
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+infrastructure/terraform/backend.hcl
