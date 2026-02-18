@@ -68,23 +68,30 @@ Full local review of architecture, CI/CD governance, and core service build/test
 ## Validation Results
 
 - `cargo test --quiet` in `services/detection-engine`: **passing** (all tests passed).
-- `go test ./...` in `services/management-api`: **failing** (structural module/package issues remain).
+- `go test ./...` in `services/management-api`: **passing**.
 - `python3 -m pytest -q services/sip-processor/tests`: **passing** (178 passed, 0 failed).
 
-## Remaining Priority Recommendations (Not Yet Implemented)
+## Additional Recommendations Implemented (2026-02-17)
 
 1. **Management API stabilization (P0)**
-   - Choose one runtime path per service boundary and remove mixed root package layout.
-   - Regenerate and commit a valid `go.sum`.
-   - Ensure `go test ./...` is green before enabling stricter merge gates.
+   - Go package layout aligned to internal module boundaries used by `main.go`.
+   - `go mod tidy` executed and `go.sum` regenerated.
+   - `go test ./...` now passes.
 
 2. **Terraform production readiness (P0)**
-   - Add missing module implementations under `infrastructure/terraform/modules/`.
-   - Enable remote state backend and locking for non-local environments.
+   - Module set present under `infrastructure/terraform/modules/` for:
+     - `network`, `dragonfly`, `yugabyte`, `opensips`, `acm-engine`, `regional-lb`, `monitoring`.
+   - Remote backend wiring enabled via `backend "s3" {}` and backend template:
+     - `infrastructure/terraform/backend.hcl.example`
 
 3. **Polyglot CI parity with documented pipeline (P1)**
-   - Add path-aware build/test/lint jobs for Rust, Go, Python, and web packages.
-   - Make these jobs required checks in branch protection.
+   - Added path-aware required-check workflow:
+     - `.github/workflows/service-ci-required-checks.yml`
+   - Added branch protection bootstrap script and guide:
+     - `scripts/ci/configure_branch_protection.sh`
+     - `docs/technical/BRANCH_PROTECTION.md`
+
+## Remaining Priority Recommendations
 
 4. **Scalability hardening (P1)**
    - Add automated verification for replication/failover assumptions (Yugabyte + Dragonfly + HAProxy).

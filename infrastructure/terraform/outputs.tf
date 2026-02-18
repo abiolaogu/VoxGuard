@@ -78,9 +78,9 @@ output "replication_status" {
 output "terraform_state_info" {
   description = "Information about Terraform state management"
   value = {
-    backend = "local"  # Update to "s3" or "gcs" for production
-    recommendation = "Configure remote state backend for production deployments"
-    state_locking = false  # Enable with remote backend
+    backend        = "s3"
+    recommendation = "Initialize with backend.hcl to set bucket/key/region and DynamoDB lock table"
+    state_locking  = true
   }
 }
 
