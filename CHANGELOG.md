@@ -146,3 +146,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [2.0.0]: https://github.com/<org>/VoxGuard/compare/v1.5.0...v2.0.0
 [1.5.0]: https://github.com/<org>/VoxGuard/compare/v1.0.0...v1.5.0
 [1.0.0]: https://github.com/<org>/VoxGuard/releases/tag/v1.0.0
+
+## 2026-02-18 - Frontend Stack Standardization
+
+- Added unified frontend stack scaffolding for web, flutter, android, and ios.
+- Added GraphQL schema/codegen scripts and CI workflows for metadata/schema triggers.
+- Added docs for architecture and code generation workflow.
