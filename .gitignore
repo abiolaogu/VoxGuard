@@ -37,6 +37,10 @@ logs/
 dist/
 build/
 node_modules/
+web/dist/
+*.tsbuildinfo
+.dart_tool/
+**/.dart_tool/
 
 # Coverage
 coverage/

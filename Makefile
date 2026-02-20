@@ -174,3 +174,14 @@ clean: ## Clean all build artifacts
 
 clean-docker: ## Remove all Docker resources
 	docker-compose -f infrastructure/docker/docker-compose.yml down -v --rmi all
+
+# codex-frontend-stack:start
+schema:pull:
+	./scripts/schema-pull.sh
+
+codegen:all:
+	./scripts/codegen-all.sh
+
+test:all:
+	./scripts/test-all.sh
+# codex-frontend-stack:end
