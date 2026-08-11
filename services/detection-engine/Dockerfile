@@ -1,4 +1,6 @@
-FROM lukemathwalker/cargo-chef:latest-rust-1.72 AS chef
+FROM rust:latest AS chef
+# Install cargo-chef since it's not in the official image
+RUN cargo install cargo-chef
 WORKDIR /app
 
 FROM chef AS planner
@@ -11,7 +13,7 @@ COPY --from=planner /app/recipe.json recipe.json
 RUN cargo chef cook --release --recipe-path recipe.json
 # Build application
 COPY . .
-RUN cargo build --release --bin detection-service
+RUN cargo build --release --bin acm-detection-service
 
 # We do not need the Rust toolchain to run the binary!
 FROM debian:bookworm-slim AS runtime
@@ -21,5 +23,5 @@ RUN apt-get update -y \
     && apt-get autoremove -y \
     && apt-get clean -y \
     && rm -rf /var/lib/apt/lists/*
-COPY --from=builder /app/target/release/detection-service /usr/local/bin
-ENTRYPOINT ["/usr/local/bin/detection-service"]
+COPY --from=builder /app/target/release/acm-detection-service /usr/local/bin
+ENTRYPOINT ["/usr/local/bin/acm-detection-service"]

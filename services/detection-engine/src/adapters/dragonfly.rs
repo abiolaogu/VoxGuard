@@ -14,6 +14,7 @@ use crate::domain::{
 use crate::ports::DetectionCache;
 
 /// DragonflyDB cache adapter implementing DetectionCache port
+#[allow(dead_code)]
 pub struct DragonflyCache {
     client: Client,
     pool_size: usize,
@@ -99,7 +100,7 @@ impl DetectionCache for DragonflyCache {
         let mut conn = self.get_connection().await?;
         let key = format!("cooldown:{}", b_number);
 
-        conn.set_ex(&key, "1", seconds as u64)
+        conn.set_ex::<_, _, ()>(&key, "1", seconds as u64)
             .await
             .map_err(|e| DomainError::InvalidConfiguration(format!("Cache error: {}", e)))?;
 
@@ -123,11 +124,11 @@ impl DetectionCache for DragonflyCache {
         let key = format!("blacklist:ip:{}", ip);
 
         if let Some(ttl) = ttl_seconds {
-            conn.set_ex(&key, "1", ttl as u64)
+            conn.set_ex::<_, _, ()>(&key, "1", ttl as u64)
                 .await
                 .map_err(|e| DomainError::InvalidConfiguration(format!("Cache error: {}", e)))?;
         } else {
-            conn.set(&key, "1")
+            conn.set::<_, _, ()>(&key, "1")
                 .await
                 .map_err(|e| DomainError::InvalidConfiguration(format!("Cache error: {}", e)))?;
         }

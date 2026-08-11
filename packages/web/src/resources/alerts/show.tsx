@@ -60,7 +60,7 @@ interface AuditLog {
 export const AlertShow: React.FC = () => {
   const navigate = useNavigate();
   const { queryResult } = useShow<Alert>({
-    resource: 'acm_alerts',
+    resource: 'fraud_alerts',
     liveMode: 'auto',
   });
 
@@ -159,8 +159,8 @@ export const AlertShow: React.FC = () => {
                       alert.threat_score >= 80
                         ? VG_COLORS.critical
                         : alert.threat_score >= 60
-                        ? VG_COLORS.high
-                        : VG_COLORS.medium,
+                          ? VG_COLORS.high
+                          : VG_COLORS.medium,
                     fontSize: 18,
                   }}
                 >

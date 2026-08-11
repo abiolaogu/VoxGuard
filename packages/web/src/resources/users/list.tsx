@@ -55,7 +55,7 @@ const roleOptions = [
 
 export const UserList: React.FC = () => {
   const { tableProps } = useTable<User>({
-    resource: 'acm_users',
+    resource: 'users',
     sorters: {
       initial: [{ field: 'created_at', order: 'desc' }],
     },

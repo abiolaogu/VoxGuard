@@ -4,9 +4,9 @@ import { gql } from '@apollo/client';
 
 // GraphQL subscription documents for different resources
 const SUBSCRIPTIONS: Record<string, ReturnType<typeof gql>> = {
-  acm_alerts: gql`
-    subscription AlertsSubscription($where: acm_alerts_bool_exp) {
-      acm_alerts(where: $where, order_by: { created_at: desc }, limit: 100) {
+  fraud_alerts: gql`
+    subscription AlertsSubscription($where: fraud_alerts_bool_exp) {
+      fraud_alerts(where: $where, order_by: { created_at: desc }, limit: 100) {
         id
         b_number
         a_number
@@ -20,9 +20,9 @@ const SUBSCRIPTIONS: Record<string, ReturnType<typeof gql>> = {
       }
     }
   `,
-  acm_alerts_aggregate: gql`
-    subscription AlertsAggregateSubscription($where: acm_alerts_bool_exp) {
-      acm_alerts_aggregate(where: $where) {
+  fraud_alerts_aggregate: gql`
+    subscription AlertsAggregateSubscription($where: fraud_alerts_bool_exp) {
+      fraud_alerts_aggregate(where: $where) {
         aggregate {
           count
         }
@@ -33,9 +33,9 @@ const SUBSCRIPTIONS: Record<string, ReturnType<typeof gql>> = {
       }
     }
   `,
-  acm_users: gql`
+  users: gql`
     subscription UsersSubscription {
-      acm_users(order_by: { created_at: desc }) {
+      users(order_by: { created_at: desc }) {
         id
         email
         name
@@ -45,6 +45,7 @@ const SUBSCRIPTIONS: Record<string, ReturnType<typeof gql>> = {
       }
     }
   `,
+  // Settings table is not yet tracked/created, keeping placeholder but disabling usage if needed
   acm_settings: gql`
     subscription SettingsSubscription {
       acm_settings {
@@ -154,13 +155,13 @@ export const subscribeToAlerts = (
 
   return apolloClient
     .subscribe({
-      query: SUBSCRIPTIONS.acm_alerts,
+      query: SUBSCRIPTIONS.fraud_alerts,
       variables: Object.keys(where).length ? { where } : undefined,
     })
     .subscribe({
       next: (result) => {
-        if (result.data?.acm_alerts) {
-          onData(result.data.acm_alerts);
+        if (result.data?.fraud_alerts) {
+          onData(result.data.fraud_alerts);
         }
       },
       error: (error) => {
@@ -182,16 +183,16 @@ export const subscribeToAlertCount = (
 
   return apolloClient
     .subscribe({
-      query: SUBSCRIPTIONS.acm_alerts_aggregate,
+      query: SUBSCRIPTIONS.fraud_alerts_aggregate,
       variables: Object.keys(where).length ? { where } : undefined,
     })
     .subscribe({
       next: (result) => {
-        if (result.data?.acm_alerts_aggregate) {
-          const count = result.data.acm_alerts_aggregate.aggregate.count;
+        if (result.data?.fraud_alerts_aggregate) {
+          const count = result.data.fraud_alerts_aggregate.aggregate.count;
           const bySeverity: Record<string, number> = {};
 
-          result.data.acm_alerts_aggregate.nodes.forEach((node: { severity: string }) => {
+          result.data.fraud_alerts_aggregate.nodes.forEach((node: { severity: string }) => {
             bySeverity[node.severity] = (bySeverity[node.severity] || 0) + 1;
           });
 

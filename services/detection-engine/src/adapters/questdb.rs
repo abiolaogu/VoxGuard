@@ -17,6 +17,7 @@ use crate::domain::{
 use crate::ports::{GatewayMetrics, TimeSeriesStore};
 
 /// QuestDB time-series store adapter implementing high-performance ingestion
+#[allow(dead_code)]
 pub struct QuestDBStore {
     ilp_host: String,
     ilp_port: u16,
@@ -44,6 +45,7 @@ impl QuestDBStore {
 
     /// Sends data via InfluxDB Line Protocol (ILP) for high-throughput ingestion
     /// Format: measurement,tag1=value1,tag2=value2 field1=value1,field2=value2 timestamp_ns
+    #[allow(dead_code)]
     fn send_ilp(&self, line: &str) -> DomainResult<()> {
         let addr = format!("{}:{}", self.ilp_host, self.ilp_port);
         

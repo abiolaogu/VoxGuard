@@ -64,7 +64,7 @@ const statusOptions = [
 
 export const AlertList: React.FC = () => {
   const { tableProps, sorters } = useTable<Alert>({
-    resource: 'acm_alerts',
+    resource: 'fraud_alerts',
     sorters: {
       initial: [{ field: 'created_at', order: 'desc' }],
     },
@@ -198,8 +198,8 @@ export const AlertList: React.FC = () => {
               score >= 80
                 ? VG_COLORS.critical
                 : score >= 60
-                ? VG_COLORS.high
-                : VG_COLORS.medium,
+                  ? VG_COLORS.high
+                  : VG_COLORS.medium,
           }}
         >
           {score}%

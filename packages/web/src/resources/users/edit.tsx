@@ -24,7 +24,7 @@ const roleOptions = [
 
 export const UserEdit: React.FC = () => {
   const { formProps, saveButtonProps, queryResult } = useForm<User>({
-    resource: 'acm_users',
+    resource: 'users',
     redirect: 'show',
   });
 

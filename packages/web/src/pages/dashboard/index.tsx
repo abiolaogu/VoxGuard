@@ -18,7 +18,7 @@ import relativeTime from 'dayjs/plugin/relativeTime';
 import { UNRESOLVED_ALERTS_COUNT_SUBSCRIPTION } from '../../graphql/subscriptions';
 import { GET_RECENT_ALERTS } from '../../graphql/queries';
 import { VG_COLORS, severityColors, statusColors } from '../../config/antd-theme';
-import { EXTERNAL_SERVICES, generateDeepLink } from '../../config/external-services';
+
 import { AlertsTrendChart } from './components/AlertsTrendChart';
 import { SeverityPieChart } from './components/SeverityPieChart';
 import { TrafficAreaChart } from './components/TrafficAreaChart';

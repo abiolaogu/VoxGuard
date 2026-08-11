@@ -42,7 +42,7 @@ const statusOptions = [
 
 export const AlertEdit: React.FC = () => {
   const { formProps, saveButtonProps, queryResult } = useForm<Alert>({
-    resource: 'acm_alerts',
+    resource: 'fraud_alerts',
     redirect: 'show',
     meta: {
       fields: [
@@ -128,8 +128,8 @@ export const AlertEdit: React.FC = () => {
                           alert.threat_score >= 80
                             ? VG_COLORS.critical
                             : alert.threat_score >= 60
-                            ? VG_COLORS.high
-                            : VG_COLORS.medium,
+                              ? VG_COLORS.high
+                              : VG_COLORS.medium,
                         fontSize: 18,
                       }}
                     >

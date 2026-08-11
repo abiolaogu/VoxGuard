@@ -22,6 +22,11 @@ import {
   AuditOutlined,
   RobotOutlined,
   FileSearchOutlined,
+  GatewayOutlined,
+  StopOutlined,
+  GlobalOutlined,
+  ThunderboltOutlined,
+  FilePdfOutlined,
 } from '@ant-design/icons';
 
 // Resource definitions for Refine
@@ -35,7 +40,31 @@ export const resources: ResourceProps[] = [
     },
   },
   {
-    name: 'acm_alerts',
+    name: 'call_logs',
+    list: '/calls',
+    meta: {
+      label: 'Call Log',
+      icon: React.createElement(PhoneOutlined),
+    },
+  },
+  {
+    name: 'gateways',
+    list: '/gateways',
+    meta: {
+      label: 'Gateways',
+      icon: React.createElement(GatewayOutlined),
+    },
+  },
+  {
+    name: 'blacklist',
+    list: '/blacklist',
+    meta: {
+      label: 'Blacklist',
+      icon: React.createElement(StopOutlined),
+    },
+  },
+  {
+    name: 'fraud_alerts',
     list: '/alerts',
     show: '/alerts/show/:id',
     edit: '/alerts/edit/:id',
@@ -46,18 +75,7 @@ export const resources: ResourceProps[] = [
     },
   },
   {
-    name: 'acm_gateways',
-    list: '/gateways',
-    show: '/gateways/show/:id',
-    create: '/gateways/create',
-    edit: '/gateways/edit/:id',
-    meta: {
-      label: 'Gateways',
-      icon: React.createElement(ApiOutlined),
-    },
-  },
-  {
-    name: 'acm_users',
+    name: 'users',
     list: '/users',
     show: '/users/show/:id',
     create: '/users/create',
@@ -73,6 +91,32 @@ export const resources: ResourceProps[] = [
     meta: {
       label: 'Analytics',
       icon: React.createElement(BarChartOutlined),
+    },
+  },
+  {
+    name: 'irsf',
+    list: '/fraud/irsf',
+    meta: {
+      label: 'IRSF',
+      icon: React.createElement(GlobalOutlined),
+      parent: 'fraud',
+    },
+  },
+  {
+    name: 'wangiri',
+    list: '/fraud/wangiri',
+    meta: {
+      label: 'Wangiri',
+      icon: React.createElement(ThunderboltOutlined),
+      parent: 'fraud',
+    },
+  },
+  {
+    name: 'compliance_reports',
+    list: '/compliance',
+    meta: {
+      label: 'Compliance',
+      icon: React.createElement(FilePdfOutlined),
     },
   },
   {

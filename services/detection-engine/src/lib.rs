@@ -1,3 +1,4 @@
+#![allow(unused)]
 //! Anti-Call Masking Detection Service - Domain Layer
 //!
 //! This module contains the core domain logic for fraud detection following DDD principles.

@@ -21,7 +21,7 @@ const roleOptions = [
 
 export const UserCreate: React.FC = () => {
   const { formProps, saveButtonProps } = useForm<UserFormValues>({
-    resource: 'acm_users',
+    resource: 'users',
     redirect: 'list',
   });
 

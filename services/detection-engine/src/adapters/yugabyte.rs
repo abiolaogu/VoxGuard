@@ -379,22 +379,26 @@ impl AlertRepository for YugabyteRepository {
         Ok(())
     }
 
+    #[allow(unused_variables)]
     async fn find_by_id(&self, id: Uuid) -> DomainResult<Option<FraudAlert>> {
         // Simplified - return None for now
         // Full implementation would reconstruct FraudAlert from row data
         Ok(None)
     }
 
+    #[allow(unused_variables)]
     async fn find_recent(&self, minutes: i64) -> DomainResult<Vec<FraudAlert>> {
         // Would query alerts from last N minutes
         Ok(vec![])
     }
 
+    #[allow(unused_variables)]
     async fn find_by_status(&self, status: AlertStatus) -> DomainResult<Vec<FraudAlert>> {
         // Would query alerts by status
         Ok(vec![])
     }
 
+    #[allow(unused_variables)]
     async fn find_by_b_number(&self, b_number: &MSISDN) -> DomainResult<Vec<FraudAlert>> {
         // Would query alerts for specific B-number
         Ok(vec![])
@@ -452,10 +456,12 @@ impl GatewayRepository for YugabyteRepository {
         Ok(())
     }
 
+    #[allow(unused_variables)]
     async fn find_by_id(&self, id: Uuid) -> DomainResult<Option<Gateway>> {
         Ok(None) // Simplified
     }
 
+    #[allow(unused_variables)]
     async fn find_by_ip(&self, ip: &IPAddress) -> DomainResult<Option<Gateway>> {
         Ok(None) // Simplified
     }

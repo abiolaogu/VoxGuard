@@ -42,6 +42,12 @@ import { GatewayList, GatewayShow, GatewayCreate, GatewayEdit } from './resource
 import { UserList, UserShow, UserCreate, UserEdit } from './resources/users';
 import { AnalyticsPage } from './resources/analytics';
 import { SettingsPage } from './resources/settings';
+import { CallList } from './resources/calls/list';
+import { GatewayList } from './resources/gateways/list';
+import { BlacklistList } from './resources/fraud/blacklist';
+import { IRSFList } from './resources/fraud/irsf';
+import { WangiriList } from './resources/fraud/wangiri';
+import { ComplianceList } from './resources/compliance/list';
 
 // VoxGuard Security Pages (from VoxSwitch-IM)
 import {
@@ -78,7 +84,7 @@ function AppContent() {
   return (
     <ConfigProvider theme={theme}>
       <AntdApp>
-        <BrowserRouter>
+        <BrowserRouter basename={import.meta.env.VITE_BASE_PATH || '/'}>
           <Refine
             dataProvider={acmDataProvider}
             authProvider={authProvider}
@@ -133,6 +139,24 @@ function AppContent() {
                 {/* Dashboard */}
                 <Route index element={<NavigateToResource resource="dashboard" />} />
                 <Route path="/dashboard" element={<DashboardPage />} />
+
+                {/* Call Log */}
+                <Route path="/calls" element={<CallList />} />
+
+                {/* Gateways */}
+                <Route path="/gateways" element={<GatewayList />} />
+
+                {/* Blacklist */}
+                <Route path="/blacklist" element={<BlacklistList />} />
+
+                {/* Fraud Prevention */}
+                <Route path="/fraud">
+                  <Route path="irsf" element={<IRSFList />} />
+                  <Route path="wangiri" element={<WangiriList />} />
+                </Route>
+
+                {/* Compliance */}
+                <Route path="/compliance" element={<ComplianceList />} />
 
                 {/* Alerts */}
                 <Route path="/alerts">

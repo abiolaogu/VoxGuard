@@ -63,7 +63,7 @@ const roleDescriptions: Record<string, string> = {
 export const UserShow: React.FC = () => {
   const navigate = useNavigate();
   const { queryResult } = useShow<User>({
-    resource: 'acm_users',
+    resource: 'users',
   });
 
   const { data: canEdit } = useCan({ resource: 'acm_users', action: 'edit' });
@@ -99,14 +99,14 @@ export const UserShow: React.FC = () => {
       headerButtons={
         canEdit?.can
           ? () => (
-              <Button
-                type="primary"
-                icon={<EditOutlined />}
-                onClick={() => navigate(`/users/edit/${user.id}`)}
-              >
-                Edit User
-              </Button>
-            )
+            <Button
+              type="primary"
+              icon={<EditOutlined />}
+              onClick={() => navigate(`/users/edit/${user.id}`)}
+            >
+              Edit User
+            </Button>
+          )
           : undefined
       }
     >

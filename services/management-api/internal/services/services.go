@@ -32,22 +32,41 @@ func NewAuthService(secret string, expiry time.Duration) *AuthService {
 	}
 }
 
+// HasuraClaims represents Hasura-specific JWT claims
+type HasuraClaims struct {
+	AllowedRoles []string `json:"x-hasura-allowed-roles"`
+	DefaultRole  string   `json:"x-hasura-default-role"`
+	UserID       string   `json:"x-hasura-user-id"`
+}
+
 // JWTClaims represents JWT token claims
 type JWTClaims struct {
-	UserID   string   `json:"user_id"`
-	Username string   `json:"username"`
-	Email    string   `json:"email"`
-	Roles    []string `json:"roles"`
+	UserID       string       `json:"user_id"`
+	Username     string       `json:"username"`
+	Email        string       `json:"email"`
+	Roles        []string     `json:"roles"`
+	HasuraClaims HasuraClaims `json:"https://hasura.io/jwt/claims"`
 	jwt.RegisteredClaims
 }
 
 // GenerateToken creates a new JWT token for a user
 func (s *AuthService) GenerateToken(user *models.User) (string, error) {
+	// Determine default role (use first role or "user")
+	defaultRole := "user"
+	if len(user.Roles) > 0 {
+		defaultRole = user.Roles[0]
+	}
+
 	claims := JWTClaims{
 		UserID:   user.ID,
 		Username: user.Username,
 		Email:    user.Email,
 		Roles:    user.Roles,
+		HasuraClaims: HasuraClaims{
+			AllowedRoles: user.Roles,
+			DefaultRole:  defaultRole,
+			UserID:       user.ID,
+		},
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(s.jwtExpiry)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
@@ -389,6 +408,8 @@ func (s *FraudService) ListAlerts(ctx context.Context, filter models.AlertFilter
 
 	// Count total
 	var total int
+	countArgs := make([]interface{}, len(args))
+	copy(countArgs, args)
 	// Would need to rebuild WHERE clause for count - simplified here
 	if err := s.db.Pool().QueryRow(ctx, "SELECT COUNT(*) FROM fraud_alerts").Scan(&total); err != nil {
 		return nil, 0, err

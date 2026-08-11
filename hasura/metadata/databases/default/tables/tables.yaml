@@ -172,3 +172,62 @@
           - user_name
           - old_value
           - new_value
+
+# Calls / Verifications table
+- table:
+    name: calls
+    schema: public
+  select_permissions:
+    - role: admin
+      permission:
+        columns: "*"
+        filter: {}
+    - role: analyst
+      permission:
+        columns: "*"
+        filter: {}
+
+# Gateways table
+- table:
+    name: gateways
+    schema: public
+  select_permissions:
+    - role: admin
+      permission:
+        columns: "*"
+        filter: {}
+    - role: analyst
+      permission:
+        columns: "*"
+        filter: {}
+  update_permissions:
+    - role: admin
+      permission:
+        columns:
+            - status
+            - enabled
+        filter: {}
+
+# Blacklist table
+- table:
+    name: blacklist
+    schema: public
+  select_permissions:
+    - role: admin
+      permission:
+        columns: "*"
+        filter: {}
+    - role: analyst
+      permission:
+        columns: "*"
+        filter: {}
+  insert_permissions:
+    - role: admin
+      permission:
+        columns: "*"
+        check: {}
+  delete_permissions:
+    - role: admin
+      permission:
+        filter: {}
+
